@@ -1,6 +1,6 @@
 {
   "name": "project",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -24,4 +24,3 @@
     "eslint-config-next": "14.2.6"
   }
 }
-e
