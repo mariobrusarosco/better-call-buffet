@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "better-call-buffet"
+version = "0.1.0"
+description = "A modern web application for financial management and analysis"
+authors = ["Mario Brusarosco <mario.brusarosco@gmail.com>"]
+readme = "README.md"
+packages = [{include = "app"}]
+
+[tool.poetry.dependencies]
+python = "^3.8.1"
+fastapi = "0.109.2"
+uvicorn = "0.27.1"
+python-dotenv = "1.0.1"
+sqlalchemy = "2.0.27"
+pydantic = "2.6.1"
+python-jose = {extras = ["cryptography"], version = "3.3.0"}
+passlib = {extras = ["bcrypt"], version = "1.7.4"}
+python-multipart = "0.0.9"
+psycopg2-binary = "2.9.9"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+black = "^23.3.0"
+flake8 = "^6.1.0"
+isort = "^5.12.0"
+mypy = "^1.5.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3 
