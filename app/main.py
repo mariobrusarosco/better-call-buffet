@@ -1,3 +1,5 @@
+from datetime import datetime
+from app.db.base import SessionLocal
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -31,7 +33,22 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    try:
+        # Check database connection
+        db = SessionLocal()
+        db.execute("SELECT 1")
+        db_status = "healthy"
+    except Exception as e:
+        db_status = f"unhealthy: {str(e)}"
+    finally:
+        db.close()
+
     return {
         "status": "healthy",
-        "version": "1.0.0"
-    } 
+        "version": "1.0.0",
+        "components": {
+            "database": db_status,
+            "api": "healthy"
+        },
+        "timestamp": datetime.now(datetime.UTC).isoformat()
+    }
