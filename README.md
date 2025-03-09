@@ -2,7 +2,21 @@
 
 A modern web application for financial management and analysis, built with Domain-Driven Design principles.
 
-## Backend Setup
+## Quick Start with Docker
+
+The easiest way to get started is using Docker:
+
+```bash
+# Build and start the application
+docker-compose up --build
+
+# The API will be available at:
+# - http://localhost:8000
+# - http://localhost:8000/docs (Swagger UI)
+# - http://localhost:8000/redoc (ReDoc)
+```
+
+## Manual Setup
 
 ### Prerequisites
 
@@ -44,6 +58,132 @@ poetry run uvicorn app.main:app --reload
 
 The API will be available at `http://localhost:8000`
 API documentation will be available at `http://localhost:8000/docs`
+
+## Development
+
+### Using Docker for Development
+
+1. Start the services:
+```bash
+docker-compose up
+```
+
+2. The application will automatically reload when you make changes to the code.
+
+3. Access PostgreSQL:
+
+There are several ways to access the database:
+
+```bash
+# Option 1: Using Docker's psql (Recommended, no local installation needed)
+docker-compose exec db psql -U postgres -d better_call_buffet
+
+# Option 2: Using database GUI tools
+# Connect using these credentials:
+Host: localhost
+Port: 5432
+User: postgres
+Password: postgres
+Database: better_call_buffet
+
+# Option 3: If you have psql installed locally (optional)
+psql -h localhost -U postgres -d better_call_buffet
+```
+
+Note: You don't need PostgreSQL installed on your machine. Docker handles everything!
+
+### Understanding Docker Port Mapping
+
+```
+                                        Docker Environment
+┌──────────────────┐         ┌───────────────────────────────────────┐
+│                  │         │                                       │
+│   Your Machine   │         │  ┌─────────────────┐                  │
+│   (Host)         │         │  │                 │                  │
+│                  │         │  │  PostgreSQL     │                  │
+│  localhost:5432 ─┼─────────┼──► Container       │                  │
+│                  │         │  │  Port 5432      │                  │
+│                  │         │  │                 │                  │
+│                  │         │  └─────────────────┘                  │
+│                  │         │                                       │
+└──────────────────┘         └───────────────────────────────────────┘
+
+Port Mapping:"5432:5432" in docker-compose.yml
+             │      │
+             │      └─── Container Port
+             └────────── Host Port
+```
+
+#### How Port Mapping Works
+
+1. **Container Port (Right side)**
+   - PostgreSQL runs on port 5432 inside the container
+   - This is isolated from your machine by default
+
+2. **Host Port (Left side)**
+   - Docker maps the container port to port 5432 on your machine
+   - This makes the database accessible via `localhost`
+
+3. **Connection Methods**
+   ```
+   Method 1 (Direct to Container):
+   docker-compose exec db psql ...
+   │              │    └─── PostgreSQL command
+   │              └────────── Container name
+   └─────────────────────────── Docker command
+
+   Method 2 (Through Port Mapping):
+   psql -h localhost ...
+   │    └─── Connects to mapped port
+   └────────── Local psql client
+   ```
+
+4. **Why Both Methods Work**
+   - Direct container access (Method 1) goes straight to PostgreSQL
+   - Port mapping (Method 2) lets local tools connect through `localhost`
+   - Same database, different paths to reach it
+
+This is why you can use:
+- Local `psql` client
+- GUI database tools
+- Any application that supports PostgreSQL connections
+
+Choose the method that works best for your workflow!
+
+### Code Style
+
+This project uses:
+
+- Black for code formatting
+- Flake8 for style guide enforcement
+- isort for import sorting
+- mypy for static type checking
+
+Run formatters:
+
+```bash
+poetry run black .
+poetry run isort .
+```
+
+Run linters:
+
+```bash
+poetry run flake8
+poetry run mypy .
+```
+
+## CI/CD
+
+This project uses GitHub Actions for continuous integration and deployment:
+
+- **CI Pipeline**: Runs on every pull request and push to main
+  - Linting (black, flake8, isort)
+  - Type checking (mypy)
+  - Tests (pytest)
+
+- **CD Pipeline**: Runs on push to main
+  - Automated deployment (configuration pending)
 
 ## Project Structure
 

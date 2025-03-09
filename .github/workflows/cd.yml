@@ -1,0 +1,33 @@
+name: CD
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test # Ensures tests pass before deployment
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+    
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+    
+    - name: Install dependencies
+      run: poetry install
+    
+    # We'll add deployment steps here once we decide on hosting platform
+    - name: Build and Deploy
+      run: echo "Deployment steps will be added once hosting is configured"
+      env:
+        # We'll add these secrets in GitHub once we have our hosting setup
+        API_TOKEN: ${{ secrets.API_TOKEN }}
+        DEPLOY_URL: ${{ secrets.DEPLOY_URL }} 
