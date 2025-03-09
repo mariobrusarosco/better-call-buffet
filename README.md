@@ -64,6 +64,7 @@ API documentation will be available at `http://localhost:8000/docs`
 ### Using Docker for Development
 
 1. Start the services:
+
 ```bash
 docker-compose up
 ```
@@ -117,14 +118,17 @@ Port Mapping:"5432:5432" in docker-compose.yml
 #### How Port Mapping Works
 
 1. **Container Port (Right side)**
+
    - PostgreSQL runs on port 5432 inside the container
    - This is isolated from your machine by default
 
 2. **Host Port (Left side)**
+
    - Docker maps the container port to port 5432 on your machine
    - This makes the database accessible via `localhost`
 
 3. **Connection Methods**
+
    ```
    Method 1 (Direct to Container):
    docker-compose exec db psql ...
@@ -144,6 +148,7 @@ Port Mapping:"5432:5432" in docker-compose.yml
    - Same database, different paths to reach it
 
 This is why you can use:
+
 - Local `psql` client
 - GUI database tools
 - Any application that supports PostgreSQL connections
@@ -178,6 +183,7 @@ poetry run mypy .
 This project uses GitHub Actions for continuous integration and deployment:
 
 - **CI Pipeline**: Runs on every pull request and push to main
+
   - Linting (black, flake8, isort)
   - Type checking (mypy)
   - Tests (pytest)

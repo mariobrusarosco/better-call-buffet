@@ -50,9 +50,22 @@ AWS Console → CloudWatch → Dashboards:
        └── EC2 & RDS monitoring
 ```
 
+## Budget Decision: NAT Gateway Omission
+
+**Decision**: We've decided to omit the NAT Gateway from our initial architecture due to budget constraints.
+
+**Rationale**:
+- NAT Gateway costs approximately $32/month
+- Our monthly budget is capped at $25
+- Initial development can proceed with all public subnets
+
+**Implications**:
+- We'll implement proper security through security groups
+- We'll revisit this decision when budget allows
+
 ## VPC Setup
 
-### 1. VPC Configuration
+### 1. VPC Configuration ✅
 ```bash
 AWS Console → VPC:
 
@@ -62,41 +75,33 @@ AWS Console → VPC:
    └── Enable DNS hostnames
 
 2. Create Subnets
-   ├── Public Subnets
+   ├── Application Subnets
    │   ├── bcb-public-1a: 10.0.1.0/24 (AZ: us-east-1a)
    │   └── bcb-public-1b: 10.0.2.0/24 (AZ: us-east-1b)
    │
-   └── Private Subnets
-       ├── bcb-private-1a: 10.0.11.0/24 (AZ: us-east-1a)
-       └── bcb-private-1b: 10.0.12.0/24 (AZ: us-east-1b)
+   └── Database Subnets (Currently Public)
+       ├── bcb-public-1a-db: 10.0.11.0/24 (AZ: us-east-1a)
+       └── bcb-public-1b-db: 10.0.12.0/24 (AZ: us-east-1b)
 ```
 
-### 2. Internet Connectivity
+### 2. Internet Connectivity ✅
 ```bash
 1. Internet Gateway
    ├── Create: "BCB-IGW"
    └── Attach to VPC
 
-2. NAT Gateway (Cost-optimized)
-   ├── Create: "BCB-NAT"
-   ├── Subnet: bcb-public-1a
-   └── Allocate Elastic IP
+2. Public Route Table
+   ├── Name: "BCB-Public-RT"
+   └── Routes:
+       ├── 10.0.0.0/16 → local
+       └── 0.0.0.0/0 → Internet Gateway
 
-3. Route Tables
-   ├── Public Route Table
-   │   ├── Name: "BCB-Public-RT"
-   │   └── Routes:
-   │       ├── 10.0.0.0/16 → local
-   │       └── 0.0.0.0/0 → Internet Gateway
-   │
-   └── Private Route Table
-       ├── Name: "BCB-Private-RT"
-       └── Routes:
-           ├── 10.0.0.0/16 → local
-           └── 0.0.0.0/0 → NAT Gateway
+3. Route Table Associations
+   ├── Associate all subnets with Public Route Table
+   └── Verify internet connectivity
 ```
 
-### 3. Security Groups
+### 3. Security Groups ✅
 ```bash
 1. Application Security Group
    ├── Name: "BCB-App-SG"
@@ -109,20 +114,21 @@ AWS Console → VPC:
 2. Database Security Group
    ├── Name: "BCB-DB-SG"
    ├── Inbound Rules:
-   │   └── PostgreSQL (5432) from BCB-App-SG
+   │   └── PostgreSQL (5432) from BCB-App-SG only
    └── Outbound Rules:
        └── All traffic to anywhere
 ```
 
-## IAM Configuration
+## IAM Configuration ✅
 
-### 1. Service Roles
+### 1. Service Roles ✅
 ```bash
 1. Elastic Beanstalk Role
    ├── Name: "BCB-EB-Role"
    └── Policies:
        ├── AWSElasticBeanstalkWebTier
-       └── AWSElasticBeanstalkWorkerTier
+       ├── AWSElasticBeanstalkWorkerTier
+       └── AWSElasticBeanstalkMulticontainerDocker
 
 2. RDS Role
    ├── Name: "BCB-RDS-Role"
@@ -130,20 +136,26 @@ AWS Console → VPC:
        └── AmazonRDSFullAccess
 ```
 
-### 2. User Policies
+### 2. User Policies ✅
 ```bash
 1. Developer Policy
    ├── Name: "BCB-Developer-Policy"
    └── Permissions:
-       ├── EC2 Read/Write
-       ├── RDS Read
-       ├── CloudWatch Read/Write
-       └── S3 Read/Write
+       ├── EC2: Describe*, Get*, List*
+       ├── Elastic Beanstalk: Describe*, List*, Check*
+       ├── RDS: Describe*, List*
+       ├── CloudWatch: Describe*, Get*, List*
+       └── S3: Get*, List*
 
 2. Admin Policy
    ├── Name: "BCB-Admin-Policy"
    └── Permissions:
-       └── Full access to required services
+       ├── EC2: All actions
+       ├── Elastic Beanstalk: All actions
+       ├── RDS: All actions
+       ├── CloudWatch: All actions
+       ├── S3: All actions
+       └── IAM: GetRole*, ListRole*, PassRole
 ```
 
 ## Next Steps Checklist
@@ -151,17 +163,31 @@ AWS Console → VPC:
 - [x] Set up budget alerts
 - [x] Create billing alarms
 - [x] Create cost dashboard
-- [ ] Create VPC
-- [ ] Configure subnets
-- [ ] Set up internet gateway
-- [ ] Configure NAT gateway
-- [ ] Create security groups
-- [ ] Set up IAM roles
-- [ ] Create user policies
+- [x] Document NAT Gateway budget decision
+- [x] Create VPC
+- [x] Configure all public subnets
+- [x] Set up internet gateway
+- [x] Create route table
+- [x] Create security groups
+- [x] Set up IAM roles
+- [x] Create user policies
+
+## Phase 1 Complete! ✅
+
+Phase 1 of the Better Call Buffet infrastructure is now complete. We have established:
+
+1. **Cost Controls**: Budget alerts and monitoring to stay within our $25 budget
+2. **Network Infrastructure**: VPC with subnets across multiple AZs
+3. **Security**: Proper security groups with least privilege principle
+4. **Permissions**: IAM roles and policies for service and user access
+5. **Documentation**: Decision records for architectural choices
+
+Our next phase will focus on setting up the database infrastructure.
 
 ## Notes
 
-* Keep track of NAT Gateway costs
-* Monitor CloudWatch costs
-* Document all security group rules
+* Remember all subnets are public in this design
+* Ensure database security group is very restrictive
+* Document our "development" architecture pattern
+* Plan for future migration to private subnets
 * Save all IAM policy JSON files 
