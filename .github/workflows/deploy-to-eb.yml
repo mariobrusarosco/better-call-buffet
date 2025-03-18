@@ -1,0 +1,113 @@
+name: Deploy to Elastic Beanstalk
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install poetry
+        poetry export -f requirements.txt --output requirements.txt --without-hashes
+        pip install -r requirements.txt
+    
+    - name: Run linting and tests
+      run: |
+        pip install flake8 pytest
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        pytest -v
+
+    - name: Generate deployment package
+      run: |
+        # Create Procfile
+        echo "web: python -m uvicorn app.main:app --host 0.0.0.0 --port \$PORT" > Procfile
+        
+        # Create necessary directories
+        mkdir -p .ebextensions logs
+        
+        # Create Python config
+        cat > .ebextensions/01_python.config << EOF
+        option_settings:
+          aws:elasticbeanstalk:container:python:
+            WSGIPath: app.main:app
+          aws:elasticbeanstalk:application:environment:
+            PYTHONPATH: "/var/app/current"
+        EOF
+        
+        # Create logging config
+        cat > .ebextensions/02_logging.config << EOF
+        files:
+          "/opt/elasticbeanstalk/tasks/publishlogs.d/better-call-buffet.conf":
+            mode: "000755"
+            owner: root
+            group: root
+            content: |
+              /var/app/current/logs/*.log
+              /var/app/current/logs/*.err
+              
+          "/etc/logrotate.elasticbeanstalk.hourly/logrotate.elasticbeanstalk.better-call-buffet.conf":
+            mode: "000755"
+            owner: root
+            group: root
+            content: |
+              /var/app/current/logs/*.log {
+                size 10M
+                rotate 5
+                missingok
+                compress
+                notifempty
+                copytruncate
+                dateext
+                dateformat -%Y%m%d-%H%M%S
+              }
+        EOF
+        
+        touch logs/app.log
+        
+        # Create zip file
+        zip -r deploy.zip . -x ".git/*" ".github/*" "venv/*" ".venv/*" "__pycache__/*" "*.pyc" "*.pyo" "*.pyd" "tests/*"
+    
+    - name: Deploy to EB
+      uses: einaregilsson/beanstalk-deploy@v21
+      with:
+        aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        application_name: better-call-buffet
+        environment_name: better-call-buffet-prod
+        version_label: better-call-buffet-${{ github.sha }}
+        region: us-east-1
+        deployment_package: deploy.zip
+        existing_bucket_name: ${{ secrets.AWS_S3_BUCKET }}  # Optional
+    
+    - name: Verify deployment
+      run: |
+        echo "Deployment to Elastic Beanstalk completed!"
+        echo "Waiting for environment to be ready..."
+        sleep 30
+        # Optional: Add additional verification steps here
+        
+  notify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Deployment Status
+        run: |
+          if [ ${{ needs.deploy.result }} == 'success' ]; then
+            echo "Deployment completed successfully"
+          else
+            echo "Deployment failed"
+          fi 

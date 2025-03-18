@@ -2,6 +2,10 @@ from datetime import datetime
 from app.db.base import SessionLocal
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import sys
+import os
+import platform
 
 from app.core.config import settings
 from app.api.v1.api import api_router
@@ -33,22 +37,46 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    # Set default status code
+    status_code = 200
+    
+    # Check database connection
     try:
-        # Check database connection
         db = SessionLocal()
         db.execute("SELECT 1")
         db_status = "healthy"
     except Exception as e:
         db_status = f"unhealthy: {str(e)}"
+        status_code = 503  # Service Unavailable
     finally:
-        db.close()
+        if 'db' in locals():
+            db.close()
 
-    return {
-        "status": "healthy",
-        "version": "1.0.0",
+    # Get environment information
+    environment_info = {
+        "python_version": sys.version,
+        "environment": settings.ENVIRONMENT,
+        "hostname": platform.node(),
+        "system": platform.system(),
+        "platform_release": platform.release(),
+    }
+    
+    # Get application information
+    app_info = {
+        "app_name": settings.PROJECT_NAME,
+        "version": "1.0.0",  # This could be read from a version file
+        "api_prefix": settings.API_V1_PREFIX,
+    }
+    
+    response_data = {
+        "status": "healthy" if status_code == 200 else "unhealthy",
+        "timestamp": datetime.now().isoformat(),
         "components": {
             "database": db_status,
             "api": "healthy"
         },
-        "timestamp": datetime.now(datetime.UTC).isoformat()
+        "environment": environment_info,
+        "application": app_info
     }
+    
+    return JSONResponse(content=response_data, status_code=status_code)

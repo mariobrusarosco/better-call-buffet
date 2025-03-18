@@ -314,3 +314,84 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 # Database
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/better_call_buffet"
 ```
+
+## Deployment
+
+This project is designed to be deployed to AWS Elastic Beanstalk. The deployment process is documented in the [Application Deployment Guide](docs/application-deployment-guide.md).
+
+### Deployment Options
+
+1. **Using the Packaging Script**:
+   ```bash
+   # Package the application
+   ./scripts/package_for_eb.sh
+   
+   # Deploy to Elastic Beanstalk
+   ./scripts/deploy_to_eb.sh
+   ```
+
+2. **Using GitHub Actions**:
+   The project includes a GitHub Actions workflow for automated deployment. Push changes to the main branch to trigger the deployment process.
+
+3. **Using AWS CLI**:
+   ```bash
+   # Deploy using AWS CLI
+   aws elasticbeanstalk create-application-version \
+     --application-name better-call-buffet \
+     --version-label v1 \
+     --source-bundle S3Bucket=better-call-buffet-deployments,S3Key=better-call-buffet-[VERSION].zip
+   
+   aws elasticbeanstalk update-environment \
+     --environment-name better-call-buffet-prod \
+     --version-label v1
+   ```
+
+### Infrastructure Setup
+
+The project leverages a well-architected AWS infrastructure:
+
+1. **Phase 1: Foundation**
+   - VPC setup
+   - IAM roles and policies
+   - Cost management
+   - Monitoring and alerting
+
+2. **Phase 2: Database Layer**
+   - RDS PostgreSQL instance
+   - Database initialization
+   - Backup and recovery
+   - Monitoring
+
+3. **Phase 3: Application Layer**
+   - Elastic Beanstalk environment
+   - Auto-scaling
+   - Load balancing
+   - Application monitoring
+   - Continuous deployment
+
+For more information on the infrastructure decisions, see the [decision records](docs/decisions/).
+
+## Infrastructure Status
+
+The project infrastructure setup is divided into several phases:
+
+### ✅ Phase 1: Foundation (Complete)
+- VPC setup 
+- IAM roles and policies
+- Cost management
+- Monitoring and alerting
+
+### ✅ Phase 2: Database Layer (Complete)
+- RDS PostgreSQL instance
+- Database initialization
+- Backup and recovery
+- Monitoring
+
+### ✅ Phase 3: Application Layer (Complete)
+- Elastic Beanstalk environment
+- Auto-scaling
+- Load balancing
+- Application monitoring
+- Continuous deployment
+
+The infrastructure is fully documented in the [`docs/`](docs/) directory, with detailed decision records in [`docs/decisions/`](docs/decisions/).
