@@ -33,6 +33,7 @@ Each ADR follows this format:
 * [DR-000: Decision Template](000-decision-template.md)
 * [DR-001: NAT Gateway Omission](001-nat-gateway-omission.md)
 * [DR-002: IAM Permissions Model](002-iam-permissions-model.md)
+* [DR-003: RDS Configuration Choices](003-rds-configuration-choices.md)
 
 ## Process for creating new ADRs
 
