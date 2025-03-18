@@ -11,6 +11,8 @@ Phase 2 focuses on setting up the database infrastructure for Better Call Buffet
 3. ✅ Implement backup and recovery procedures
 4. ✅ Set up monitoring and alerting
 5. ✅ Document database access patterns
+6. ✅ Document AWS CLI commands for infrastructure management
+7. ✅ Create developer guide for database connection and operations
 
 ## Prerequisites
 
@@ -153,7 +155,9 @@ Total: ~$0/month (during free tier)
 2. ✅ Backup/Restore Procedures
 3. ✅ Monitoring Dashboard Guide
 4. ✅ Security Best Practices
-5. 🔄 Performance Tuning Guide
+5. ✅ AWS CLI Reference Guide
+6. ✅ Developer Connection Guide
+7. 🔄 Performance Tuning Guide
 
 ## Next Steps Checklist
 
@@ -165,6 +169,15 @@ Total: ~$0/month (during free tier)
 - [x] Document connection information
 - [x] Update application environment variables
 - [x] Initialize database schema
+- [x] Create AWS CLI commands reference
+- [x] Create database connection guide for developers
+
+## Related Documentation
+
+- [Database Configuration](../database-config.md)
+- [AWS CLI Commands Reference](../aws-cli-commands.md)
+- [Database Connection Guide](../database-connection-guide.md)
+- [RDS Configuration Choices (DR-003)](../decisions/003-rds-configuration-choices.md)
 
 ## Phase 2 Complete! ✅
 
@@ -176,5 +189,7 @@ Phase 2 of the Better Call Buffet infrastructure is now complete. We have succes
 4. **Created documentation**: Detailed database configuration and access patterns
 5. **Initialized the schema**: Created database tables for the application
 6. **Tested connectivity**: Verified application can connect to the database
+7. **Documented AWS CLI commands**: Created reference guide for infrastructure management
+8. **Created developer guide**: Comprehensive guide for connecting to and using the database
 
 Our next phase will focus on setting up the application infrastructure using Elastic Beanstalk. 
