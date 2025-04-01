@@ -22,7 +22,7 @@ docker-compose up --build
 
 - Python 3.8.1+
 - Poetry (Python dependency management)
-- PostgreSQL (will be needed later)
+- Docker and Docker Compose
 
 ### Installation
 
@@ -60,6 +60,8 @@ The API will be available at `http://localhost:8000`
 API documentation will be available at `http://localhost:8000/docs`
 
 ## Development
+
+> **Note:** Using Docker (described in Quick Start above) is the recommended way to set up and run the application, especially for new users. It automatically handles PostgreSQL and all dependencies.
 
 ### Using Docker for Development
 
@@ -227,6 +229,8 @@ Each domain follows a consistent structure:
 - `router.py`: FastAPI routes and endpoints
 
 ## Development
+
+> **Note:** Using Docker (described in Quick Start above) is the recommended way to set up and run the application, especially for new users. It automatically handles PostgreSQL and all dependencies.
 
 ### Code Style
 
