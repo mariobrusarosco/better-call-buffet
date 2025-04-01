@@ -20,9 +20,26 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install poetry
-        poetry export -f requirements.txt --output requirements.txt --without-hashes
-        pip install -r requirements.txt
+        # Install dependencies directly from requirements.txt if it exists
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        # If no requirements.txt, try to generate it from pyproject.toml
+        elif [ -f pyproject.toml ]; then
+          # Install poetry using pip instead of the installer script
+          pip install poetry==1.6.1
+          # Try to export requirements, but don't fail if it doesn't work
+          poetry export -f requirements.txt --output requirements.txt --without-hashes || echo "Poetry export failed, continuing..."
+          # If requirements.txt was created, install from it
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            # Manual fallback: install the minimum required packages
+            pip install fastapi uvicorn sqlalchemy psycopg2-binary pydantic
+          fi
+        else
+          # Fallback: install the minimum required packages
+          pip install fastapi uvicorn sqlalchemy psycopg2-binary pydantic
+        fi
     
     - name: Run linting and tests
       run: |
