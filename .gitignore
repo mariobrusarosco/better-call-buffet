@@ -44,3 +44,11 @@ htmlcov/
 
 # pytest
 .pytest_cache/ 
+
+
+# Virtual Environment
+lint_env/
+venv/
+.venv/
+env/
+ENV/
