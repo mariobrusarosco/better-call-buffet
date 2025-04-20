@@ -11,3 +11,8 @@ app = FastAPI(title="Better Call Buffet API")
 async def root():
     logger.info("Hello World endpoint was called!")
     return {"message": "Hello World!"}
+
+@app.get("/health")
+async def health_check():
+    logger.info("Health check endpoint was called!")
+    return {"status": "healthy"}
