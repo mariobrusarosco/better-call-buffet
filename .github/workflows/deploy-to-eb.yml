@@ -107,6 +107,7 @@ jobs:
         region: us-east-1
         deployment_package: deploy.zip
         existing_bucket_name: ${{ secrets.AWS_S3_BUCKET_FOR_DEPLOYS }}  # Optional
+        use_existing_version_if_available: true
     
     - name: Verify deployment
       run: |
