@@ -95,21 +95,21 @@ jobs:
         VERSION_LABEL="app-$(date +'%Y%m%d%H%M%S')-${{ github.run_number }}"
         echo "Creating application version $VERSION_LABEL"
         
-        # Upload the application to S3
-        aws s3 cp deploy.zip s3://elasticbeanstalk-us-east-1-905418297381/$VERSION_LABEL.zip
+        # Upload the application to S3 using the secret
+        aws s3 cp deploy.zip s3://${{ secrets.AWS_S3_BUCKET_FOR_DEPLOYS }}/$VERSION_LABEL.zip
         
         # Create a new application version with process flag
         aws elasticbeanstalk create-application-version \
           --application-name better-call-buffet \
           --version-label $VERSION_LABEL \
-          --source-bundle S3Bucket=elasticbeanstalk-us-east-1-905418297381,S3Key=$VERSION_LABEL.zip \
+          --source-bundle S3Bucket=${{ secrets.AWS_S3_BUCKET_FOR_DEPLOYS }},S3Key=$VERSION_LABEL.zip \
           --process
         
-        # Fixed wait approach - sleep for 30 seconds
+        # Wait for processing
         echo "Waiting for version to be processed..."
         sleep 30
         
-        # Now deploy the version
+        # Deploy the version
         aws elasticbeanstalk update-environment \
           --application-name better-call-buffet \
           --environment-name Better-call-buffet-prod-env \
