@@ -1,6 +1,10 @@
 name: Deploy to Elastic Beanstalk
 
 on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_run:
     workflows: ["CI"]
     branches: [main]
@@ -25,26 +29,21 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        # Install dependencies directly from requirements.txt if it exists
         if [ -f requirements.txt ]; then
           pip install -r requirements.txt
-        # If no requirements.txt, try to generate it from pyproject.toml
         elif [ -f pyproject.toml ]; then
-          # Install poetry using pip instead of the installer script
           pip install poetry==1.6.1
-          # Try to export requirements, but don't fail if it doesn't work
           poetry export -f requirements.txt --output requirements.txt --without-hashes || echo "Poetry export failed, continuing..."
-          # If requirements.txt was created, install from it
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           else
-            # Manual fallback: install the minimum required packages
             pip install fastapi uvicorn sqlalchemy psycopg2-binary pydantic
           fi
         else
-          # Fallback: install the minimum required packages
           pip install fastapi uvicorn sqlalchemy psycopg2-binary pydantic
         fi
+        # Install the Elastic Beanstalk CLI
+        pip install awsebcli
     
     - name: Generate deployment package
       run: |
@@ -92,30 +91,27 @@ jobs:
         EOF
         
         touch logs/app.log
-        
-        # Create zip file
-        zip -r deploy.zip . -x ".git/*" ".github/*" "venv/*" ".venv/*" "__pycache__/*" "*.pyc" "*.pyo" "*.pyd" "tests/*"
     
-    - name: Deploy to EB
-      uses: einaregilsson/beanstalk-deploy@v21
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
       with:
-        aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        application_name: better-call-buffet
-        environment_name: Better-call-buffet-prod-env
-        version_label: better-call-buffet-${{ github.run_id }}-${{ github.run_number }}
-        region: us-east-1
-        deployment_package: deploy.zip
-        existing_bucket_name: ${{ secrets.AWS_S3_BUCKET_FOR_DEPLOYS }}  # Optional
-        use_existing_version_if_available: true
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
     
+    - name: Deploy to Elastic Beanstalk
+      run: |
+        # Initialize the EB CLI
+        eb init better-call-buffet --region us-east-1 --platform python
+        
+        # Deploy to the environment
+        eb deploy Better-call-buffet-prod-env --label app-${{ github.sha }}
+        
     - name: Verify deployment
       run: |
         echo "Deployment to Elastic Beanstalk completed!"
-        echo "Waiting for environment to be ready..."
-        sleep 30
-        # Optional: Add additional verification steps here
-        
+        echo "Application URL: http://Better-call-buffet-prod-env.elasticbeanstalk.com"
+
   notify:
     needs: deploy
     runs-on: ubuntu-latest
@@ -124,7 +120,7 @@ jobs:
       - name: Deployment Status
         run: |
           if [ ${{ needs.deploy.result }} == 'success' ]; then
-            echo "Deployment completed successfully"
+            echo "✅ Deployment completed successfully"
           else
-            echo "Deployment failed"
+            echo "❌ Deployment failed"
           fi 
