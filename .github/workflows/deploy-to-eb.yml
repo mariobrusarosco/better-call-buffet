@@ -93,29 +93,30 @@ jobs:
     - name: Deploy to Elastic Beanstalk
       run: |
         VERSION_LABEL="app-$(date +'%Y%m%d%H%M%S')-${{ github.run_number }}"
-        echo "Creating new application version $VERSION_LABEL"
-        
-        # Create S3 bucket if it doesn't exist
-        aws s3 mb s3://elasticbeanstalk-us-east-1-905418297381 --region us-east-1 || true
+        echo "Creating application version $VERSION_LABEL"
         
         # Upload the application to S3
         aws s3 cp deploy.zip s3://elasticbeanstalk-us-east-1-905418297381/$VERSION_LABEL.zip
         
-        # Create a new application version
+        # Create a new application version and wait for it to be processed
         aws elasticbeanstalk create-application-version \
           --application-name better-call-buffet \
           --version-label $VERSION_LABEL \
-          --source-bundle S3Bucket=elasticbeanstalk-us-east-1-905418297381,S3Key=$VERSION_LABEL.zip
+          --source-bundle S3Bucket=elasticbeanstalk-us-east-1-905418297381,S3Key=$VERSION_LABEL.zip \
+          --process
         
+        # Wait for the version to be processed
         echo "Waiting for version to be processed..."
-        sleep 10
+        aws elasticbeanstalk wait application-version-available \
+          --application-name better-call-buffet \
+          --version-labels $VERSION_LABEL
         
-        # Update the environment with the new version
+        # Now deploy the version
         aws elasticbeanstalk update-environment \
           --application-name better-call-buffet \
           --environment-name Better-call-buffet-prod-env \
           --version-label $VERSION_LABEL
-        
+    
     - name: Verify deployment
       run: |
         echo "Deployment to Elastic Beanstalk completed!"
