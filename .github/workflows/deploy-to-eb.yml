@@ -1,8 +1,8 @@
-name: Deploy to Elastic Beanstalk
+name: Deploy to AWS Elastic Beanstalk
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   pull_request:
     branches: [ main ]
   workflow_run:
@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v3
     
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -27,61 +27,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then
-          pip install -r requirements.txt
-        else
-          pip install fastapi uvicorn sqlalchemy psycopg2-binary pydantic
-        fi
-        # Install AWS CLI
+        pip install -r requirements.txt || pip install fastapi uvicorn sqlalchemy psycopg2-binary pydantic
         pip install awscli
     
     - name: Generate deployment package
-      run: |
-        # Create Procfile
-        echo "web: python -m uvicorn app.main:app --host 0.0.0.0 --port \$PORT" > Procfile
-        
-        # Create necessary directories
-        mkdir -p .ebextensions logs
-        
-        # Create Python config
-        cat > .ebextensions/01_python.config << EOF
-        option_settings:
-          aws:elasticbeanstalk:container:python:
-            WSGIPath: app.main:app
-          aws:elasticbeanstalk:application:environment:
-            PYTHONPATH: "/var/app/current"
-        EOF
-        
-        # Create logging config
-        cat > .ebextensions/02_logging.config << EOF
-        files:
-          "/opt/elasticbeanstalk/tasks/publishlogs.d/better-call-buffet.conf":
-            mode: "000755"
-            owner: root
-            group: root
-            content: |
-              /var/app/current/logs/*.log
-              /var/app/current/logs/*.err
-              
-          "/etc/logrotate.elasticbeanstalk.hourly/logrotate.elasticbeanstalk.better-call-buffet.conf":
-            mode: "000755"
-            owner: root
-            group: root
-            content: |
-              /var/app/current/logs/*.log {
-                size 10M
-                rotate 5
-                missingok
-                compress
-                notifempty
-                copytruncate
-                dateext
-                dateformat -%Y%m%d-%H%M%S
-              }
-        EOF
-        
-        touch logs/app.log
-        zip -r deploy.zip . -x ".git/*" ".github/*" "venv/*" ".venv/*" "__pycache__/*" "*.pyc" "*.pyo" "*.pyd" "tests/*"
+      run: zip -r deploy.zip . -x "*.git*"
     
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -92,33 +42,16 @@ jobs:
     
     - name: Deploy to Elastic Beanstalk
       run: |
-        VERSION_LABEL="app-$(date +'%Y%m%d%H%M%S')-${{ github.run_number }}"
-        echo "Creating application version $VERSION_LABEL"
-        
-        # Upload the application to S3 using the secret
-        aws s3 cp deploy.zip s3://${{ secrets.AWS_S3_BUCKET_FOR_DEPLOYS }}/$VERSION_LABEL.zip
-        
-        # Create a new application version with process flag
+        echo "Deploying application..."
+        aws s3 cp deploy.zip s3://${{ secrets.AWS_S3_BUCKET_FOR_DEPLOYS }}/deploy.zip
         aws elasticbeanstalk create-application-version \
           --application-name better-call-buffet \
-          --version-label $VERSION_LABEL \
-          --source-bundle S3Bucket=${{ secrets.AWS_S3_BUCKET_FOR_DEPLOYS }},S3Key=$VERSION_LABEL.zip \
+          --source-bundle S3Bucket=${{ secrets.AWS_S3_BUCKET_FOR_DEPLOYS }},S3Key=deploy.zip \
           --process
-        
-        # Wait for processing
-        echo "Waiting for version to be processed..."
-        sleep 30
-        
-        # Deploy the version
         aws elasticbeanstalk update-environment \
           --application-name better-call-buffet \
           --environment-name Better-call-buffet-prod-env \
-          --version-label $VERSION_LABEL
-    
-    - name: Verify deployment
-      run: |
-        echo "Deployment to Elastic Beanstalk completed!"
-        echo "Application URL: http://Better-call-buffet-prod-env.elasticbeanstalk.com"
+          --version-label latest
 
   notify:
     needs: deploy
