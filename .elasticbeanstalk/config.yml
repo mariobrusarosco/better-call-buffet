@@ -1,0 +1,27 @@
+branch-defaults:
+  main:
+    environment: better-call-buffet-prod-env
+    group_suffix: null
+
+global:
+  application_name: better-call-buffet-prod
+  branch: null
+  default_ec2_keyname: null
+  default_platform: Python 3.9
+  default_region: us-east-1
+  include_git_submodules: true
+  instance_profile: null
+  platform_name: null
+  platform_version: null
+  profile: null
+  repository: null
+  sc: null
+  workspace_type: Application
+
+option_settings:
+  aws:autoscaling:launchconfiguration:
+    InstanceType: t2.micro
+  aws:elasticbeanstalk:application:environment:
+    PORT: "8000"
+  aws:elasticbeanstalk:container:python:
+    WSGIPath: app.main:app 
