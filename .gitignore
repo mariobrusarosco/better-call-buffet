@@ -52,3 +52,12 @@ venv/
 .venv/
 env/
 ENV/
+
+# Packages
+.zip
+.tar
+.tar.gz
+.tar.bz2
+.tar.xz
+.tar.lzma
+.tar.wim

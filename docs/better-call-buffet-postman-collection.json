@@ -1,0 +1,817 @@
+{
+  "info": {
+    "name": "Better Call Buffet API",
+    "description": "A complete collection for testing the Better Call Buffet personal finance API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "description": "User authentication endpoints",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", ""]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"securepassword123\",\n  \"full_name\": \"John Doe\"\n}"
+            },
+            "description": "Register a new user"
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData && jsonData.access_token) {",
+                  "    pm.environment.set(\"authToken\", jsonData.access_token);",
+                  "    console.log(\"Auth token saved to environment\");",
+                  "}",
+                  "",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has access token\", function () {",
+                  "    pm.expect(jsonData).to.have.property('access_token');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "user@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "securepassword123",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/login/access-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "login", "access-token"]
+            },
+            "description": "Login and get access token"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me"]
+            },
+            "description": "Get the currently logged in user info"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "User management endpoints",
+      "item": [
+        {
+          "name": "List Users (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/?skip=0&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", ""],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "0"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "List all users (admin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "1"]
+            },
+            "description": "Get a specific user by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Current User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Updated Name\",\n  \"email\": \"updated@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me"]
+            },
+            "description": "Update current user profile"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "description": "Financial accounts management",
+      "item": [
+        {
+          "name": "Create Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type", 
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Checking Account\",\n  \"description\": \"Main checking account\",\n  \"type\": \"CHECKING\",\n  \"balance\": 5000.00,\n  \"currency\": \"USD\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", ""]
+            },
+            "description": "Create a new financial account"
+          },
+          "response": []
+        },
+        {
+          "name": "List Accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/?skip=0&limit=10&include_inactive=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", ""],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "0"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "include_inactive",
+                  "value": "false",
+                  "description": "Include inactive accounts"
+                }
+              ]
+            },
+            "description": "List all accounts for current user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Account",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "1"]
+            },
+            "description": "Get a specific account by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Account",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Checking Account\",\n  \"description\": \"Updated description\",\n  \"balance\": 6000.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "1"]
+            },
+            "description": "Update an existing account"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "1"]
+            },
+            "description": "Delete an account"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "description": "Transaction categories management",
+      "item": [
+        {
+          "name": "Create Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Groceries\",\n  \"type\": \"EXPENSE\",\n  \"color\": \"#4CAF50\",\n  \"icon\": \"shopping_cart\",\n  \"description\": \"Food and household items\",\n  \"parent_id\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", ""]
+            },
+            "description": "Create a new transaction category"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Subcategory",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Organic Foods\",\n  \"type\": \"EXPENSE\",\n  \"color\": \"#8BC34A\",\n  \"icon\": \"eco\",\n  \"description\": \"Organic and natural food items\",\n  \"parent_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", ""]
+            },
+            "description": "Create a subcategory under an existing category"
+          },
+          "response": []
+        },
+        {
+          "name": "List Categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/?skip=0&limit=50&type=EXPENSE&include_inactive=false&parent_id=null",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", ""],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "0"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "type",
+                  "value": "EXPENSE",
+                  "description": "Filter by category type (INCOME, EXPENSE)"
+                },
+                {
+                  "key": "include_inactive",
+                  "value": "false"
+                },
+                {
+                  "key": "parent_id",
+                  "value": "null",
+                  "description": "Filter by parent ID (null for root categories)"
+                }
+              ]
+            },
+            "description": "List categories, optionally filtered by type and parent"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Category Tree",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/tree?type=EXPENSE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", "tree"],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "EXPENSE",
+                  "description": "Filter by category type"
+                }
+              ]
+            },
+            "description": "Get the full hierarchical tree of categories"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Category",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", "1"]
+            },
+            "description": "Get a specific category by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Category",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Groceries\",\n  \"color\": \"#2E7D32\",\n  \"icon\": \"local_grocery_store\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", "1"]
+            },
+            "description": "Update an existing category"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Category",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", "1"]
+            },
+            "description": "Delete a category"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "description": "Financial transactions management",
+      "item": [
+        {
+          "name": "Create Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 75.50,\n  \"description\": \"Weekly grocery shopping\",\n  \"date\": \"2023-07-15T10:30:00Z\",\n  \"type\": \"EXPENSE\",\n  \"account_id\": 1,\n  \"category_id\": 1,\n  \"notes\": \"Bought groceries for the week\",\n  \"is_recurring\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", ""]
+            },
+            "description": "Create a new transaction"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Recurring Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transaction\": {\n    \"amount\": 1200.00,\n    \"description\": \"Monthly Salary\",\n    \"date\": \"2023-07-01T09:00:00Z\",\n    \"type\": \"INCOME\",\n    \"account_id\": 1,\n    \"category_id\": 3,\n    \"notes\": \"Regular salary payment\",\n    \"is_recurring\": true\n  },\n  \"recurrence\": {\n    \"frequency\": \"MONTHLY\",\n    \"start_date\": \"2023-07-01T09:00:00Z\",\n    \"end_date\": \"2024-07-01T09:00:00Z\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/recurring",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "recurring"]
+            },
+            "description": "Create a new recurring transaction"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 500.00,\n  \"description\": \"Transfer to savings\",\n  \"date\": \"2023-07-15T14:30:00Z\",\n  \"type\": \"TRANSFER\",\n  \"account_id\": 1,\n  \"target_account_id\": 2,\n  \"notes\": \"Monthly savings transfer\",\n  \"is_recurring\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/transfer",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "transfer"]
+            },
+            "description": "Create a transfer between accounts"
+          },
+          "response": []
+        },
+        {
+          "name": "List Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/?skip=0&limit=20&account_id=1&category_id=1&start_date=2023-07-01&end_date=2023-07-31&type=EXPENSE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", ""],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "0"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "account_id",
+                  "value": "1",
+                  "description": "Filter by account"
+                },
+                {
+                  "key": "category_id",
+                  "value": "1",
+                  "description": "Filter by category"
+                },
+                {
+                  "key": "start_date",
+                  "value": "2023-07-01",
+                  "description": "Start date for filtering"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2023-07-31",
+                  "description": "End date for filtering"
+                },
+                {
+                  "key": "type",
+                  "value": "EXPENSE",
+                  "description": "Filter by transaction type"
+                }
+              ]
+            },
+            "description": "List transactions with optional filters"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transaction",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "1"]
+            },
+            "description": "Get a specific transaction by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Transaction",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 82.75,\n  \"description\": \"Updated grocery description\",\n  \"category_id\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "1"]
+            },
+            "description": "Update an existing transaction"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Transaction",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "1"]
+            },
+            "description": "Delete a transaction"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transaction Summary by Category",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/summary/category?start_date=2023-07-01&end_date=2023-07-31&type=EXPENSE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "summary", "category"],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2023-07-01"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2023-07-31"
+                },
+                {
+                  "key": "type",
+                  "value": "EXPENSE",
+                  "description": "Transaction type to summarize"
+                }
+              ]
+            },
+            "description": "Get summary of transactions grouped by category"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Monthly Transaction Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/summary/monthly?year=2023&month=7",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "summary", "monthly"],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2023"
+                },
+                {
+                  "key": "month",
+                  "value": "7"
+                }
+              ]
+            },
+            "description": "Get monthly summary of income, expenses, and balance"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ]
+} 

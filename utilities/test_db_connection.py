@@ -9,7 +9,7 @@ load_dotenv()
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # Remove any prefix showing in logs
-print(f"Connecting to database: better_call_buffet at bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com")
+print(f"Connecting to database: better_call_buffet at ************.amazonaws.com")
 
 try:
     # Connect to the database

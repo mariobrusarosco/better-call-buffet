@@ -113,7 +113,7 @@ Follow these steps in the AWS Console:
 
 8. **Configure Environment Variables**
    ```
-   DATABASE_URL=postgresql://postgres:E2Eea2Bt^KeL4h@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet
+   DATABASE_URL=postgresql://postgres:************h@************.amazonaws.com:5432/better_call_buffet
    API_V1_PREFIX=/api/v1
    PROJECT_NAME=Better Call Buffet
    SECRET_KEY=your-super-secret-key-change-this-in-production

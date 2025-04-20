@@ -13,7 +13,7 @@ Before deploying the application, ensure you have:
 
 ## Deployment Process
 
-### Option 1: Using the Packaging Script (Recommended)
+### Option 1: Using the Packaging Script and AWS Console (Recommended)
 
 1. **Prepare deployment package**:
 
@@ -26,98 +26,119 @@ Before deploying the application, ensure you have:
    - Create necessary configuration files (.ebextensions, Procfile)
    - Generate requirements.txt from Poetry dependencies
    - Package the application into a ZIP file
+   - Example output: `better-call-buffet-20250420143711.zip`
 
-2. **Create Elastic Beanstalk Application** (first time only):
+2. **Deploy to AWS Elastic Beanstalk via Console**:
 
-   ```bash
-   # Using AWS Console
-   AWS Console → Elastic Beanstalk → Create Application
-   - Application Name: better-call-buffet
-   - Tags: (Optional) Add tags for resource management
-   ```
+   a. **Log in to AWS Console**:
+      - Navigate to https://console.aws.amazon.com/
+      - Sign in with your AWS credentials
+      - Select the AWS region you want to deploy to
 
-3. **Create Elastic Beanstalk Environment**:
+   b. **Navigate to Elastic Beanstalk**:
+      - In the AWS Console search bar, type "Elastic Beanstalk"
+      - Select "Elastic Beanstalk" from the search results
 
-   ```bash
-   # Using AWS Console
-   AWS Console → Elastic Beanstalk → Create Environment
-   
-   # Step 1: Environment information
-   - Environment tier: Web server environment
-   - Application name: better-call-buffet
-   - Environment name: better-call-buffet-prod
-   - Domain: (Default is fine, or customize)
-   
-   # Step 2: Platform
-   - Platform: Python
-   - Platform branch: Python 3.8
-   - Platform version: (Latest recommended)
-   
-   # Step 3: Application code
-   - Upload your code: Upload the ZIP file created by the packaging script
-   - Version label: (Automatic or enter a custom label)
-   
-   # Step 4: Presets
-   - Configuration presets: Custom configuration
-   
-   # Step 5: Service access
-   - Existing service role: aws-elasticbeanstalk-service-role
-   - EC2 key pair: (Create new or select existing)
-   - EC2 instance profile: aws-elasticbeanstalk-ec2-role
-   
-   # Step 6: VPC Configuration
-   - VPC: BCB-Production-VPC
-   - Public IP address: Enabled
-   - Instance subnets: bcb-public-1a, bcb-public-1b
-   - Security groups: BCB-App-SG
-   
-   # Step 7: Instance Configuration
-   - Instance types: t2.micro
-   - Root volume type: General Purpose SSD (gp2)
-   - Size: 10 GB
-   
-   # Step 8: Capacity
-   - Environment type: Load balanced
-   - Min instances: 1
-   - Max instances: 2
-   - Instance type: t2.micro
-   - Availability Zones: Any
-   - Scaling triggers: CPUUtilization (High: 70%, Low: 30%)
-   
-   # Step 9: Load balancer
-   - Type: Application Load Balancer
-   - Listeners: HTTP on port 80
-   - Processes: Default
-   
-   # Step 10: Software
-   - Environment properties:
-     DATABASE_URL=postgresql://postgres:password@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet
-     PROJECT_NAME=Better Call Buffet
-     SECRET_KEY=[your-secret-key-value]
-     API_V1_PREFIX=/api/v1
-     BACKEND_CORS_ORIGINS=["https://app.bettercallbuffet.com"]
-   - Log streaming: Enable
-   - X-Ray: Disable
-   
-   # Step 11: Monitoring
-   - Health reporting: Enhanced
-   - System: Basic
-   - Managed updates: Enabled
-   - Health check URL: /health
-   
-   # Step 12: Review
-   - Review all settings and click "Submit"
-   ```
+   c. **Create a New Application** (first time only):
+      - Click "Create application"
+      - Enter "better-call-buffet" for Application name
+      - Add optional tags if needed
+      - Click "Create"
 
-4. **Monitor Deployment**:
+   d. **Create a New Environment**:
+      - In your application dashboard, click "Create environment"
+      - Select "Web server environment"
+      - Click "Select"
 
-   Once submitted, Elastic Beanstalk will:
-   - Create EC2 instances
-   - Deploy your application
-   - Configure load balancer
-   - Set up auto-scaling
+   e. **Configure Environment Details**:
+      - **Environment information**:
+        - Environment name: `better-call-buffet-prod`
+        - Domain: (use the default or customize)
+      - **Platform**:
+        - Platform: Python
+        - Platform branch: Python 3.8
+        - Platform version: (choose the latest recommended)
 
-   Monitor the environment dashboard for status and health information.
+   f. **Upload Application Code**:
+      - Select "Upload your code"
+      - Click "Choose file" and select the ZIP file created by the packaging script (e.g., `better-call-buffet-20250420143711.zip`)
+      - Enter a meaningful version label (or use the timestamp from the filename)
+      - Click "Upload"
+
+   g. **Configure Service Access**:
+      - Create and use these service roles (or select existing ones):
+        - Service role: `aws-elasticbeanstalk-service-role`
+        - EC2 instance profile: `aws-elasticbeanstalk-ec2-role`
+
+   h. **Configure Networking**:
+      - VPC: Select your project VPC (e.g., `BCB-Production-VPC`)
+      - Public IP address: Enabled
+      - Instance subnets: Select your public subnets (e.g., `bcb-public-1a`, `bcb-public-1b`)
+      - Instance security groups: Select your app security group (e.g., `BCB-App-SG`)
+      - Database subnets: Select your private subnets (if applicable)
+
+   i. **Configure Instance Options**:
+      - Instance types: t2.micro (or appropriate size for your needs)
+      - Root volume: General Purpose SSD (gp2), 10 GB
+
+   j. **Configure Capacity**:
+      - Environment type: Load balanced
+      - Min instances: 1
+      - Max instances: 2
+      - Scaling triggers: CPUUtilization (High: 70%, Low: 30%)
+
+   k. **Configure Software**:
+      - Click "Edit" in the Software section
+      - Add Environment properties (crucial for your application to work):
+        ```
+        DATABASE_URL=postgresql://bcb_app:YourPassword@your-rds-endpoint.amazonaws.com:5432/better_call_buffet
+        PROJECT_NAME=Better Call Buffet
+        SECRET_KEY=your-secret-key-here
+        API_V1_PREFIX=/api/v1
+        BACKEND_CORS_ORIGINS=["https://app.bettercallbuffet.com"]
+        ```
+      - Set the proxy server to "nginx"
+      - Set the WSGI Path to "app.main:app"
+      - Enable log streaming
+
+   l. **Configure Monitoring**:
+      - Health reporting: Enhanced
+      - Set the health check path to `/health`
+      - System: Basic health reporting
+      - Managed updates: Enable weekly maintenance window
+
+   m. **Review and Create**:
+      - Review all your settings
+      - Click "Submit" to create the environment
+
+   n. **Deployment Process**:
+      - AWS will now begin creating your environment and deploying your application
+      - This process typically takes 5-10 minutes
+      - You can monitor the progress on the environment dashboard
+
+3. **Access Your Deployed Application**:
+
+   - Once deployment is complete, you'll see a green checkmark and "Health: OK" status
+   - The environment URL will be displayed (e.g., `better-call-buffet-prod.us-east-1.elasticbeanstalk.com`)
+   - Click the URL to access your application
+   - Verify that all endpoints are working correctly:
+     - API documentation: `https://your-env-url/docs`
+     - Health check: `https://your-env-url/health`
+
+4. **Troubleshooting Deployment Issues**:
+
+   If your deployment fails or the application doesn't work:
+   
+   - Check the environment logs:
+     - Go to your environment dashboard
+     - Click "Logs" in the left menu
+     - Request "Last 100 lines of logs" or "Full logs"
+   
+   - Common issues:
+     - Environment variables missing or incorrect (especially DATABASE_URL)
+     - Security groups not allowing traffic between app and database
+     - Python requirements installation failures
+     - Application code errors
 
 ### Option 2: Using GitHub Actions (CI/CD)
 

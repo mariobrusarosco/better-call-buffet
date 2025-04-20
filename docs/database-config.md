@@ -8,7 +8,7 @@ This document provides details about the RDS PostgreSQL setup for Better Call Bu
 - **Engine**: PostgreSQL 15.x
 - **Instance Class**: db.t3.micro (1 vCPU, 1 GB RAM)
 - **Storage**: 20 GB General Purpose SSD (gp2)
-- **Endpoint**: bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com
+- **Endpoint**: ************.amazonaws.com
 - **Port**: 5432
 - **Database Name**: better_call_buffet
 
@@ -17,7 +17,7 @@ This document provides details about the RDS PostgreSQL setup for Better Call Bu
 Use the following connection string format in your application:
 
 ```
-postgresql://username:password@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet
+postgresql://username:password@************.amazonaws.com:5432/better_call_buffet
 ```
 
 The actual connection string is stored securely in the `.env` file.
@@ -76,7 +76,7 @@ engine = create_engine(DATABASE_URL)
 ### Using psql Command Line
 
 ```bash
-psql -h bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com -U postgres -d better_call_buffet
+psql -h ************.amazonaws.com -U postgres -d better_call_buffet
 ```
 
 ## Troubleshooting

@@ -137,7 +137,7 @@ AWS Console → Elastic Beanstalk:
 2. Configuration Options
    ├── Software
    │   ├── Environment properties:
-   │   │   ├── DATABASE_URL=postgresql://postgres:password@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet
+   │   │   ├── DATABASE_URL=postgresql://postgres:password@************.amazonaws.com:5432/better_call_buffet
    │   │   ├── PROJECT_NAME=Better Call Buffet
    │   │   ├── SECRET_KEY=long-secret-key-for-production
    │   │   ├── API_V1_PREFIX=/api/v1

@@ -6,7 +6,7 @@ This guide helps new developers on the Better Call Buffet project connect to the
 
 Our PostgreSQL database is hosted on AWS RDS with the following details:
 
-- **Host**: bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com
+- **Host**: ************.amazonaws.com
 - **Port**: 5432
 - **Database Name**: better_call_buffet
 - **Username**: postgres
@@ -23,7 +23,7 @@ The `psql` command-line tool is the official PostgreSQL client. Here's how to us
 psql -h HOSTNAME -U USERNAME -d DATABASE_NAME
 
 # For our project
-psql -h bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com -U postgres -d better_call_buffet
+psql -h ************.amazonaws.com -U postgres -d better_call_buffet
 
 # You'll be prompted for the password
 ```
@@ -102,7 +102,7 @@ DBeaver is a free, open-source universal database tool that works with PostgreSQ
 3. **Enter Connection Details**:
    ```
    Main Tab:
-   ├── Server Host: bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com
+   ├── Server Host: ************.amazonaws.com
    ├── Port: 5432
    ├── Database: better_call_buffet
    ├── Username: postgres
@@ -331,7 +331,7 @@ postgresql://username:password@hostname:port/database
 For our project:
 
 ```
-postgresql://postgres:YOUR_PASSWORD@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet
+postgresql://postgres:YOUR_PASSWORD@************.amazonaws.com:5432/better_call_buffet
 ```
 
 ## Security Best Practices
