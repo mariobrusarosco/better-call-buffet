@@ -102,8 +102,8 @@ jobs:
         aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         application_name: better-call-buffet
-        environment_name: better-call-buffet-prod
-        version_label: better-call-buffet-${{ github.sha }}
+        environment_name: Better-call-buffet-prod-env
+        version_label: better-call-buffet-${{ github.run_id }}-${{ github.run_number }}
         region: us-east-1
         deployment_package: deploy.zip
         existing_bucket_name: ${{ secrets.AWS_S3_BUCKET_FOR_DEPLOYS }}  # Optional
