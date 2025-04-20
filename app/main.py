@@ -1,9 +1,12 @@
 from fastapi import FastAPI
-from app.core.logging import setup_logging, get_logger
+import logging
 
-# Initialize logging
-setup_logging()
-logger = get_logger(__name__)
+# Simple logging to stdout (CloudWatch will capture this)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Better Call Buffet API")
 
