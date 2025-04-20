@@ -55,10 +55,10 @@ Before deploying the application, ensure you have:
         - Environment name: `better-call-buffet-prod`
         - Domain: (use the default or customize)
       - **Platform**:
-        - Platform: Python
-        - Platform branch: Python 3.8
+   - Platform: Python
+   - Platform branch: Python 3.8
         - Platform version: (choose the latest recommended)
-
+   
    f. **Upload Application Code**:
       - Select "Upload your code"
       - Click "Choose file" and select the ZIP file created by the packaging script (e.g., `better-call-buffet-20250420143711.zip`)
@@ -72,7 +72,7 @@ Before deploying the application, ensure you have:
 
    h. **Configure Networking**:
       - VPC: Select your project VPC (e.g., `BCB-Production-VPC`)
-      - Public IP address: Enabled
+   - Public IP address: Enabled
       - Instance subnets: Select your public subnets (e.g., `bcb-public-1a`, `bcb-public-1b`)
       - Instance security groups: Select your app security group (e.g., `BCB-App-SG`)
       - Database subnets: Select your private subnets (if applicable)
@@ -80,29 +80,29 @@ Before deploying the application, ensure you have:
    i. **Configure Instance Options**:
       - Instance types: t2.micro (or appropriate size for your needs)
       - Root volume: General Purpose SSD (gp2), 10 GB
-
+   
    j. **Configure Capacity**:
-      - Environment type: Load balanced
-      - Min instances: 1
-      - Max instances: 2
-      - Scaling triggers: CPUUtilization (High: 70%, Low: 30%)
-
+   - Environment type: Load balanced
+   - Min instances: 1
+   - Max instances: 2
+   - Scaling triggers: CPUUtilization (High: 70%, Low: 30%)
+   
    k. **Configure Software**:
       - Click "Edit" in the Software section
       - Add Environment properties (crucial for your application to work):
         ```
         DATABASE_URL=postgresql://bcb_app:YourPassword@your-rds-endpoint.amazonaws.com:5432/better_call_buffet
-        PROJECT_NAME=Better Call Buffet
+     PROJECT_NAME=Better Call Buffet
         SECRET_KEY=your-secret-key-here
-        API_V1_PREFIX=/api/v1
-        BACKEND_CORS_ORIGINS=["https://app.bettercallbuffet.com"]
+     API_V1_PREFIX=/api/v1
+     BACKEND_CORS_ORIGINS=["https://app.bettercallbuffet.com"]
         ```
       - Set the proxy server to "nginx"
       - Set the WSGI Path to "app.main:app"
       - Enable log streaming
 
    l. **Configure Monitoring**:
-      - Health reporting: Enhanced
+   - Health reporting: Enhanced
       - Set the health check path to `/health`
       - System: Basic health reporting
       - Managed updates: Enable weekly maintenance window

@@ -15,8 +15,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Only run if the CI workflow succeeded or if manually triggered
-    # if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     
     steps:
     - uses: actions/checkout@v4
@@ -31,19 +29,11 @@ jobs:
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then
           pip install -r requirements.txt
-        elif [ -f pyproject.toml ]; then
-          pip install poetry==1.6.1
-          poetry export -f requirements.txt --output requirements.txt --without-hashes || echo "Poetry export failed, continuing..."
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            pip install fastapi uvicorn sqlalchemy psycopg2-binary pydantic
-          fi
         else
           pip install fastapi uvicorn sqlalchemy psycopg2-binary pydantic
         fi
-        # Install the Elastic Beanstalk CLI
-        pip install awsebcli
+        # Install AWS CLI
+        pip install awscli
     
     - name: Generate deployment package
       run: |
@@ -91,6 +81,7 @@ jobs:
         EOF
         
         touch logs/app.log
+        zip -r deploy.zip . -x ".git/*" ".github/*" "venv/*" ".venv/*" "__pycache__/*" "*.pyc" "*.pyo" "*.pyd" "tests/*"
     
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -101,11 +92,29 @@ jobs:
     
     - name: Deploy to Elastic Beanstalk
       run: |
-        # Initialize the EB CLI
-        eb init better-call-buffet --region us-east-1 --platform python
+        VERSION_LABEL="app-$(date +'%Y%m%d%H%M%S')-${{ github.run_number }}"
+        echo "Creating new application version $VERSION_LABEL"
         
-        # Deploy to the environment
-        eb deploy Better-call-buffet-prod-env --label app-${{ github.sha }}
+        # Create S3 bucket if it doesn't exist
+        aws s3 mb s3://elasticbeanstalk-us-east-1-905418297381 --region us-east-1 || true
+        
+        # Upload the application to S3
+        aws s3 cp deploy.zip s3://elasticbeanstalk-us-east-1-905418297381/$VERSION_LABEL.zip
+        
+        # Create a new application version
+        aws elasticbeanstalk create-application-version \
+          --application-name better-call-buffet \
+          --version-label $VERSION_LABEL \
+          --source-bundle S3Bucket=elasticbeanstalk-us-east-1-905418297381,S3Key=$VERSION_LABEL.zip
+        
+        echo "Waiting for version to be processed..."
+        sleep 10
+        
+        # Update the environment with the new version
+        aws elasticbeanstalk update-environment \
+          --application-name better-call-buffet \
+          --environment-name Better-call-buffet-prod-env \
+          --version-label $VERSION_LABEL
         
     - name: Verify deployment
       run: |
