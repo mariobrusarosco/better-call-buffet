@@ -5,7 +5,6 @@ from enum import Enum
 
 # Enum for account types
 class AccountType(str, Enum):
-    CHECKING = "checking"
     SAVINGS = "savings"
     CREDIT = "credit"
     CASH = "cash"
@@ -18,7 +17,7 @@ class AccountBase(BaseModel):
     description: Optional[str] = None
     type: AccountType
     balance: float = Field(default=0.0, ge=0.0)
-    currency: str = "USD"
+    currency: str = "BRL"
     is_active: bool = True
 
 # Properties to receive via API on creation
