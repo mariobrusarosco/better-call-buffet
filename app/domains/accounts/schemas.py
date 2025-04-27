@@ -62,3 +62,13 @@ class AccountSummary(BaseModel):
 class BalancePoint(BaseModel):
     date: datetime
     balance: float 
+
+
+    
+class AccountCreateRequest(BaseModel):
+    name: str
+    description: str
+    type: AccountType
+    balance: float
+    currency: str
+    is_active: bool

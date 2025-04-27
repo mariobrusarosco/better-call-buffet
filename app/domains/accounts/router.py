@@ -3,14 +3,14 @@ from typing import List
 from sqlalchemy.orm import Session
 
 from app.db.base import get_db_session
-from app.domains.accounts.schemas import Account
+from app.domains.accounts.schemas import Account, AccountCreateRequest
 from app.domains.accounts.service import AccountService
 from app.core.dependencies import get_current_user_id
 
 router = APIRouter()
 
 @router.get("/", response_model=List[Account])
-def read_all_accounts(
+def get_all_accounts_endpoint(
     db: Session = Depends(get_db_session),
     current_user_id: int = Depends(get_current_user_id)
 ):
@@ -20,7 +20,7 @@ def read_all_accounts(
 
 # Endpoint to get only ACTIVE accounts for a user
 @router.get("/active", response_model=List[Account])
-def read_active_accounts(
+def get_active_accounts_endpoint(
     db: Session = Depends(get_db_session),
     current_user_id: int = Depends(get_current_user_id)
 ):
@@ -28,9 +28,19 @@ def read_active_accounts(
     return account_service.get_all_user_active_accounts(user_id=current_user_id)
 
 @router.get("/inactive", response_model=List[Account])
-def read_inactive_accounts(
+def get_inactive_accounts_endpoint(
     db: Session = Depends(get_db_session),
     current_user_id: int = Depends(get_current_user_id)
 ):
     account_service = AccountService(db)
     return account_service.get_all_user_inactive_accounts(user_id=current_user_id)
+
+
+@router.post("/create", response_model=Account)
+def create_account_endpoint(
+    account_in: AccountCreateRequest,
+    db: Session = Depends(get_db_session),
+    current_user_id: int = Depends(get_current_user_id)
+):
+    account_service = AccountService(db)
+    return account_service.create_account(account_in=account_in, user_id=current_user_id)

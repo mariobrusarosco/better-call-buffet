@@ -1,12 +1,10 @@
 from datetime import datetime
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Float, ForeignKey, Enum
-from sqlalchemy.orm import relationship
 import enum
 
 from app.db.base import Base
 
 class AccountType(enum.Enum):
-    CHECKING = "checking"
     SAVINGS = "savings"
     CREDIT = "credit"
     CASH = "cash"
@@ -30,3 +28,4 @@ class Account(Base):
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) 
+
