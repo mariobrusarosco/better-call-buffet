@@ -9,12 +9,16 @@ class AccountService:
     def __init__(self, db: Session):
         self.db = db
 
-        # For now, just sum up balances for the given currency
-        # In a real app, you would add currency conversion
-        accounts = self.db.query(Account).filter(
+    def get_all_user_active_accounts(self, user_id: int) -> List[Account]:
+        return self.db.query(Account).filter(
             Account.user_id == user_id,
-            Account.is_active == True,
-            Account.currency == currency
+            Account.is_active == True
+        ).all()
+
+
+    def get_all_user_inactive_accounts(self, user_id: int) -> float:   
+        return self.db.query(Account).filter(
+            Account.user_id == user_id,
+            Account.is_active == False,
         ).all()
         
-        return sum(account.balance for account in accounts) 
