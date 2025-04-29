@@ -1,6 +1,8 @@
 from datetime import datetime
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Float, ForeignKey, Enum
 import enum
+from sqlalchemy.dialects.postgresql import UUID
+import uuid
 
 from app.db.base import Base
 
@@ -21,10 +23,8 @@ class Account(Base):
     balance = Column(Float, default=0.0)
     currency = Column(String, default="USD")
     is_active = Column(Boolean, default=True)
-    
     # Foreign Keys
-    user_id = Column(Integer, nullable=False)  # Keeping for now, but removing ForeignKey constraint
-    
+    user_id = Column(UUID(as_uuid=True), nullable=False)
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) 
