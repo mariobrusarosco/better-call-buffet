@@ -14,6 +14,7 @@ from app.domains.users.models import User
 from app.domains.investments.model import Investment, InvestmentBalancePoint
 from app.domains.accounts.models import Account
 from app.domains.broker.model import Broker
+from app.domains.balance_points.models import BalancePoint
 from app.core.config import settings
 
 # this is the Alembic Config object, which provides
