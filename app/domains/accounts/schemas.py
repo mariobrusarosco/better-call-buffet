@@ -12,7 +12,7 @@ class AccountType(str, Enum):
     INVESTMENT = "investment"
     OTHER = "other"
 
-# Shared properties
+# Base schema with shared properties
 class AccountBase(BaseModel):
     name: str
     description: Optional[str] = None
@@ -21,12 +21,12 @@ class AccountBase(BaseModel):
     currency: str = "BRL"
     is_active: bool = True
 
-# Properties to receive via API on creation
-class AccountCreate(AccountBase):
+# Schema for creating an account
+class AccountIn(AccountBase):
     pass
 
-# Properties to receive via API on update
-class AccountUpdate(BaseModel):
+# Schema for updating an account
+class AccountUpdateIn(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     type: Optional[AccountType] = None
@@ -34,8 +34,8 @@ class AccountUpdate(BaseModel):
     currency: Optional[str] = None
     is_active: Optional[bool] = None
 
-# Properties shared by models stored in DB
-class AccountInDBBase(AccountBase):
+# Schema for database model
+class AccountInDB(AccountBase):
     id: UUID
     user_id: UUID
     created_at: datetime
@@ -44,11 +44,11 @@ class AccountInDBBase(AccountBase):
     class Config:
         from_attributes = True
 
-# Additional properties to return via API
-class Account(AccountInDBBase):
+# Schema for API responses
+class Account(AccountInDB):
     pass
 
-# Account summary with minimal info
+# Schema for account summary responses
 class AccountSummary(BaseModel):
     id: UUID
     name: str
@@ -58,14 +58,12 @@ class AccountSummary(BaseModel):
 
     class Config:
         from_attributes = True
-        
-# Account balance history point
+
+# Schema for balance point responses
 class BalancePoint(BaseModel):
     date: datetime
-    balance: float 
+    balance: float
 
-
-    
 class AccountCreateRequest(BaseModel):
     name: str
     description: str

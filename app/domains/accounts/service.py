@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.domains.accounts.models import Account
-from app.domains.accounts.schemas import AccountCreateRequest
+from app.domains.accounts.schemas import AccountIn
 
 
 class AccountService:
@@ -23,9 +23,9 @@ class AccountService:
             Account.is_active == False,
         ).all()
         
-    def create_account(self, account_in: AccountCreateRequest, user_id: UUID) -> Account:
+    def create_account(self, account_in: AccountIn, user_id: UUID) -> Account:
         db_account = Account(
-            **account_in.model_dump(), # Unpack fields from AccountCreateRequest
+            **account_in.model_dump(), # Unpack fields from AccountIn
             user_id=user_id # Set the user ID from the dependency
         )
         self.db.add(db_account) # Add the new model instance to the session
