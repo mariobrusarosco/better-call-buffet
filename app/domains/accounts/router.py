@@ -45,3 +45,12 @@ def create_account_endpoint(
 ):
     account_service = AccountService(db)
     return account_service.create_account(account_in=account_in, user_id=current_user_id)
+
+@router.get("/{account_id}", response_model=Account)
+def get_account_endpoint(
+    account_id: UUID,
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id)
+):
+    account_service = AccountService(db)
+    return account_service.get_account(account_id=account_id, user_id=current_user_id)

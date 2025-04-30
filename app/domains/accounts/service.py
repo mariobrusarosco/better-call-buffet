@@ -32,3 +32,10 @@ class AccountService:
         self.db.commit()
         self.db.refresh(db_account) # Refresh to get DB-generated values (like ID)
         return db_account # Return the newly created model instance
+
+    def get_account(self, account_id: UUID, user_id: UUID) -> Account:
+        return self.db.query(Account).filter(
+            Account.id == account_id,
+            Account.user_id == user_id
+        ).first()
+
