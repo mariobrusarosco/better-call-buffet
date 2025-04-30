@@ -11,7 +11,7 @@ from app.domains.users import get_current_user_id
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import models
-from app.db.base import Base
+from app.db.connection_and_session import Base
 from app.domains.accounts.models import Account, AccountType
 from app.domains.users.models import User
 from app.domains.broker.model import Broker

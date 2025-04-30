@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from app.db.base import Base
+from app.db.connection_and_session import Base
 from app.domains.users.models import User
 from app.domains.accounts.models import Account
 from app.domains.broker.model import Broker
@@ -20,8 +20,8 @@ from app.core.config import settings
 # access to the values within the .ini file in use.
 config = context.config
 
-# Override sqlalchemy.url with Docker database URL
-config.set_main_option("sqlalchemy.url", "postgresql://postgres:postgres@localhost:5432/better_call_buffet")
+# Override sqlalchemy.url with environment variable
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

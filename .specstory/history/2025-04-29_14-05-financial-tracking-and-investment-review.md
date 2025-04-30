@@ -180,7 +180,7 @@ If you don't have Alembic set up, you'll need to:
 Alternatively, if you're not using migrations yet, you could let SQLAlchemy create the tables directly with:
 
 ```python
-from app.db.base import Base, engine
+from app.db.connection_and_session import Base, engine
 Base.metadata.create_all(bind=engine)
 ```
 
@@ -302,7 +302,7 @@ To fix this, you need to create a Pydantic schema for your Investment model, sim
   from fastapi import APIRouter, Depends
   from sqlalchemy.orm import Session
   
-  from app.db.base import get_db_session
+  from app.db.connection_and_session import get_db_session
 - from app.domains.investments.model import Investment
 + from app.domains.investments.model import Investment as InvestmentModel
 + from app.domains.investments.schemas import Investment
@@ -361,7 +361,7 @@ To fix this, you need to create a Pydantic schema for your Investment model, sim
 + from datetime import datetime
 + from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum as SQLAlchemyEnum
 + from enum import Enum as PyEnum
-+ from app.db.base import Base
++ from app.db.connection_and_session import Base
 + 
 + 
 + class TransactionType(PyEnum):
@@ -447,7 +447,7 @@ To fix this, you need to create a Pydantic schema for your Investment model, sim
 + from fastapi import APIRouter, Depends, HTTPException
 + from sqlalchemy.orm import Session
 + 
-+ from app.db.base import get_db_session
++ from app.db.connection_and_session import get_db_session
 + from app.domains.transactions.model import Transaction as TransactionModel
 + from app.domains.transactions.schemas import Transaction, TransactionCreate
 + from app.core.dependencies import get_current_user_id
@@ -558,7 +558,7 @@ First, let's create a guide for migrations:
 + from pathlib import Path
 + sys.path.append(str(Path(__file__).resolve().parents[2]))
 + 
-+ from app.db.base import Base
++ from app.db.connection_and_session import Base
 + target_metadata = Base.metadata
 + ```
 + 
@@ -775,7 +775,7 @@ Perfect! Now we need to configure Alembic. Let's:
 + from pathlib import Path
 + sys.path.append(str(Path(__file__).resolve().parents[1]))
 + 
-+ from app.db.base import Base
++ from app.db.connection_and_session import Base
 + from app.domains.investments.model import Investment, InvestmentBalancePoint
 + from app.domains.accounts.models import Account
   
@@ -1136,7 +1136,7 @@ I'll update the guide to include Poetry-specific instructions and improve the se
 - sys.path.append(str(Path(__file__).resolve().parents[2]))
 +    sys.path.append(str(Path(__file__).resolve().parents[1]))
      
-     from app.db.base import Base
+     from app.db.connection_and_session import Base
 +    from app.core.config import settings
 +    
 +    # Import all models here
@@ -1603,7 +1603,7 @@ Let's start:
 + from sqlalchemy.dialects.postgresql import UUID
 + import uuid
   
-  from app.db.base import Base
+  from app.db.connection_and_session import Base
 ```
 
 ```diff
@@ -1626,7 +1626,7 @@ Let's start:
   from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 + from sqlalchemy.dialects.postgresql import UUID
 + import uuid
-  from app.db.base import Base
+  from app.db.connection_and_session import Base
   
 ```
 
@@ -1655,7 +1655,7 @@ Let's start:
 ```
 
 ```diff
-  from app.db.base import Base
+  from app.db.connection_and_session import Base
   from app.domains.accounts.models import Account, AccountType
 + from app.domains.investments.model import Investment, InvestmentType, InvestmentBalancePoint
   
@@ -2119,7 +2119,7 @@ Let's create the Users table:
 + from sqlalchemy import Column, String, DateTime, Boolean
 + from sqlalchemy.dialects.postgresql import UUID
 + import uuid
-+ from app.db.base import Base
++ from app.db.connection_and_session import Base
 + 
 + class User(Base):
 +     __tablename__ = "users"
@@ -2412,7 +2412,7 @@ Now let's update the Investment model:
 + from sqlalchemy.dialects.postgresql import UUID
 + import uuid
 + 
-+ from app.db.base import Base
++ from app.db.connection_and_session import Base
 + 
 + class Investment(Base):
 +     __tablename__ = "investments"
@@ -2640,7 +2640,7 @@ I see the issue. We need to import the `User` model in `env.py` since it's refer
 
 ```diff
   
-  from app.db.base import Base
+  from app.db.connection_and_session import Base
 + from app.domains.users.models import User
   from app.domains.investments.model import Investment, InvestmentBalancePoint
   from app.domains.accounts.models import Account
@@ -2653,7 +2653,7 @@ I notice there's also a small typo in the import path - it's trying to import fr
 ---
 
 ```diff
-  from app.db.base import Base
+  from app.db.connection_and_session import Base
   from app.domains.users.models import User
 - from app.domains.investments.model import Investment, InvestmentBalancePoint
 + from app.domains.investments.models import Investment, InvestmentBalancePoint
@@ -3126,7 +3126,7 @@ Yes, that's a good solution! We can modify the `seed_db.py` script to truncate a
 ```
 
 ```diff
-  from app.db.base import Base
+  from app.db.connection_and_session import Base
   from app.domains.accounts.models import Account, AccountType
 - from app.domains.investments.model import Investment, InvestmentType, InvestmentBalancePoint
 + from app.domains.investments.models import Investment, InvestmentBalancePoint
@@ -3633,7 +3633,7 @@ I see the Investment model file was deleted. Let me recreate it with UUID suppor
 + from sqlalchemy.dialects.postgresql import UUID
 + import uuid
 + 
-+ from app.db.base import Base
++ from app.db.connection_and_session import Base
 + 
 + class Investment(Base):
 +     __tablename__ = "investments"
@@ -3688,7 +3688,7 @@ Now let's update the seed script to work with UUIDs:
 ---
 
 ```diff
-  from app.db.base import Base
+  from app.db.connection_and_session import Base
   from app.domains.accounts.models import Account, AccountType
 - from app.domains.investments.model import Investment, InvestmentBalancePoint
 + from app.domains.investments.models import Investment, InvestmentBalancePoint

@@ -4,7 +4,7 @@ import enum
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
-from app.db.base import Base
+from app.db.connection_and_session import Base
 
 class AccountType(enum.Enum):
     SAVINGS = "savings"

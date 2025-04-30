@@ -162,7 +162,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.orm import relationship
 
-from app.db.base import Base
+from app.db.connection_and_session import Base
 
 class User(Base):
     __tablename__ = "users"
@@ -190,7 +190,7 @@ from sqlalchemy import Boolean, Column, DateTime, Integer, String, Float, Foreig
 from sqlalchemy.orm import relationship
 import enum
 
-from app.db.base import Base
+from app.db.connection_and_session import Base
 
 class AccountType(enum.Enum):
     CHECKING = "checking"

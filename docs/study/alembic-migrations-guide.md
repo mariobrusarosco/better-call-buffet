@@ -72,7 +72,7 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
-from app.db.base import Base  # Import your SQLAlchemy models
+from app.db.connection_and_session import Base  # Import your SQLAlchemy models
 from app.core.config import settings  # Import your app settings
 
 # this is the Alembic Config object
@@ -320,7 +320,7 @@ Migrations are auto-generated from SQLAlchemy models:
 
 ```python
 # alembic/env.py
-from app.db.base import Base
+from app.db.connection_and_session import Base
 # Import all models
 from app.domains.users.models import User
 from app.domains.accounts.models import Account

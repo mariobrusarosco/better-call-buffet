@@ -2186,7 +2186,7 @@ _****_
 + from datetime import datetime
 + from sqlalchemy import Boolean, Column, DateTime, Integer, String
 + 
-+ from app.db.base import Base
++ from app.db.connection_and_session import Base
 + 
 + class User(Base):
 +     __tablename__ = "users"
@@ -2307,7 +2307,7 @@ _****_
 + from fastapi import APIRouter, Depends, HTTPException
 + from sqlalchemy.orm import Session
 + 
-+ from app.db.base import get_db
++ from app.db.connection_and_session import get_db
 + from app.domains.users.schemas import User, UserCreate
 + from app.domains.users.service import UserService
 + 
@@ -3984,7 +3984,7 @@ ine 78, in subprocess_started
   File "<frozen importlib._bootstrap_external>", line 940, in exec_module
   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
   File "/home/mario/Coding/better-call-buffet/app/main.py", line 2, in <module>
-    from app.db.base import SessionLocal
+    from app.db.connection_and_session import SessionLocal
   File "/home/mario/Coding/better-call-buffet/app/db/base.py", line 5, in <module>
     from app.core.config import settings
   File "/home/mario/Coding/better-call-buffet/app/core/config.py", line 2, in <module>
@@ -11584,7 +11584,7 @@ _****_
 + sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 + 
 + # Import models that need to be created
-+ from app.db.base import Base
++ from app.db.connection_and_session import Base
 + from app.domains.users.models import User
 + 
 + def init_db():

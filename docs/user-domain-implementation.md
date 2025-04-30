@@ -115,7 +115,7 @@
   from sqlalchemy import Boolean, Column, DateTime, Integer, String
   from sqlalchemy.orm import relationship
   
-  from app.db.base import Base
+  from app.db.connection_and_session import Base
   
   class User(Base):
       __tablename__ = "users"
@@ -275,7 +275,7 @@
   from fastapi import APIRouter, Depends, HTTPException, status
   from sqlalchemy.orm import Session
   
-  from app.db.base import get_db
+  from app.db.connection_and_session import get_db
   from app.domains.users import schemas
   from app.domains.users.service import UserService
   

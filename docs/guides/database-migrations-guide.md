@@ -34,7 +34,7 @@ This guide explains how to work with database migrations in Better Call Buffet u
    from pathlib import Path
    sys.path.append(str(Path(__file__).resolve().parents[1]))
    
-   from app.db.base import Base
+   from app.db.connection_and_session import Base
    from app.core.config import settings
    
    # Import all models here

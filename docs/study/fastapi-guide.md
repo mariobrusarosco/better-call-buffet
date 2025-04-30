@@ -202,7 +202,7 @@ Each domain has its own router that defines the endpoints:
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.db.base import get_db
+from app.db.connection_and_session import get_db
 from app.domains.accounts.schemas import Account, AccountCreate
 from app.domains.accounts.service import AccountService
 

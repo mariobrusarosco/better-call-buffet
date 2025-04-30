@@ -2,6 +2,7 @@ from fastapi import FastAPI
 import logging
 
 from app.api.v1 import api_router  # Import the api_router
+from app.db import model_registration  # Import model_registration to register all models
 
 # Simple logging to stdout (CloudWatch will capture this)
 logging.basicConfig(

@@ -2,6 +2,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from enum import Enum
+from uuid import UUID
 
 # Enum for account types
 class AccountType(str, Enum):
@@ -35,8 +36,8 @@ class AccountUpdate(BaseModel):
 
 # Properties shared by models stored in DB
 class AccountInDBBase(AccountBase):
-    id: int
-    user_id: int
+    id: UUID
+    user_id: UUID
     created_at: datetime
     updated_at: datetime
 
@@ -49,7 +50,7 @@ class Account(AccountInDBBase):
 
 # Account summary with minimal info
 class AccountSummary(BaseModel):
-    id: int
+    id: UUID
     name: str
     type: AccountType
     balance: float

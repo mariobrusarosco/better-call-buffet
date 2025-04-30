@@ -33,7 +33,7 @@ This guide explains the standard pattern used in this project for accessing the 
         # Example (in a router file, e.g., app/domains/accounts/router.py)
         from fastapi import Depends
         from sqlalchemy.orm import Session
-        from app.db.base import get_db # Import the factory
+        from app.db.connection_and_session import get_db # Import the factory
 
         @router.get("/some-path")
         def my_route_handler(db: Session = Depends(get_db)):

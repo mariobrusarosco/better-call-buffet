@@ -3085,7 +3085,7 @@ Now, let's integrate this logging configuration into the main application:
 
 ```diff
   from datetime import datetime
-  from app.db.base import SessionLocal
+  from app.db.connection_and_session import SessionLocal
 - from fastapi import FastAPI
 + from fastapi import FastAPI, Request
   from fastapi.middleware.cors import CORSMiddleware
@@ -3203,7 +3203,7 @@ Now let's also add logging to the CRUD operations:
 + from pydantic import BaseModel
 + from sqlalchemy.orm import Session
 + 
-+ from app.db.base_class import Base
++ from app.db.connection_and_session_class import Base
 + from app.core.logging import get_logger
 + 
 + logger = get_logger(__name__)
@@ -3378,7 +3378,7 @@ Let's simplify everything and just make a basic "Hello World" work! I'll check t
 
 ```diff
 - from datetime import datetime
-- from app.db.base import SessionLocal
+- from app.db.connection_and_session import SessionLocal
 - from fastapi import FastAPI, Request
 - from fastapi.middleware.cors import CORSMiddleware
 - from fastapi.responses import JSONResponse

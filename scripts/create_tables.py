@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import models that need to be created
-from app.db.base import Base
+from app.db.connection_and_session import Base
 from app.domains.users.models import User
 
 def init_db():

@@ -309,7 +309,7 @@ Now I'll create a seed script to populate the database with sample data. Let's c
 + sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 + 
 + # Import models
-+ from app.db.base import Base
++ from app.db.connection_and_session import Base
 + from app.domains.users.models import User
 + from app.domains.accounts.models import Account, AccountType
 + from app.domains.categories.models import Category, CategoryType
@@ -702,7 +702,7 @@ I'll create a simplified seed script focused only on accounts. Let me update the
 
 ```diff
   # Import models
-  from app.db.base import Base
+  from app.db.connection_and_session import Base
 - from app.domains.users.models import User
   from app.domains.accounts.models import Account, AccountType
 - from app.domains.categories.models import Category, CategoryType
@@ -1441,7 +1441,7 @@ Now, let's create another guide for deploying and seeding the production databas
 +    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 + 
 +    # Import models
-+    from app.db.base import Base
++    from app.db.connection_and_session import Base
 +    from app.domains.accounts.models import Account, AccountType
 + 
 +    def seed_prod_db():
@@ -1595,7 +1595,7 @@ Now let's create a production seed script as mentioned in the guide:
 + sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 + 
 + # Import models
-+ from app.db.base import Base
++ from app.db.connection_and_session import Base
 + from app.domains.accounts.models import Account, AccountType
 + 
 + def seed_prod_db():

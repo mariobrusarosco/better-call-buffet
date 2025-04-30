@@ -3,12 +3,13 @@ import sys
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+import uuid
 
 # Add the parent directory to the path to import app modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import models
-from app.db.base import Base
+from app.db.connection_and_session import Base
 from app.domains.accounts.models import Account, AccountType
 
 def seed_prod_db():
