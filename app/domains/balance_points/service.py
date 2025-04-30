@@ -13,8 +13,8 @@ class BalancePointService:
         self.account_service = AccountService(db)
 
     def create_balance_point(self, balance_point_in: BalancePointIn, user_id: UUID) -> BalancePoint:
-        # Verify the account exists and belongs to the user
-        account = self.account_service.get_account_by_id(balance_point_in.account_id)
+        account = self.account_service.get_account_by_id(balance_point_in.account_id, user_id)
+        
         if account.user_id != user_id:
             raise ValueError("Account does not belong to the user")
         
@@ -30,3 +30,11 @@ class BalancePointService:
         self.db.commit()
         self.db.refresh(db_balance_point)
         return db_balance_point
+
+    def get_balance_points_by_account_id(self, account_id: UUID, user_id: UUID) -> List[BalancePoint]:
+        return self.db.query(BalancePoint).filter(
+            BalancePoint.account_id == account_id,
+            BalancePoint.user_id == user_id
+        ).all()
+        
+        
