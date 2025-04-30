@@ -13,7 +13,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import models
 from app.db.base import Base
 from app.domains.accounts.models import Account, AccountType
-from app.domains.investments.models import Investment, InvestmentBalancePoint
 from app.domains.users.models import User
 from app.domains.broker.model import Broker
 
@@ -22,8 +21,6 @@ def truncate_tables(db):
     print("Truncating all tables...")
     # Order matters due to foreign key constraints
     tables = [
-        "investment_balance_points",
-        "investments",
         "accounts",
         "brokers",
         "users"
@@ -108,7 +105,7 @@ def init_db():
             ),
             Account(
                 name="Investment Account", 
-                description="Retirement investments", 
+                description="Investment portfolio", 
                 type=AccountType.INVESTMENT.value, 
                 balance=25000.00, 
                 user_id=test_user.id,
@@ -118,61 +115,6 @@ def init_db():
         db.add_all(accounts)
         db.commit()
         
-        # Get the investment account for linking investments
-        investment_account = next(acc for acc in accounts if acc.type == AccountType.INVESTMENT.value)
-        
-        # Seed investments
-        print("Seeding investments...")
-        investments = [
-            Investment(
-                symbol="TD",
-                name="Tesouro Direto",
-                description="Brazilian government bonds",
-                quantity=100,
-                current_price=100.00,
-                currency="BRL",
-                user_id=test_user.id,
-                account_id=investment_account.id,
-                broker_id=test_broker.id
-            ),
-            Investment(
-                symbol="PETR4",
-                name="Petrobras",
-                description="Petrobras stocks",
-                quantity=500,
-                current_price=10.00,
-                currency="BRL",
-                user_id=test_user.id,
-                account_id=investment_account.id,
-                broker_id=test_broker.id
-            )
-        ]
-        db.add_all(investments)
-        db.commit()
-        
-        # Add some balance points for the investments
-        print("Seeding investment balance points...")
-        balance_points = []
-        for investment in investments:
-            balance_points.extend([
-                InvestmentBalancePoint(
-                    investment_id=investment.id,
-                    date=datetime(2024, 1, 1),
-                    quantity=investment.quantity,
-                    price=investment.current_price * 0.98,  # Initial price 2% lower
-                    total_value=investment.quantity * investment.current_price * 0.98
-                ),
-                InvestmentBalancePoint(
-                    investment_id=investment.id,
-                    date=datetime(2024, 2, 1),
-                    quantity=investment.quantity,
-                    price=investment.current_price,  # Current price
-                    total_value=investment.quantity * investment.current_price
-                )
-            ])
-        db.add_all(balance_points)
-        
-        db.commit()
         print("Database seeding complete!")
         
     except Exception as e:

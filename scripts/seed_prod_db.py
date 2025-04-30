@@ -54,7 +54,7 @@ def seed_prod_db():
             ),
             Account(
                 name="Production Investment", 
-                description="Retirement investments", 
+                description="Investment portfolio", 
                 type=AccountType.INVESTMENT.value, 
                 balance=25000.00, 
                 user_id=1

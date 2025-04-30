@@ -20,7 +20,7 @@ VALUES
   ('Production Checking', 'Primary checking account', 'checking', 5000.00, 'USD', true, 1, NOW(), NOW()),
   ('Production Savings', 'Emergency fund', 'savings', 10000.00, 'USD', true, 1, NOW(), NOW()),
   ('Production Credit Card', 'Primary credit card', 'credit', 500.00, 'USD', true, 1, NOW(), NOW()),
-  ('Production Investment', 'Retirement investments', 'investment', 25000.00, 'USD', true, 1, NOW(), NOW());
+  ('Production Investment', 'Investment portfolio', 'investment', 25000.00, 'USD', true, 1, NOW(), NOW());
 
 -- Report the number of rows inserted
 SELECT COUNT(*) AS "Accounts Added" FROM accounts; 
