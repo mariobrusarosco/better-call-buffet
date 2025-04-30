@@ -20,7 +20,7 @@ class Account(Base):
         Index('ix_accounts_type', 'type'),  # Index for filtering by type
     )
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
     type = Column(String, nullable=False)

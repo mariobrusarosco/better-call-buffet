@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Float, ForeignKey, Index
+from sqlalchemy import Boolean, Column, DateTime, String, Float, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
@@ -14,7 +14,7 @@ class Investment(Base):
         Index('ix_investments_symbol', 'symbol'),  # Index for symbol lookups
     )
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     symbol = Column(String, nullable=False)
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
@@ -25,8 +25,8 @@ class Investment(Base):
     
     # Foreign Keys
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    account_id = Column(Integer, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
-    broker_id = Column(Integer, ForeignKey("brokers.id", ondelete="SET NULL"), nullable=True)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
+    broker_id = Column(UUID(as_uuid=True), ForeignKey("brokers.id", ondelete="SET NULL"), nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -39,8 +39,8 @@ class InvestmentBalancePoint(Base):
         Index('ix_investment_balance_points_date', 'date'),  # Index for date filtering
     )
 
-    id = Column(Integer, primary_key=True, index=True)
-    investment_id = Column(Integer, ForeignKey("investments.id", ondelete="CASCADE"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    investment_id = Column(UUID(as_uuid=True), ForeignKey("investments.id", ondelete="CASCADE"), nullable=False)
     date = Column(DateTime, nullable=False)
     quantity = Column(Float, nullable=False)
     price = Column(Float, nullable=False)

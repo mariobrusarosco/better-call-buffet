@@ -11,7 +11,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app.db.base import Base
 from app.domains.users.models import User
-from app.domains.investments.models import Investment, InvestmentBalancePoint
+from app.domains.investments.model import Investment, InvestmentBalancePoint
 from app.domains.accounts.models import Account
 from app.domains.broker.model import Broker
 from app.core.config import settings
