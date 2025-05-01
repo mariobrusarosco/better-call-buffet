@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.domains.accounts.models import Account
-from app.domains.accounts.schemas import AccountIn
+from app.domains.accounts.schemas import AccountIn, AccountType
 
 
 class AccountService:
@@ -38,4 +38,12 @@ class AccountService:
             Account.id == account_id,
             Account.user_id == user_id
         ).first()
+
+    def get_accounts_by_type(self, user_id: UUID, account_type: AccountType) -> List[Account]:
+        """Get all active accounts of a specific type for a user"""
+        return self.db.query(Account).filter(
+            Account.user_id == user_id,
+            Account.type == account_type,
+            Account.is_active == True
+        ).all()
 
