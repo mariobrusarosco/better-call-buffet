@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 import logging
+from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import settings
 
 from app.api.v1 import api_router  # Import the api_router
 from app.db import model_registration  # Import model_registration to register all models
@@ -13,8 +15,19 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Better Call Buffet API")
 
-app.include_router(api_router)
+# Configure CORS
+origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
+logger.info(f"Configuring CORS with origins: {origins}")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(api_router)
 
 @app.get("/")
 async def root():

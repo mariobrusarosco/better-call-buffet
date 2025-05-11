@@ -44,6 +44,12 @@ poetry install
 poetry shell
 ```
 
+or
+
+```bash
+poetry env activate
+```
+
 4. Create a `.env` file in the root directory with your configuration:
 
 ```bash

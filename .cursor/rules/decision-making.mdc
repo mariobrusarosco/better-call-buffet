@@ -8,7 +8,7 @@ alwaysApply: false
 1. ADRs for the key technologies we've decided on. Store them on "docs/decisions"
 2. Developer guides for each technology "docs/guides"
 3. An updated README.md to point to these resources at root level
-4. When you receive a "LOG THE FIX" inpuut you need to create a md file that contains the context of the issue and how it was solved. Place them inside docs/fixing-log
+4. When you receive a "LOG THE FIX" input you need to create a md file that contains the context of the issue and how it was solved. Place them inside docs/fixing-log
 
 ## Planning
 1. Let's work with Phases.  
