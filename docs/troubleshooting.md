@@ -70,7 +70,7 @@ This guide provides solutions for common issues that might arise with the Better
    # Update the environment variable
    aws elasticbeanstalk update-environment \
      --environment-name better-call-buffet-prod \
-     --option-settings Namespace=aws:elasticbeanstalk:application:environment,OptionName=DATABASE_URL,Value=postgresql://postgres:password@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet
+     --option-settings Namespace=aws:elasticbeanstalk:application:environment,OptionName=DATABASE_URL,Value=postgresql://postgres:password@************.amazonaws.com:5432/better_call_buffet
    ```
 
 3. **RDS Instance Not Running**
@@ -113,7 +113,7 @@ This guide provides solutions for common issues that might arise with the Better
    ```bash
    # Check if database tables are created
    # Connect to database and verify tables
-   psql -h bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com -U postgres -d better_call_buffet -c "\dt"
+   psql -h ************.amazonaws.com -U postgres -d better_call_buffet -c "\dt"
    
    # Run schema creation script if needed
    python scripts/create_tables.py

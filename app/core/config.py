@@ -5,7 +5,7 @@ from pydantic import AnyHttpUrl
 class Settings(BaseSettings):
     API_V1_PREFIX: str
     PROJECT_NAME: str
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
+    BACKEND_CORS_ORIGINS: List[str] = []
     
     # Security
     SECRET_KEY: str

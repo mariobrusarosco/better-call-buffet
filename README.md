@@ -22,7 +22,7 @@ docker-compose up --build
 
 - Python 3.8.1+
 - Poetry (Python dependency management)
-- PostgreSQL (will be needed later)
+- Docker and Docker Compose
 
 ### Installation
 
@@ -44,6 +44,12 @@ poetry install
 poetry shell
 ```
 
+or
+
+```bash
+poetry env activate
+```
+
 4. Create a `.env` file in the root directory with your configuration:
 
 ```bash
@@ -60,6 +66,8 @@ The API will be available at `http://localhost:8000`
 API documentation will be available at `http://localhost:8000/docs`
 
 ## Development
+
+> **Note:** Using Docker (described in Quick Start above) is the recommended way to set up and run the application, especially for new users. It automatically handles PostgreSQL and all dependencies.
 
 ### Using Docker for Development
 
@@ -228,6 +236,8 @@ Each domain follows a consistent structure:
 
 ## Development
 
+> **Note:** Using Docker (described in Quick Start above) is the recommended way to set up and run the application, especially for new users. It automatically handles PostgreSQL and all dependencies.
+
 ### Code Style
 
 This project uses:
@@ -395,3 +405,82 @@ The project infrastructure setup is divided into several phases:
 - Continuous deployment
 
 The infrastructure is fully documented in the [`docs/`](docs/) directory, with detailed decision records in [`docs/decisions/`](docs/decisions/).
+
+# Better Call Buffet - Simple AWS Deployment Guide
+
+## What We Built
+A simple FastAPI application deployed to AWS Elastic Beanstalk with CloudWatch logging.
+
+## Key Files
+
+### `app/main.py` - Main Application
+```python
+from fastapi import FastAPI
+import logging
+
+# Simple logging to stdout (CloudWatch will capture this)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Better Call Buffet API")
+
+@app.get("/")
+async def root():
+    logger.info("Hello World endpoint was called!")
+    return {"message": "Hello World!"}
+```
+
+### `Procfile` - Tells EB How to Run the App
+```
+web: uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+### `requirements.txt` - Dependencies
+```
+fastapi==0.109.2
+uvicorn==0.27.1
+```
+
+### `.elasticbeanstalk/config.yml` - EB Configuration
+```yaml
+branch-defaults:
+  main:
+    environment: better-call-buffet-prod-env
+    group_suffix: null
+
+global:
+  application_name: better-call-buffet-prod
+  default_platform: Python 3.9
+  default_region: us-east-1
+
+option_settings:
+  aws:autoscaling:launchconfiguration:
+    InstanceType: t2.micro
+  aws:elasticbeanstalk:environment:proxy:
+    ProxyServer: nginx
+  aws:elasticbeanstalk:cloudwatch:logs:
+    StreamLogs: true
+    DeleteOnTerminate: false
+    RetentionInDays: 7
+```
+
+## How to Monitor Logs
+1. Go to AWS Console
+2. Navigate to CloudWatch
+3. Click on "Log groups"
+4. Find `/aws/elasticbeanstalk/better-call-buffet-prod-env/var/log/web.stdout.log`
+5. Click "Actions" -> "Start live tail" for real-time log monitoring
+
+## Key Learnings
+1. Keep it simple - start with minimal configuration
+2. Use CloudWatch for easy log monitoring
+3. Live tail is your friend for real-time debugging
+4. Add complexity only when needed
+
+## Local Development
+```bash
+uvicorn app.main:app --reload --port 8001
+```

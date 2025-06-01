@@ -1,0 +1,42 @@
+branch-defaults:
+  main:
+    environment: better-call-buffet-prod-env
+    group_suffix: null
+
+global:
+  application_name: better-call-buffet-prod
+  branch: null
+  default_ec2_keyname: null
+  default_platform: Python 3.9
+  default_region: us-east-1
+  include_git_submodules: true
+  instance_profile: null
+  platform_name: null
+  platform_version: null
+  profile: null
+  repository: null
+  sc: null
+  workspace_type: Application
+
+option_settings:
+  aws:autoscaling:launchconfiguration:
+    InstanceType: t2.micro
+  aws:elasticbeanstalk:application:environment:
+    PYTHONPATH: "/var/app/current"
+    PORT: "8000"
+  aws:elasticbeanstalk:container:python:
+    WSGIPath: app.main:app
+  aws:elasticbeanstalk:environment:proxy:staticfiles:
+    /static: static/
+  aws:elasticbeanstalk:application:
+    Application Healthcheck URL: /health
+  aws:elasticbeanstalk:environment:process:default:
+    HealthCheckPath: /health
+    Port: "8000"
+    Protocol: HTTP
+  aws:elasticbeanstalk:environment:proxy:
+    ProxyServer: nginx
+  aws:elasticbeanstalk:cloudwatch:logs:
+    StreamLogs: true
+    DeleteOnTerminate: false
+    RetentionInDays: 7 

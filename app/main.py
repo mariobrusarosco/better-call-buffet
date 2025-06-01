@@ -1,12 +1,6 @@
-from datetime import datetime
-from app.db.base import SessionLocal
 from fastapi import FastAPI
+import logging
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-import sys
-import os
-import platform
-
 from app.core.config import settings
 from app.api.v1.api import api_router
 from app.core.logging_config import setup_logging
@@ -14,73 +8,41 @@ from app.core.logging_config import setup_logging
 # Setup logging
 logger = setup_logging()
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_PREFIX}/openapi.json"
-)
+from app.api.v1 import api_router  # Import the api_router
+from app.db import model_registration  # Import model_registration to register all models
 
-# Set up CORS middleware
+# Simple logging to stdout (CloudWatch will capture this)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Better Call Buffet API")
+
+# Configure CORS
+origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
+logger.info(f"Configuring CORS with origins: {origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include API router
-app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+app.include_router(api_router)
 
 @app.get("/")
 async def root():
-    return {
-        "message": "Welcome to Better Call Buffet API",
-        "docs_url": "/docs",
-        "openapi_url": f"{settings.API_V1_PREFIX}/openapi.json"
-    }
+    return {"message": "Better Call Buffet API!"}
 
 @app.get("/health")
 async def health_check():
-    # Set default status code
-    status_code = 200
-    
-    # Check database connection
-    try:
-        db = SessionLocal()
-        db.execute("SELECT 1")
-        db_status = "healthy"
-    except Exception as e:
-        db_status = f"unhealthy: {str(e)}"
-        status_code = 503  # Service Unavailable
-    finally:
-        if 'db' in locals():
-            db.close()
+    logger.info("Health check endpoint was called!")
+    return {"status": "healthy"}
 
-    # Get environment information
-    environment_info = {
-        "python_version": sys.version,
-        "environment": settings.ENVIRONMENT,
-        "hostname": platform.node(),
-        "system": platform.system(),
-        "platform_release": platform.release(),
-    }
-    
-    # Get application information
-    app_info = {
-        "app_name": settings.PROJECT_NAME,
-        "version": "1.0.0",  # This could be read from a version file
-        "api_prefix": settings.API_V1_PREFIX,
-    }
-    
-    response_data = {
-        "status": "healthy" if status_code == 200 else "unhealthy",
-        "timestamp": datetime.now().isoformat(),
-        "components": {
-            "database": db_status,
-            "api": "healthy"
-        },
-        "environment": environment_info,
-        "application": app_info
-    }
-    
-    return JSONResponse(content=response_data, status_code=status_code)
+
+# Remove or complete this route
+# @app.get("/health/live")

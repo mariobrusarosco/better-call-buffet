@@ -2186,7 +2186,7 @@ _****_
 + from datetime import datetime
 + from sqlalchemy import Boolean, Column, DateTime, Integer, String
 + 
-+ from app.db.base import Base
++ from app.db.connection_and_session import Base
 + 
 + class User(Base):
 +     __tablename__ = "users"
@@ -2307,7 +2307,7 @@ _****_
 + from fastapi import APIRouter, Depends, HTTPException
 + from sqlalchemy.orm import Session
 + 
-+ from app.db.base import get_db
++ from app.db.connection_and_session import get_db
 + from app.domains.users.schemas import User, UserCreate
 + from app.domains.users.service import UserService
 + 
@@ -3984,7 +3984,7 @@ ine 78, in subprocess_started
   File "<frozen importlib._bootstrap_external>", line 940, in exec_module
   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
   File "/home/mario/Coding/better-call-buffet/app/main.py", line 2, in <module>
-    from app.db.base import SessionLocal
+    from app.db.connection_and_session import SessionLocal
   File "/home/mario/Coding/better-call-buffet/app/db/base.py", line 5, in <module>
     from app.core.config import settings
   File "/home/mario/Coding/better-call-buffet/app/core/config.py", line 2, in <module>
@@ -10745,7 +10745,7 @@ _**Assistant**_
 I see the user has shared their .env file which already contains the updated database connection string:
 
 ```
-DATABASE_URL="postgresql://postgres:E2Eea2Bt^KeL4h@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet"
+DATABASE_URL="postgresql://postgres:************h@************.amazonaws.com:5432/better_call_buffet"
 ```
 
 This means they've already gotten the connection details and updated their environment variables. I should now focus on:
@@ -10796,7 +10796,7 @@ Let's test the connection to your RDS instance:
 _****_
 
 ```bash
-poetry run python -c "import psycopg2; conn = psycopg2.connect('postgresql://postgres:E2Eea2Bt^KeL4h@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet'); print('Connection successful!'); conn.close()"
+poetry run python -c "import psycopg2; conn = psycopg2.connect('postgresql://postgres:************h@************.amazonaws.com:5432/better_call_buffet'); print('Connection successful!'); conn.close()"
 ```
 
 ```
@@ -10966,7 +10966,7 @@ Now let's test the database connection:
 _****_
 
 ```bash
-poetry run python -c "import psycopg2; conn = psycopg2.connect('postgresql://postgres:E2Eea2Bt^KeL4h@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet'); print('Connection successful!'); conn.close()"
+poetry run python -c "import psycopg2; conn = psycopg2.connect('postgresql://postgres:************h@************.amazonaws.com:5432/better_call_buffet'); print('Connection successful!'); conn.close()"
 ```
 
 ```
@@ -11202,7 +11202,7 @@ poetry run python test_db_connection.py
 
 ```
 (venv) mario% poetry run python test_db_connection.py
-Connecting to: postgresql://postgresql:E2Eea2Bt^KeL4h@bcb-db.cl04u4kue30d.us-east-1.rds.ama
+Connecting to: postgresql://postgresql:************h@************.ama
 zonaws.com:5432/better_call_buffet
 ```
 
@@ -11415,7 +11415,7 @@ _****_
 + DATABASE_URL = os.environ.get("DATABASE_URL")
 + 
 + # Remove any prefix showing in logs
-+ print(f"Connecting to database: better_call_buffet at bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com")
++ print(f"Connecting to database: better_call_buffet at ************.amazonaws.com")
 + 
 + try:
 +     # Connect to the database
@@ -11456,7 +11456,7 @@ poetry run python test_db_connection.py
 
 ```
 (venv) mario% poetry run python test_db_connection.py
-Connecting to database: better_call_buffet at bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.c
+Connecting to database: better_call_buffet at ************.amazonaws.c
 om
 ```
 
@@ -11482,7 +11482,7 @@ _****_
 + - **Engine**: PostgreSQL 15.x
 + - **Instance Class**: db.t3.micro (1 vCPU, 1 GB RAM)
 + - **Storage**: 20 GB General Purpose SSD (gp2)
-+ - **Endpoint**: bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com
++ - **Endpoint**: ************.amazonaws.com
 + - **Port**: 5432
 + - **Database Name**: better_call_buffet
 + 
@@ -11491,7 +11491,7 @@ _****_
 + Use the following connection string format in your application:
 + 
 + ```
-+ postgresql://username:password@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet
++ postgresql://username:password@************.amazonaws.com:5432/better_call_buffet
 + ```
 + 
 + The actual connection string is stored securely in the `.env` file.
@@ -11550,7 +11550,7 @@ _****_
 + ### Using psql Command Line
 + 
 + ```bash
-+ psql -h bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com -U postgres -d better_call_buffet
++ psql -h ************.amazonaws.com -U postgres -d better_call_buffet
 + ```
 + 
 + ## Troubleshooting
@@ -11584,7 +11584,7 @@ _****_
 + sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 + 
 + # Import models that need to be created
-+ from app.db.base import Base
++ from app.db.connection_and_session import Base
 + from app.domains.users.models import User
 + 
 + def init_db():
@@ -12381,7 +12381,7 @@ _****_
 + 
 + Our PostgreSQL database is hosted on AWS RDS with the following details:
 + 
-+ - **Host**: bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com
++ - **Host**: ************.amazonaws.com
 + - **Port**: 5432
 + - **Database Name**: better_call_buffet
 + - **Username**: postgres
@@ -12398,7 +12398,7 @@ _****_
 + psql -h HOSTNAME -U USERNAME -d DATABASE_NAME
 + 
 + # For our project
-+ psql -h bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com -U postgres -d better_call_buffet
++ psql -h ************.amazonaws.com -U postgres -d better_call_buffet
 + 
 + # You'll be prompted for the password
 + ```
@@ -12466,7 +12466,7 @@ _****_
 + - **DataGrip**: JetBrains IDE for databases (paid)
 + 
 + Connection settings:
-+ - Host: bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com
++ - Host: ************.amazonaws.com
 + - Port: 5432
 + - Database: better_call_buffet
 + - Username: postgres
@@ -12623,7 +12623,7 @@ _****_
 + 
 + For our project:
 + ```
-+ postgresql://postgres:YOUR_PASSWORD@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet
++ postgresql://postgres:YOUR_PASSWORD@************.amazonaws.com:5432/better_call_buffet
 + ```
 + 
 + ## Security Best Practices
@@ -12773,7 +12773,7 @@ _****_
 - 
 - Connection settings:
 - 
-- - Host: bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com
+- - Host: ************.amazonaws.com
 - - Port: 5432
 - - Database: better_call_buffet
 - - Username: postgres
@@ -12798,7 +12798,7 @@ _****_
 + 3. **Enter Connection Details**:
 +    ```
 +    Main Tab:
-+    ├── Server Host: bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com
++    ├── Server Host: ************.amazonaws.com
 +    ├── Port: 5432
 +    ├── Database: better_call_buffet
 +    ├── Username: postgres
@@ -13013,7 +13013,7 @@ _****_
 + 2. Configuration Options
 +    ├── Software
 +    │   ├── Environment properties:
-+    │   │   ├── DATABASE_URL=postgresql://postgres:password@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet
++    │   │   ├── DATABASE_URL=postgresql://postgres:password@************.amazonaws.com:5432/better_call_buffet
 +    │   │   ├── PROJECT_NAME=Better Call Buffet
 +    │   │   ├── SECRET_KEY=long-secret-key-for-production
 +    │   │   ├── API_V1_PREFIX=/api/v1
@@ -13900,7 +13900,7 @@ _****_
 +    
 +    # Step 10: Software
 +    - Environment properties:
-+      DATABASE_URL=postgresql://postgres:password@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet
++      DATABASE_URL=postgresql://postgres:password@************.amazonaws.com:5432/better_call_buffet
 +      PROJECT_NAME=Better Call Buffet
 +      SECRET_KEY=[your-secret-key-value]
 +      API_V1_PREFIX=/api/v1
@@ -15927,7 +15927,7 @@ _****_
 +    # Update the environment variable
 +    aws elasticbeanstalk update-environment \
 +      --environment-name better-call-buffet-prod \
-+      --option-settings Namespace=aws:elasticbeanstalk:application:environment,OptionName=DATABASE_URL,Value=postgresql://postgres:password@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet
++      --option-settings Namespace=aws:elasticbeanstalk:application:environment,OptionName=DATABASE_URL,Value=postgresql://postgres:password@************.amazonaws.com:5432/better_call_buffet
 +    ```
 + 
 + 3. **RDS Instance Not Running**
@@ -15970,7 +15970,7 @@ _****_
 +    ```bash
 +    # Check if database tables are created
 +    # Connect to database and verify tables
-+    psql -h bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com -U postgres -d better_call_buffet -c "\dt"
++    psql -h ************.amazonaws.com -U postgres -d better_call_buffet -c "\dt"
 +    
 +    # Run schema creation script if needed
 +    python scripts/create_tables.py
@@ -16323,7 +16323,7 @@ _****_
 + 
 + 8. **Configure Environment Variables**
 +    ```
-+    DATABASE_URL=postgresql://postgres:E2Eea2Bt^KeL4h@bcb-db.cl04u4kue30d.us-east-1.rds.amazonaws.com:5432/better_call_buffet
++    DATABASE_URL=postgresql://postgres:************h@************.amazonaws.com:5432/better_call_buffet
 +    API_V1_PREFIX=/api/v1
 +    PROJECT_NAME=Better Call Buffet
 +    SECRET_KEY=your-super-secret-key-change-this-in-production

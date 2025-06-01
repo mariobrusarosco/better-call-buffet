@@ -1,4 +1,4 @@
-FROM python:3.8-slim
+FROM python:3.10-slim
 
 WORKDIR /app
 
@@ -7,19 +7,27 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
         build-essential \
+        gcc \
+        python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
+# Install Poetry using pip (more reliable in WSL environments)
+RUN pip install poetry==2.1.2
+
+# Set PATH to include Poetry binaries
+ENV PATH="${PATH}:/root/.local/bin"
+
+# Copy README.md first (needed for poetry install)
+COPY README.md ./
 
 # Copy poetry files
-COPY pyproject.toml poetry.lock ./
+COPY pyproject.toml poetry.lock* ./
 
 # Configure poetry to not create a virtual environment
 RUN poetry config virtualenvs.create false
 
-# Install dependencies
-RUN poetry install --no-dev --no-interaction --no-ansi
+# Install dependencies (skip installing the root project)
+RUN poetry install --no-interaction --no-ansi --no-root
 
 # Copy application code
 COPY . .
