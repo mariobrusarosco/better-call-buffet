@@ -818,6 +818,756 @@ Can you follow the ADRs IDs order? This new file should start with 005
 
 _**Assistant**_
 
+I'll check the existing ADRs first to ensure we follow the correct order:
+
+---
+
+<details>
+            <summary>Listed directory docs/decisions • **7** results</summary>
+        
+| Name |
+|-------|
+| 📄 `0001-logging-configuration.md` |
+| 📄 `004-elastic-beanstalk-deployment.md` |
+| 📄 `README.md` |
+| 📄 `000-decision-template.md` |
+| 📄 `001-nat-gateway-omission.md` |
+| 📄 `002-iam-permissions-model.md` |
+| 📄 `003-rds-configuration-choices.md` |
+
+</details>
+
+---
+
+Yes, you're right! I see we have ADRs from 000 to 004. Let me rename our new logging configuration ADR to follow the sequence:
+
+---
+
+```diff
+- 
++ # Logging Configuration Improvement
++ 
++ ## Status
++ Accepted
++ 
++ ## Context
++ The application needed better visibility into its operations, particularly for debugging database connection issues and tracking application behavior. The default logging configuration was minimal and didn't provide sufficient information for troubleshooting.
++ 
++ ## Decision
++ We implemented a centralized logging configuration with the following features:
++ 
++ 1. Created a dedicated module `app/core/logging_config.py` for logging configuration
++ 2. Configured logging with:
++    - Log level set to INFO by default
++    - Structured log format including timestamp, level, module, and message
++    - Console output directed to stdout
++    - Special configuration for SQLAlchemy to log database operations
++    - Formatter pattern: `[%(asctime)s] %(levelname)s in %(module)s: %(message)s`
++ 
++ Example of the logging configuration:
++ ```python
++ def setup_logging():
++     logger = logging.getLogger()
++     logger.setLevel(logging.INFO)
++     console_handler = logging.StreamHandler(sys.stdout)
++     console_handler.setLevel(logging.INFO)
++     formatter = logging.Formatter(
++         '[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
++     )
++     console_handler.setFormatter(formatter)
++     logger.addHandler(console_handler)
++     logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
++     return logger
++ ```
++ 
++ ## Consequences
++ 
++ ### Positive
++ 1. Better visibility into application operations
++ 2. Structured logging format makes logs easier to read and parse
++ 3. Database operations are now logged at INFO level, making it easier to debug SQL issues
++ 4. Consistent logging format across the application
++ 5. Centralized logging configuration makes it easier to modify logging behavior
++ 
++ ### Negative
++ 1. Slightly increased verbosity in logs
++ 2. Minor memory overhead from additional logging
++ 
++ ## Usage
++ The logging configuration is automatically set up when the application starts. To use logging in any module:
++ 
++ ```python
++ import logging
++ 
++ logger = logging.getLogger(__name__)
++ 
++ # Example usage
++ logger.info("Operation completed successfully")
++ logger.error("An error occurred", exc_info=True)
++ ```
++ 
++ ## Future Considerations
++ 1. Add log rotation to manage log file sizes
++ 2. Add file-based logging for production environments
++ 3. Consider adding structured logging (JSON format) for better log aggregation
++ 4. Implement different log levels for different environments (development/staging/production) 
+```
+
+---
+
+Now let's delete the old file with the incorrect number:
+
+---
+
+Deleting the old ADR file with incorrect numbering.
+
+---
+
+I've:
+1. Created a new ADR with the correct sequence number `005-logging-configuration.md`
+2. Deleted the old file with the incorrect number `0001-logging-configuration.md`
+
+The ADR now follows the correct numbering sequence in the `docs/decisions` directory. Is there anything else you'd like me to add or modify in the documentation?
+
+---
+
+_**User**_
+
+poetry install
+
+Current Python version (3.8.10) is not allowed by the project (^3.12).
+Please change python executable via the "env use" command.
+
+---
+
+_**Assistant**_
+
+I see the issue. Looking at the Cursor Rules context, I notice there's a discrepancy. The rules state:
+
+```
+## TECH STACK
+- Python 3.8
+```
+
+But it seems the `pyproject.toml` is configured for Python 3.12. Let me check the pyproject.toml file:
+
+---
+
+Read file: pyproject.toml
+
+---
+
+I see the issue. The project was initially set up for Python 3.8 (as shown in the tech stack and even in the Black configuration `target-version = ['py38']`), but the Python version requirement in `pyproject.toml` is set to `^3.12`.
+
+Let's fix this by updating the Python version requirement to match the project's actual target version:
+
+---
+
+```diff
+  
+  [tool.poetry.dependencies]
+- python = "^3.12"
++ python = "^3.8"
+  fastapi = "0.109.2"
+  uvicorn = "0.27.1"
+```
+
+---
+
+Now that we've updated the Python version requirement to `^3.8`, try running `poetry install` again. This should work with your Python 3.8.10 installation.
+
+If you still encounter any issues, you might need to:
+
+1. Delete the existing virtual environment:
+```bash
+poetry env remove python
+```
+
+2. Then create a new one and install dependencies:
+```bash
+poetry install
+```
+
+Let me know if you need any help with these steps!
+
+---
+
+_**User**_
+
+poetry shell
+Creating virtualenv better-call-buffet-RvGrznPt-py3.8 in C:\Users\mario\AppData\Local\pypoetry\Cache\virtualenvs
+Spawning shell within C:\Users\mario\AppData\Local\pypoetry\Cache\virtualenvs\better-call-buffet-RvGrznPt-py3.8
+
+mario@mario MSYS /c/coding/better-call-buffet (main)
+$ poetry install
+Installing dependencies from lock file
+The lock file might not be compatible with the current version of Poetry.
+Upgrade Poetry to ensure the lock file is read properly or, alternatively, regenerate the lock file with the `poetry lock` command.
+
+pyproject.toml changed significantly since poetry.lock was last generated. Run `poetry lock [--no-update]` to fix the lock file.
+
+mario@mario MSYS /c/coding/better-call-buffet (main)
+
+---
+
+_**Assistant**_
+
+The error indicates that the `poetry.lock` file is out of sync with our updated `pyproject.toml`. This is expected since we just changed the Python version requirement. Let's regenerate the lock file:
+
+---
+
+```bash
+poetry lock --no-update
+```
+
+```
+did not find executable at 'C:\Users\mario\AppData\Local\Programs\Python\Python313\python.exe': The sys
+tem cannot find the path specified.
+
+PS C:\coding\better-call-buffet>
+```
+
+---
+
+I see there's an issue with Poetry trying to use Python 3.13. Let's explicitly tell Poetry which Python version to use:
+
+---
+
+```bash
+poetry env use python3.8
+```
+
+```
+PS C:\coding\better-call-buffet> poetry env use python3.8
+did not find executable at 'C:\Users\mario\AppData\Local\Programs\Python\Python313\python.exe': The sys
+tem cannot find the path specified.
+
+PS C:\coding\better-call-buffet>
+```
+
+---
+
+Let's try with the full Python path:
+
+---
+
+```bash
+poetry env use C:\Users\mario\AppData\Local\Programs\Python\Python38\python.exe
+```
+
+```
+PS C:\coding\better-call-buffet> poetry env use C:\Users\mario\AppData\Local\Programs\Python\Python38\p
+ython.exe
+did not find executable at 'C:\Users\mario\AppData\Local\Programs\Python\Python313\python.exe': The sys
+tem cannot find the path specified.
+
+PS C:\coding\better-call-buffet>
+```
+
+---
+
+It seems there might be an issue with Poetry's configuration. Let's try these steps in sequence:
+
+1. First, let's remove the existing virtual environment:
+
+---
+
+```bash
+poetry env remove better-call-buffet-RvGrznPt-py3.8
+```
+
+```
+PS C:\coding\better-call-buffet> poetry env remove better-call-buffet-RvGrznPt-py3.8
+did not find executable at 'C:\Users\mario\AppData\Local\Programs\Python\Python313\python.exe': The sys
+tem cannot find the path specified.
+
+PS C:\coding\better-call-buffet>
+```
+
+---
+
+It seems there's a deeper issue with Poetry's configuration. Here's what you should do manually:
+
+1. Exit the Poetry shell first (type `exit` in your terminal)
+
+2. Then run these commands in sequence:
+```bash
+# Delete the Poetry cache directory
+rm -rf C:\Users\mario\AppData\Local\pypoetry\Cache\virtualenvs\better-call-buffet-*
+
+# Delete the lock file
+rm poetry.lock
+
+# Configure Poetry to use your Python 3.8 installation
+poetry config virtualenvs.path C:\Users\mario\AppData\Local\pypoetry\Cache\virtualenvs
+poetry config virtualenvs.in-project false
+
+# Create a new environment and install dependencies
+poetry env use C:\Users\mario\AppData\Local\Programs\Python\Python38\python.exe
+poetry install
+```
+
+If you're still having issues, we can try an alternative approach:
+
+1. Uninstall Poetry completely:
+```bash
+pip uninstall poetry
+```
+
+2. Reinstall Poetry:
+```bash
+pip install poetry
+```
+
+3. Then try the setup again:
+```bash
+poetry env use C:\Users\mario\AppData\Local\Programs\Python\Python38\python.exe
+poetry install
+```
+
+Let me know which approach you'd like to try or if you need help with any of these steps!
+
+---
+
+_**User**_
+
+poetry install
+Updating dependencies
+Resolving dependencies... (1.7s)
+
+The current project's supported Python range (>=3.8,<4.0) is not compatible with some of the required packages Python requirement:
+  - flake8 requires Python >=3.8.1, so it will not be satisfied for Python >=3.8,<3.8.1
+
+Because no versions of flake8 match >6.1.0,<7.0.0
+ and flake8 (6.1.0) requires Python >=3.8.1, flake8 is forbidden.
+So, because better-call-buffet depends on flake8 (^6.1.0), version solving failed.
+
+  • Check your dependencies Python requirement: The Python requirement can be specified via the `python` or `markers` properties
+    
+    For flake8, a possible solution would be to set the `python` property to ">=3.8.1,<4.0"
+
+    https://python-poetry.org/docs/dependency-specification/#python-restricted-dependencies,
+    https://python-poetry.org/docs/dependency-specification/#using-environment-markers
+
+---
+
+_**Assistant**_
+
+Ah, I see the issue. Flake8 6.1.0 requires Python 3.8.1 or higher, but our Python requirement starts at 3.8.0. Let's update the Python version requirement in `pyproject.toml` to match this constraint:
+
+---
+
+```diff
+  
+  [tool.poetry.dependencies]
+- python = "^3.8"
++ python = ">=3.8.1,<4.0"
+  fastapi = "0.109.2"
+  uvicorn = "0.27.1"
+```
+
+---
+
+Now try running `poetry install` again. The Python version requirement has been updated to be compatible with flake8's requirements. The new requirement `>=3.8.1,<4.0`:
+- Minimum version: 3.8.1 (to satisfy flake8)
+- Maximum version: Any version below 4.0 (to maintain compatibility with Python 3.x)
+
+This should resolve the dependency conflict. Let me know if you encounter any other issues!
+
+---
+
+_**User**_
+
+This is not acceptable. Every time I try to install this project I face a sea of errors.
+
+We need to fix this. How can we make this professionally?
+
+
+poetry install
+Updating dependencies
+Resolving dependencies... (5.5s)
+
+The current project's supported Python range (>=3.8.1,<4.0) is not compatible with some of the required packages Python requirement:
+  - alembic requires Python >=3.9, so it will not be satisfied for Python >=3.8.1,<3.9
+  - alembic requires Python >=3.9, so it will not be satisfied for Python >=3.8.1,<3.9
+  - alembic requires Python >=3.9, so it will not be satisfied for Python >=3.8.1,<3.9
+
+Because no versions of alembic match >1.15.2,<1.16.0 || >1.16.0,<1.16.1 || >1.16.1,<2.0.0
+ and alembic (1.15.2) requires Python >=3.9, alembic is forbidden.
+And because alembic (1.16.0) requires Python >=3.9, alembic is forbidden.
+So, because alembic (1.16.1) requires Python >=3.9
+ and better-call-buffet depends on alembic (^1.15.2), version solving failed.
+
+  • Check your dependencies Python requirement: The Python requirement can be specified via the `python` or `markers` properties
+    
+    For alembic, a possible solution would be to set the `python` property to ">=3.9,<4.0"
+    For alembic, a possible solution would be to set the `python` property to ">=3.9,<4.0"
+    For alembic, a possible solution would be to set the `python` property to ">=3.9,<4.0"
+
+    https://python-poetry.org/docs/dependency-specification/#python-restricted-dependencies,
+    https://python-poetry.org/docs/dependency-specification/#using-environment-markers
+
+
+
+
+---
+
+_**Assistant**_
+
+You're absolutely right. Let's make this professional by properly analyzing and fixing our dependency issues. First, let's understand what's happening:
+
+1. We have conflicting Python version requirements:
+   - Project was initially targeting Python 3.8
+   - Flake8 needs ≥3.8.1
+   - Alembic needs ≥3.9
+   - Other dependencies might have their own requirements
+
+Let's make a proper analysis and fix:
+
+1. First, let's check what Python versions are commonly used in production environments:
+
+---
+
+<details>
+            <summary>Searched web "python 3.9 vs 3.10 vs 3.11 production usage 2024" • **5** results</summary>
+        
+| Title | URL |
+|-------|-----|
+| What's New In Python 3.11 | https://docs.python.org/3/whatsnew/3.11.html |
+| Summary of Major Changes Between Python Versions | https://www.linkedin.com/pulse/summary-major-changes-between-python-versions-roman-kulibaba-vikhf |
+| Usage Statistics and Market Share of Python Version 3.9 for Websites, June 2024 | https://w3techs.com/technologies/details/pl-python/3.9 |
+| When should you upgrade to Python 3.13? | https://pythonspeed.com/articles/upgrade-python-3.13 |
+| Historical trends in the usage statistics of Python version 3, June 2024 | https://w3techs.com/technologies/history_details/pl-python/3 |
+
+</details>
+
+---
+
+Based on my analysis of the search results and Python version information, I'll help you fix the dependency issues and make this project professionally maintainable. Let's break this down into steps:
+
+1. First, let's analyze the current state:
+- You're getting dependency conflicts with alembic requiring Python >=3.9
+- Your pyproject.toml currently specifies Python ">=3.8.1,<4.0"
+- The error suggests updating to Python >=3.9
+
+2. Looking at Python version support timelines:
+- Python 3.8 reached end of security updates in October 2024
+- Python 3.9 will reach end of security updates in October 2025
+- Python 3.10+ are the currently supported versions
+
+3. Let's check your pyproject.toml:
+
+---
+
+Read file: pyproject.toml
+
+---
+
+Based on this analysis, I recommend we update the Python version requirement to >=3.9 since:
+
+1. Alembic 1.15.2 requires Python >=3.9
+2. Python 3.8 is already end-of-life
+3. All your other dependencies are compatible with Python 3.9+
+
+Let me update the pyproject.toml:
+
+---
+
+```diff
+  
+  [tool.poetry.dependencies]
+- python = ">=3.8.1,<4.0"
++ python = ">=3.9,<4.0"
+  fastapi = "0.109.2"
+  uvicorn = "0.27.1"
+```
+
+```diff
+  [tool.black]
+  line-length = 88
+- target-version = ['py38']
++ target-version = ['py39']
+  include = '\.pyi?$'
+  
+```
+
+---
+
+Now you can try running `poetry install` again. This should resolve the dependency conflict with alembic.
+
+Some additional recommendations to keep your project professionally maintainable:
+
+1. Consider setting up CI/CD to:
+   - Run tests against multiple Python versions (3.9, 3.10, 3.11)
+   - Check for dependency updates regularly
+   - Run security scans
+
+2. Document Python version requirements in your README.md
+
+3. Set up a regular schedule to:
+   - Review and update dependencies
+   - Plan Python version upgrades before EOL dates
+   - Test compatibility with newer Python versions
+
+4. Consider adding version pins for all dependencies to ensure reproducible builds
+
+Would you like me to help implement any of these additional recommendations? Or would you like me to explain any part of the changes in more detail?
+
+---
+
+_**User**_
+
+Let's go with python  3.10+ then?
+
+---
+
+_**Assistant**_
+
+That's a good choice! Python 3.10+ is well-established, has great library support, and offers several useful features. Let me update the configuration:
+
+---
+
+```diff
+  
+  [tool.poetry.dependencies]
+- python = ">=3.9,<4.0"
++ python = ">=3.10,<4.0"
+  fastapi = "0.109.2"
+  uvicorn = "0.27.1"
+```
+
+```diff
+  [tool.black]
+  line-length = 88
+- target-version = ['py39']
++ target-version = ['py310']
+  include = '\.pyi?$'
+  
+```
+
+---
+
+Now let's try installing the dependencies with the new Python version requirement:
+
+---
+
+```bash
+poetry install
+```
+
+```
+did not find executable at 'C:\Users\mario\AppData\Local\Programs\Python\Python313\python.exe': The sys
+tem cannot find the path specified.
+
+PS C:\coding\better-call-buffet>
+```
+
+---
+
+It seems there might be an issue with Poetry finding the correct Python installation. Let's check what Python versions are available:
+
+---
+
+```bash
+python --version
+```
+
+```
+PS C:\coding\better-call-buffet> python --version
+Python was not found; run without arguments to install from the Microsoft Store, or disable this shortc
+ut from Settings > Apps > Advanced app settings > App execution aliases.
+PS C:\coding\better-call-buffet>
+```
+
+---
+
+I see the issue - Python isn't properly set up in your PATH. Here's what we need to do:
+
+1. First, you'll need to install Python 3.10 or higher from python.org
+2. Make sure to check "Add Python to PATH" during installation
+3. After installation, you'll need to:
+   - Close and reopen your terminal
+   - Run `python --version` to verify Python is installed
+   - Run `pip install poetry` to install/update Poetry
+   - Then run `poetry install` in your project directory
+
+Would you like me to provide more detailed instructions for any of these steps? Also, I can help you choose a specific Python version (3.10, 3.11, or 3.12) based on your needs. Each version has its own benefits:
+
+- Python 3.10: Most stable, great library support
+- Python 3.11: Significant performance improvements (10-60% faster)
+- Python 3.12: Newest features but some libraries might not support it yet
+
+Which version would you prefer to use? I can adjust the pyproject.toml accordingly and provide specific installation instructions for that version.
+
+---
+
+_**User**_
+
+3.11
+
+---
+
+_**Assistant**_
+
+Good choice! Python 3.11 offers significant performance improvements (10-60% faster) while having mature library support. Let me update the configuration for Python 3.11:
+
+---
+
+```diff
+  
+  [tool.poetry.dependencies]
+- python = ">=3.10,<4.0"
++ python = ">=3.11,<4.0"
+  fastapi = "0.109.2"
+  uvicorn = "0.27.1"
+```
+
+```diff
+  [tool.black]
+  line-length = 88
+- target-version = ['py310']
++ target-version = ['py311']
+  include = '\.pyi?$'
+  
+```
+
+---
+
+Here are the steps to install Python 3.11 on Windows:
+
+1. Download Python 3.11 from the official website:
+   - Go to https://www.python.org/downloads/release/python-3119/
+   - Scroll down and click on "Windows installer (64-bit)"
+
+2. Run the installer:
+   - IMPORTANT: Check "Add Python 3.11 to PATH"
+   - Choose "Customize installation"
+   - In Advanced Options, check:
+     - "Install for all users"
+     - "Add Python to environment variables"
+     - "Create shortcuts for installed applications"
+     - "Add Python to PATH"
+   - Choose your installation directory (the default is fine)
+
+3. After installation, close your current terminal/PowerShell window and open a new one.
+
+4. Verify the installation by running:
+```powershell
+python --version  # Should show Python 3.11.x
+```
+
+5. Install Poetry:
+```powershell
+pip install poetry
+```
+
+6. In your project directory:
+```powershell
+poetry env use python3.11
+poetry install
+```
+
+Would you like me to walk you through any of these steps? Once you've completed the Python installation, let me know and I can help verify everything is set up correctly.
+
+Some benefits you'll get from Python 3.11:
+- Much better performance (10-60% faster than 3.10)
+- Better error messages with precise error locations
+- Exception groups for handling multiple errors
+- Support for TOML out of the box
+- Improved typing features
+
+Let me know once you've installed Python 3.11 and I'll help you verify and complete the setup!
+
+---
+
+_**User**_
+
+ollecting backports.tarfile
+  Downloading backports.tarfile-1.2.0-py3-none-any.whl (30 kB)
+Collecting sniffio>=1.1
+  Downloading sniffio-1.3.1-py3-none-any.whl (10 kB)
+Collecting typing_extensions>=4.5
+  Downloading typing_extensions-4.13.2-py3-none-any.whl (45 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.8/45.8 kB 2.4 MB/s eta 0:00:00
+Installing collected packages: trove-classifiers, fastjsonschema, distlib, zstandard, zipp, urllib3, typing_extensions, tomlkit, sniffio, shellingham, rapidfuzz, pywin32-ctypes, pyproject-hooks, poetry-core, platformdirs, pkginfo, pbs-installer, packaging, msgpack, more-itertools, installer, idna, h11, filelock, crashtest, colorama, charset-normalizer, certifi, backports.tarfile, virtualenv, requests, jaraco.functools, jaraco.context, jaraco.classes, importlib_metadata, httpcore, findpython, dulwich, cleo, build, anyio, requests-toolbelt, keyring, httpx, cachecontrol, poetry
+  WARNING: The script trove-classifiers.exe is installed in 'C:\Users\mario\AppData\Roaming\Python\Python311\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script pkginfo.exe is installed in 'C:\Users\mario\AppData\Roaming\Python\Python311\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script pbs-install.exe is installed in 'C:\Users\mario\AppData\Roaming\Python\Python311\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script normalizer.exe is installed in 'C:\Users\mario\AppData\Roaming\Python\Python311\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script virtualenv.exe is installed in 'C:\Users\mario\AppData\Roaming\Python\Python311\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script findpython.exe is installed in 'C:\Users\mario\AppData\Roaming\Python\Python311\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script dulwich.exe is installed in 'C:\Users\mario\AppData\Roaming\Python\Python311\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script pyproject-build.exe is installed in 'C:\Users\mario\AppData\Roaming\Python\Python311\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script keyring.exe is installed in 'C:\Users\mario\AppData\Roaming\Python\Python311\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script httpx.exe is installed in 'C:\Users\mario\AppData\Roaming\Python\Python311\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script doesitcache.exe is installed in 'C:\Users\mario\AppData\Roaming\Python\Python311\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script poetry.exe is installed in 'C:\Users\mario\AppData\Roaming\Python\Python311\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+Successfully installed anyio-4.9.0 backports.tarfile-1.2.0 build-1.2.2.post1 cachecontrol-0.14.3 certifi-2025.4.26 charset-normalizer-3.4.2 cleo-2.1.0 colorama-0.4.6 crashtest-0.4.1 distlib-0.3.9 dulwich-0.22.8 fastjsonschema-2.21.1 filelock-3.18.0 findpython-0.6.3 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 idna-3.10 importlib_metadata-8.7.0 installer-0.7.0 jaraco.classes-3.4.0 jaraco.context-6.0.1 jaraco.functools-4.1.0 keyring-25.6.0 more-itertools-10.7.0 msgpack-1.1.0 packaging-25.0 pbs-installer-2025.5.17 pkginfo-1.12.1.2 platformdirs-4.3.8 poetry-2.1.3 poetry-core-2.1.3 pyproject-hooks-1.2.0 pywin32-ctypes-0.2.3 rapidfuzz-3.13.0 requests-2.32.3 requests-toolbelt-1.0.0 shellingham-1.5.4 sniffio-1.3.1 tomlkit-0.13.2 trove-classifiers-2025.5.9.12 typing_extensions-4.13.2 urllib3-2.4.0 virtualenv-20.31.2 zipp-3.22.0 zstandard-0.23.0
+
+[notice] A new release of pip available: 22.3 -> 25.1.1
+[notice] To update, run: python.exe -m pip install --upgrade pip
+ python.exe -m pip install --upgrade pip
+Defaulting to user installation because normal site-packages is not writeable
+Requirement already satisfied: pip in c:\program files\python311\lib\site-packages (22.3)
+Collecting pip
+  Downloading pip-25.1.1-py3-none-any.whl (1.8 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 4.3 MB/s eta 0:00:00
+Installing collected packages: pip
+  WARNING: The scripts pip.exe, pip3.11.exe and pip3.exe are installed in 'C:\Users\mario\AppData\Roaming\Python\Python311\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+Successfully installed pip-25.1.1
+poetry env use python3.11
+
+Could not find the python executable python3.11
+
+---
+
+_**Assistant**_
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
 
 
 ---
