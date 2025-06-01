@@ -9,6 +9,10 @@ import platform
 
 from app.core.config import settings
 from app.api.v1.api import api_router
+from app.core.logging_config import setup_logging
+
+# Setup logging
+logger = setup_logging()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
