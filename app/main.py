@@ -2,7 +2,7 @@ from fastapi import FastAPI
 import logging
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.v1.api import api_router
+from app.api.v1 import api_router
 from app.core.logging_config import setup_logging
 
 # Setup logging
@@ -42,7 +42,3 @@ async def root():
 async def health_check():
     logger.info("Health check endpoint was called!")
     return {"status": "healthy"}
-
-
-# Remove or complete this route
-# @app.get("/health/live")
