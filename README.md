@@ -155,61 +155,71 @@ aws rds describe-db-instances \
 
 ### Secrets Management
 
-1. Create production secrets:
+For production deployment, sensitive environment variables are stored in AWS Secrets Manager. Follow these steps to set up:
+
+1. Create the secret in AWS Secrets Manager:
 ```bash
 aws secretsmanager create-secret \
     --name better-call-buffet/production \
     --description "Production environment variables for Better Call Buffet" \
-    --secret-string "{
-        \"DATABASE_URL\":\"postgresql://bcb_admin:YOUR_PASSWORD@YOUR_RDS_ENDPOINT:5432/better_call_buffet\",
-        \"SECRET_KEY\":\"your-production-secret-key\",
-        \"ENVIRONMENT\":\"production\",
-        \"API_V1_PREFIX\":\"/api/v1\",
-        \"PROJECT_NAME\":\"Better Call Buffet\",
-        \"BACKEND_CORS_ORIGINS\":[\"https://better-call-buffet.com\"]
-    }"
+    --secret-string '{"DATABASE_URL":"postgresql://user:pass@host:5432/db","SECRET_KEY":"your-secret-key","ENVIRONMENT":"production","BACKEND_CORS_ORIGINS":["https://yourdomain.com"]}'
 ```
 
-2. Create IAM policy for secrets access:
+2. Create IAM policy for accessing secrets:
 ```bash
-aws iam create-policy \
-    --policy-name better-call-buffet-secrets-policy \
-    --policy-document "{
-        \"Version\": \"2012-10-17\",
-        \"Statement\": [
-            {
-                \"Effect\": \"Allow\",
-                \"Action\": [
-                    \"secretsmanager:GetSecretValue\"
-                ],
-                \"Resource\": \"arn:aws:secretsmanager:us-east-1:YOUR_ACCOUNT_ID:secret:better-call-buffet/*\"
-            }
-        ]
-    }"
+aws iam create-policy --policy-name better-call-buffet-secrets-policy --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"secretsmanager:GetSecretValue\"],\"Resource\":\"arn:aws:secretsmanager:us-east-1:905418297381:secret:better-call-buffet/production-yGOUNN\"}]}"
 ```
 
-3. Create IAM role for ECS tasks (will be used later):
+3. Create IAM role for ECS tasks:
 ```bash
-aws iam create-role \
-    --role-name better-call-buffet-ecs-role \
-    --assume-role-policy-document "{
-        \"Version\": \"2012-10-17\",
-        \"Statement\": [
-            {
-                \"Effect\": \"Allow\",
-                \"Principal\": {
-                    \"Service\": \"ecs-tasks.amazonaws.com\"
-                },
-                \"Action\": \"sts:AssumeRole\"
-            }
-        ]
-    }"
-
-# Attach the secrets policy to the role
-aws iam attach-role-policy \
-    --role-name better-call-buffet-ecs-role \
-    --policy-arn arn:aws:iam::YOUR_ACCOUNT_ID:policy/better-call-buffet-secrets-policy
+aws iam create-role --role-name better-call-buffet-ecs-role --assume-role-policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ecs-tasks.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
 ```
+
+4. Attach the secrets policy to the ECS role:
+```bash
+aws iam attach-role-policy --role-name better-call-buffet-ecs-role --policy-arn arn:aws:iam::905418297381:policy/better-call-buffet-secrets-policy
+```
+
+The application will automatically use AWS Secrets Manager when the `ENVIRONMENT` variable is set to `production`. In development, it will continue to use the local `.env` file.
+
+### Container Registry Setup (ECR)
+
+1. Create ECR repository:
+```bash
+aws ecr create-repository \
+    --repository-name better-call-buffet \
+    --image-scanning-configuration scanOnPush=true \
+    --region us-east-1
+```
+
+2. Get AWS account ID:
+```bash
+aws sts get-caller-identity --query Account --output text
+# This will output your AWS account ID, for example: 905418297381
+```
+
+3. Authenticate Docker with ECR:
+```bash
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 905418297381.dkr.ecr.us-east-1.amazonaws.com
+```
+
+4. Build and push Docker image:
+```bash
+# Build the image
+docker build -t better-call-buffet .
+
+# Tag the image for ECR
+docker tag better-call-buffet:latest 905418297381.dkr.ecr.us-east-1.amazonaws.com/better-call-buffet:latest
+
+# Push to ECR
+docker push 905418297381.dkr.ecr.us-east-1.amazonaws.com/better-call-buffet:latest
+```
+
+Notes:
+- Replace `905418297381` with your actual AWS account ID
+- The repository supports image scanning on push for security
+- Images are encrypted at rest using AES-256
+- Authentication tokens are valid for 12 hours
 
 ## License
 

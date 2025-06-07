@@ -24,13 +24,13 @@
 - [x] Create production secrets in AWS Secrets Manager
 - [x] Configure IAM roles for secrets access
 - [x] Update application to fetch secrets in production
-- [ ] Remove sensitive data from version control
+- [x] Remove sensitive data from version control
 
 ### 5. Container Registry Setup (Amazon ECR)
-- [ ] Create ECR repository
-- [ ] Configure Docker for ECR authentication
-- [ ] Test image push to ECR
-- [ ] Validate image pull from ECR
+- [x] Create ECR repository
+- [x] Configure Docker for ECR authentication
+- [x] Test image push to ECR
+- [x] Validate image pull from ECR
 
 ### 6. Application Deployment (Amazon ECS)
 - [ ] Create ECS cluster
