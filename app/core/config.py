@@ -1,6 +1,11 @@
+import os
 from typing import List
 from pydantic_settings import BaseSettings
 from pydantic import AnyHttpUrl
+
+# Only import secrets in production to avoid boto3 requirement in development
+if os.getenv('ENVIRONMENT') == 'production':
+    from .secrets import get_aws_secrets
 
 class Settings(BaseSettings):
     API_V1_PREFIX: str
@@ -23,4 +28,11 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = True
 
-settings = Settings() 
+    def __init__(self, **kwargs):
+        if os.getenv('ENVIRONMENT') == 'production':
+            # Get secrets from AWS Secrets Manager
+            aws_secrets = get_aws_secrets('better-call-buffet/production')
+            kwargs.update(aws_secrets)
+        super().__init__(**kwargs)
+
+settings = Settings()

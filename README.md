@@ -109,6 +109,108 @@ better-call-buffet/
 4. Format code: `black .`
 5. Submit a pull request
 
+## AWS Deployment
+
+### Database Setup (RDS)
+
+1. Create security group for RDS:
+```bash
+aws ec2 create-security-group \
+    --group-name better-call-buffet-db-sg \
+    --description "Security group for Better Call Buffet RDS"
+```
+
+2. Allow PostgreSQL traffic (development only):
+```bash
+aws ec2 authorize-security-group-ingress \
+    --group-id YOUR_SECURITY_GROUP_ID \
+    --protocol tcp \
+    --port 5432 \
+    --cidr 0.0.0.0/0
+```
+
+3. Create RDS instance:
+```bash
+aws rds create-db-instance \
+    --db-instance-identifier better-call-buffet-db \
+    --db-instance-class db.t3.micro \
+    --engine postgres \
+    --engine-version 15 \
+    --master-username bcb_admin \
+    --master-user-password YOUR_PASSWORD \
+    --allocated-storage 20 \
+    --vpc-security-group-ids YOUR_SECURITY_GROUP_ID \
+    --publicly-accessible \
+    --db-name better_call_buffet \
+    --no-multi-az \
+    --storage-type gp2
+```
+
+4. Check RDS status:
+```bash
+aws rds describe-db-instances \
+    --db-instance-identifier better-call-buffet-db \
+    --query 'DBInstances[0].{Status:DBInstanceStatus,Endpoint:Endpoint.Address}'
+```
+
+### Secrets Management
+
+1. Create production secrets:
+```bash
+aws secretsmanager create-secret \
+    --name better-call-buffet/production \
+    --description "Production environment variables for Better Call Buffet" \
+    --secret-string "{
+        \"DATABASE_URL\":\"postgresql://bcb_admin:YOUR_PASSWORD@YOUR_RDS_ENDPOINT:5432/better_call_buffet\",
+        \"SECRET_KEY\":\"your-production-secret-key\",
+        \"ENVIRONMENT\":\"production\",
+        \"API_V1_PREFIX\":\"/api/v1\",
+        \"PROJECT_NAME\":\"Better Call Buffet\",
+        \"BACKEND_CORS_ORIGINS\":[\"https://better-call-buffet.com\"]
+    }"
+```
+
+2. Create IAM policy for secrets access:
+```bash
+aws iam create-policy \
+    --policy-name better-call-buffet-secrets-policy \
+    --policy-document "{
+        \"Version\": \"2012-10-17\",
+        \"Statement\": [
+            {
+                \"Effect\": \"Allow\",
+                \"Action\": [
+                    \"secretsmanager:GetSecretValue\"
+                ],
+                \"Resource\": \"arn:aws:secretsmanager:us-east-1:YOUR_ACCOUNT_ID:secret:better-call-buffet/*\"
+            }
+        ]
+    }"
+```
+
+3. Create IAM role for ECS tasks (will be used later):
+```bash
+aws iam create-role \
+    --role-name better-call-buffet-ecs-role \
+    --assume-role-policy-document "{
+        \"Version\": \"2012-10-17\",
+        \"Statement\": [
+            {
+                \"Effect\": \"Allow\",
+                \"Principal\": {
+                    \"Service\": \"ecs-tasks.amazonaws.com\"
+                },
+                \"Action\": \"sts:AssumeRole\"
+            }
+        ]
+    }"
+
+# Attach the secrets policy to the role
+aws iam attach-role-policy \
+    --role-name better-call-buffet-ecs-role \
+    --policy-arn arn:aws:iam::YOUR_ACCOUNT_ID:policy/better-call-buffet-secrets-policy
+```
+
 ## License
 
 [License details here]

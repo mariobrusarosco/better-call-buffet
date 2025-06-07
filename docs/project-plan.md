@@ -14,25 +14,32 @@
 - [x] Choose AWS region for deployment (us-east-1)
 
 ### 3. Database Setup (Amazon RDS)
-- [ ] Create PostgreSQL RDS instance
-- [ ] Configure security groups for database access
-- [ ] Set up database credentials
-- [ ] Test database connection from local environment
+- [x] Create PostgreSQL RDS instance
+- [x] Configure security groups for database access
+- [x] Set up database credentials
+- [ ] Set up database migrations for deployment
 
-### 4. Container Registry Setup (Amazon ECR)
+### 4. Secrets Management
+- [x] Document secrets management in README
+- [x] Create production secrets in AWS Secrets Manager
+- [x] Configure IAM roles for secrets access
+- [x] Update application to fetch secrets in production
+- [ ] Remove sensitive data from version control
+
+### 5. Container Registry Setup (Amazon ECR)
 - [ ] Create ECR repository
 - [ ] Configure Docker for ECR authentication
 - [ ] Test image push to ECR
 - [ ] Validate image pull from ECR
 
-### 5. Application Deployment (Amazon ECS)
+### 6. Application Deployment (Amazon ECS)
 - [ ] Create ECS cluster
 - [ ] Define task definition
 - [ ] Configure service settings
 - [ ] Set up load balancer
 - [ ] Configure auto-scaling rules
 
-### 6. Network Configuration
+### 7. Network Configuration
 - [ ] Set up VPC if needed
 - [ ] Configure security groups
 - [ ] Set up routing and internet access
