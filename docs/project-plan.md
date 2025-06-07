@@ -8,10 +8,10 @@
 - [x] All application features tested in Docker environment
 
 ### 2. AWS Account Setup
-- [ ] Create AWS account if not exists
-- [ ] Install AWS CLI
-- [ ] Configure AWS credentials
-- [ ] Choose AWS region for deployment
+- [x] Create AWS account if not exists
+- [x] Install AWS CLI
+- [x] Configure AWS credentials
+- [x] Choose AWS region for deployment (us-east-1)
 
 ### 3. Database Setup (Amazon RDS)
 - [ ] Create PostgreSQL RDS instance

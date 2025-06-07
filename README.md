@@ -55,7 +55,24 @@ If you prefer to set up manually or the setup scripts don't work for you:
    pip install -r requirements.txt
    ```
 
-4. Copy the environment template:
+4. Install AWS CLI
+```bash
+curl "https://awscli.amazonaws.com/AWSCLIV2.msi" -o "AWSCLIV2.msi"
+```
+
+Add CLI to PATH
+
+```bash
+echo 'alias aws="python /c/Users/mario/AppData/Roaming/Python/Python311/Scripts/aws"' >> ~/.bashrc
+```
+
+Configure AWS credentials
+
+```bash
+aws configure
+```
+
+5. Copy the environment template:
    ```bash
    cp .env.example .env
    ```
