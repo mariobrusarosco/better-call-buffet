@@ -1,9 +1,11 @@
 # Database Migrations Guide
 
 ## Overview
+
 This guide explains how to work with database migrations in Better Call Buffet using Alembic. Migrations allow us to version control our database schema and make changes safely across different environments.
 
 ## Prerequisites
+
 - Python 3.8+
 - Poetry installed
 - Access to project's database
@@ -12,45 +14,49 @@ This guide explains how to work with database migrations in Better Call Buffet u
 ## Initial Setup
 
 1. **Install Dependencies**
+
    ```bash
    # Alembic is already in our pyproject.toml
    poetry install
    ```
 
 2. **Initialize Alembic** (if not done yet):
+
    ```bash
    poetry run alembic init migrations
    ```
 
 3. **Configure Environment Variables**
    Create or update your `.env` file with the database connection:
+
    ```env
    DATABASE_URL=postgresql://user:password@localhost:5432/dbname
    ```
 
 4. **Update migrations/env.py**
+
    ```python
    import sys
    from pathlib import Path
    sys.path.append(str(Path(__file__).resolve().parents[1]))
-   
+
    from app.db.connection_and_session import Base
    from app.core.config import settings
-   
+
    # Import all models here
    from app.domains.investments.model import Investment, InvestmentBalancePoint
    from app.domains.accounts.models import Account
-   
+
    # Override sqlalchemy.url with environment variable
    config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
-   
+
    target_metadata = Base.metadata
    ```
 
 5. **Clear sqlalchemy.url in alembic.ini**
    The URL will be set from environment variables, so in `alembic.ini` set:
    ```ini
-   sqlalchemy.url = 
+   sqlalchemy.url =
    ```
 
 ## Working with Migrations
@@ -68,11 +74,13 @@ This guide explains how to work with database migrations in Better Call Buffet u
 ### Applying Migrations
 
 1. Apply all pending migrations:
+
    ```bash
    poetry run alembic upgrade head
    ```
 
 2. Apply specific number of migrations:
+
    ```bash
    poetry run alembic upgrade +1  # Apply next migration
    ```
@@ -83,20 +91,64 @@ This guide explains how to work with database migrations in Better Call Buffet u
    poetry run alembic downgrade base  # Rollback all migrations
    ```
 
+### After Git Pull - Applying New Migrations
+
+When you pull changes from the repository that include new migrations, follow these steps:
+
+1. **Check your current migration status**:
+
+   ```bash
+   poetry run alembic current
+   ```
+
+2. **See what migrations are available**:
+
+   ```bash
+   poetry run alembic heads
+   ```
+
+3. **Apply all pending migrations**:
+
+   ```bash
+   poetry run alembic upgrade head
+   ```
+
+4. **Verify the migration was successful**:
+   ```bash
+   poetry run alembic current
+   ```
+   This should show the same revision as `alembic heads`
+
+**Quick Command**: If you just want to apply all pending migrations after a git pull:
+
+```bash
+poetry run alembic upgrade head
+```
+
+**Troubleshooting**: If you get errors during migration:
+
+- Check your database connection in `.env`
+- Ensure your database server is running
+- Verify you have the necessary permissions
+- Check the migration file for any issues
+
 ### Best Practices
 
 1. **Always Review Generated Migrations**
+
    - Alembic's autogenerate is not perfect
    - Check for correct table names, column types, and constraints
    - Ensure foreign keys are properly configured
    - Make sure all models are imported in `env.py`
 
 2. **Test Migrations**
+
    - Test both upgrade and downgrade operations
    - Use a test database before applying to production
    - Verify data integrity after migration
 
 3. **Naming Conventions**
+
    - Use descriptive names for migration files
    - Include the purpose of the migration in the message
    - Example: "add_investment_balance_points_table"
@@ -108,12 +160,14 @@ This guide explains how to work with database migrations in Better Call Buffet u
 ## Common Issues and Solutions
 
 ### Migration Not Detecting Changes
+
 - Ensure your models are imported in `env.py`
 - Check that your model inherits from `Base`
 - Verify the model is properly defined with SQLAlchemy syntax
 - Make sure your database URL is correct in `.env`
 
 ### Failed Migrations
+
 1. Don't panic! Migrations are transactional
 2. Check the error message
 3. Common issues:
@@ -124,6 +178,7 @@ This guide explains how to work with database migrations in Better Call Buffet u
 5. Fix the issue and regenerate the migration
 
 ### Database URL Issues
+
 1. Check your `.env` file has the correct DATABASE_URL format:
    ```
    DATABASE_URL=postgresql://username:password@localhost:5432/dbname
@@ -135,6 +190,7 @@ This guide explains how to work with database migrations in Better Call Buffet u
 ## Example: Adding a New Table
 
 1. Create your SQLAlchemy model:
+
 ```python
 class InvestmentBalancePoint(Base):
     __tablename__ = "investment_balance_points"
@@ -144,22 +200,26 @@ class InvestmentBalancePoint(Base):
 ```
 
 2. Import the model in `migrations/env.py`:
+
 ```python
 from app.domains.investments.model import InvestmentBalancePoint
 ```
 
 3. Generate migration:
+
 ```bash
 poetry run alembic revision --autogenerate -m "Add investment balance points table"
 ```
 
 4. Review and apply:
+
 ```bash
 poetry run alembic upgrade head
 ```
 
 ## Need Help?
+
 - Check Alembic documentation: https://alembic.sqlalchemy.org/
 - Review existing migrations in `migrations/versions/`
 - Consult with the team lead for complex schema changes
-- Check the project's `.env.example` for required environment variables 
+- Check the project's `.env.example` for required environment variables
