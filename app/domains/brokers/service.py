@@ -1,3 +1,4 @@
+from typing import List
 from uuid import UUID
 from sqlalchemy.orm import Session
 from app.domains.brokers.models import Broker
@@ -21,3 +22,9 @@ class BrokersService:
         self.db.commit()
         self.db.refresh(broker)
         return broker
+    
+    def get_all_user_brokers(self, user_id) -> List[Broker]:
+        return self.db.query(Broker).filter(
+            Broker.user_id == user_id,
+            Broker.is_active == True
+        ).all()

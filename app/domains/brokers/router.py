@@ -11,8 +11,9 @@ from fastapi import Depends
 router = APIRouter()
 
 @router.get("/")
-async def get_brokers():
-    return {"message": "Hello, World!"}
+async def get_brokers(db: Session = Depends(get_db_session), current_user_id: UUID = Depends(get_current_user_id)):
+    service = BrokersService(db)
+    return service.get_all_user_brokers(user_id=current_user_id)
 
 
 @router.post("/", response_model=Broker)
