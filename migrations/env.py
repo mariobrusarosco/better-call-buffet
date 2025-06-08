@@ -12,8 +12,9 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from app.db.connection_and_session import Base
 from app.domains.users.models import User
 from app.domains.accounts.models import Account
-from app.domains.broker.model import Broker
 from app.domains.balance_points.models import BalancePoint
+from app.domains.brokers.models import Broker
+from app.domains.invoices.models import Invoice
 from app.core.config import settings
 
 # this is the Alembic Config object, which provides
