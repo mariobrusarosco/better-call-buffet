@@ -1,5 +1,6 @@
 from datetime import datetime
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Float, ForeignKey, Enum, Index
+from sqlalchemy.orm import relationship
 import enum
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -27,10 +28,13 @@ class Account(Base):
     balance = Column(Float, default=0.0, nullable=False)
     currency = Column(String, default="BRL", nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    broker_id = Column(UUID(as_uuid=True), ForeignKey("brokers.id", ondelete="CASCADE"), nullable=True)
+    broker_id = Column(UUID(as_uuid=True), ForeignKey("brokers.id", ondelete="CASCADE"), nullable=False)
     # Foreign Keys
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False) 
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    broker = relationship("Broker", foreign_keys=[broker_id])
 

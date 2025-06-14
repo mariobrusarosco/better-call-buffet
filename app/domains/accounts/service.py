@@ -1,9 +1,10 @@
 from typing import List
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from uuid import UUID
 
 from app.domains.accounts.models import Account
-from app.domains.accounts.schemas import AccountIn, AccountType
+from app.domains.accounts.schemas import AccountIn, AccountType, AccountWithBroker
+from app.domains.brokers.models import Broker
 
 
 class AccountService:
@@ -33,8 +34,13 @@ class AccountService:
         self.db.refresh(db_account) # Refresh to get DB-generated values (like ID)
         return db_account # Return the newly created model instance
 
-    def get_account_by_id(self, account_id: UUID, user_id: UUID) -> Account:
-        return self.db.query(Account).filter(
+    def get_account_by_id(self, account_id: UUID, user_id: UUID) -> AccountWithBroker:
+        return self.db.query(Account).options(
+            joinedload(Account.broker)  # This will eagerly load the broker relationship
+        ).join( 
+            Broker,
+            Account.broker_id == Broker.id
+        ).filter(
             Account.id == account_id,
             Account.user_id == user_id
         ).first()
