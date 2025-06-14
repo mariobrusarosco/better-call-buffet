@@ -624,6 +624,88 @@ _**User**_
 
 _**Assistant**_
 
+```diff
+      note: Optional[str] = None
+  
+- # Schema for creating a balance point
++ # Schema for creating a balance point (what frontend sends)
+  class BalancePointIn(BalancePointBase):
+      pass
+  
+- # Schema for updating a balance point
++ # Schema for updating a balance point (partial fields)
+  class BalancePointUpdateIn(BaseModel):
+      date: Optional[datetime] = None
+      balance: Optional[float] = None
+      note: Optional[str] = None
+  
+- # Schema for database model
+- class BalancePointInDB(BalancePointBase):
++ # Schema for API responses (what users see)
++ class BalancePoint(BalancePointBase):
+      id: UUID
+      user_id: UUID
+```
+
+```diff
+          from_attributes = True
+  
+- # Schema for API responses
+- class BalancePoint(BalancePointInDB):
+-     pass
+- 
+  class BalancePointCreateRequest(BalancePointBase):
+      account_id: UUID
+```
+
+---
+
+I see there are still some redundant schemas at the bottom. Let me clean those up too:
+
+---
+
+
+
+---
+
+Read file: app/domains/balance_points/schemas.py
+
+---
+
+
+
+---
+
+## Fixed Inconsistencies in Balance Points Schemas:
+
+1. **Removed redundant schemas**:
+   - `BalancePointCreateRequest` - redundant with `BalancePointIn`
+   - `BalancePointUpdateRequest` - redundant and poorly designed (inherits from Base instead of having optional fields)
+   - `BalancePointResponse` - redundant with `BalancePoint`
+   - `BalancePointInDB` - redundant intermediate schema
+
+2. **Fixed the response schema** - `BalancePointResponse` had inconsistent field types (`note: str` instead of `Optional[str]`)
+
+3. **Cleaned up inheritance** - Removed the unnecessary `BalancePointInDB` → `BalancePoint` inheritance chain
+
+## Clean Pattern Now:
+- **`BalancePointBase`** - All shared fields
+- **`BalancePointIn`** - For creation (inherits from base)
+- **`BalancePointUpdateIn`** - For updates (all optional fields)
+- **`BalancePoint`** - For responses (includes ID, user_id, timestamps)
+
+Perfect! Now it matches your established pattern exactly like the accounts and brokers schemas.
+
+---
+
+_**User**_
+
+@schemas.py 
+
+---
+
+_**Assistant**_
+
 
 
 ---
