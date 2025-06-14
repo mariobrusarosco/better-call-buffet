@@ -1,22 +1,27 @@
 from fastapi import FastAPI
 import logging
+import sys
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.v1 import api_router
-from app.core.logging_config import setup_logging
 
-# Setup logging
-logger = setup_logging()
-
-from app.api.v1 import api_router  # Import the api_router
-from app.db import model_registration  # Import model_registration to register all models
-
-# Simple logging to stdout (CloudWatch will capture this)
+# Configure logging to force ALL output to stdout (uvicorn terminal)
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='[%(asctime)s] %(levelname)s in %(name)s: %(message)s',
+    stream=sys.stdout,
+    force=True  # This forces reconfiguration even if handlers exist
 )
+
+# Set important loggers to show warnings and errors
+logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+logging.getLogger('sqlalchemy.orm').setLevel(logging.WARNING)
+logging.getLogger('fastapi').setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
+
+# Import model registration to register all models
+from app.db import model_registration
 
 app = FastAPI(title="Better Call Buffet API")
 
