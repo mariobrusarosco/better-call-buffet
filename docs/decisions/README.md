@@ -9,6 +9,7 @@ An Architectural Decision Record is a document that captures an important archit
 ## Why use ADRs?
 
 We use ADRs to:
+
 - Document significant decisions that affect the architecture
 - Provide context and rationale for decisions
 - Make the decision-making process transparent
@@ -18,6 +19,7 @@ We use ADRs to:
 ## ADR Format
 
 Each ADR follows this format:
+
 1. **Title and ID**: Clear title and sequential ID
 2. **Status**: Current status of the decision
 3. **Context**: Background and forces driving the decision
@@ -30,11 +32,13 @@ Each ADR follows this format:
 
 ## Decision Records Index
 
-* [DR-000: Decision Template](000-decision-template.md)
-* [DR-001: NAT Gateway Omission](001-nat-gateway-omission.md)
-* [DR-002: IAM Permissions Model](002-iam-permissions-model.md)
-* [DR-003: RDS Configuration Choices](003-rds-configuration-choices.md)
-* [DR-004: Elastic Beanstalk Deployment Strategy](004-elastic-beanstalk-deployment.md)
+- [DR-000: Decision Template](000-decision-template.md)
+- [DR-001: NAT Gateway Omission](001-nat-gateway-omission.md)
+- [DR-002: IAM Permissions Model](002-iam-permissions-model.md)
+- [DR-003: RDS Configuration Choices](003-rds-configuration-choices.md)
+- [DR-004: Elastic Beanstalk Deployment Strategy](004-elastic-beanstalk-deployment.md)
+- [DR-005: Logging Configuration](005-logging-configuration.md)
+- [DR-006: Database Seeding Strategy](006-database-seeding-strategy.md)
 
 ## Process for creating new ADRs
 
@@ -50,4 +54,4 @@ Each ADR follows this format:
 - **Accepted**: Decision has been accepted and is being (or has been) implemented
 - **Rejected**: Decision was considered but rejected
 - **Deprecated**: Decision was once accepted but is no longer relevant
-- **Superseded**: Decision has been replaced by a newer decision 
+- **Superseded**: Decision has been replaced by a newer decision

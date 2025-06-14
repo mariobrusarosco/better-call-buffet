@@ -5,6 +5,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 import uuid
 
+from app.domains.users import get_current_user_id
+
 # Add the parent directory to the path to import app modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -56,7 +58,7 @@ def init_db():
         test_user = User(
             email="test@example.com",
             name="Test User",
-            id=uuid.UUID('550e8400-e29b-41d4-a716-446655440000')  # Fixed UUID for testing
+            id=get_current_user_id()
         )
         db.add(test_user)
         db.commit()
