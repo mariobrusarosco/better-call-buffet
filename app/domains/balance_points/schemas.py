@@ -10,18 +10,18 @@ class BalancePointBase(BaseModel):
     balance: float
     note: Optional[str] = None
 
-# Schema for creating a balance point
+# Schema for creating a balance point (what frontend sends)
 class BalancePointIn(BalancePointBase):
     pass
 
-# Schema for updating a balance point
+# Schema for updating a balance point (partial fields)
 class BalancePointUpdateIn(BaseModel):
     date: Optional[datetime] = None
     balance: Optional[float] = None
     note: Optional[str] = None
 
-# Schema for database model
-class BalancePointInDB(BalancePointBase):
+# Schema for API responses (what users see)
+class BalancePoint(BalancePointBase):
     id: UUID
     user_id: UUID
     created_at: datetime
@@ -29,23 +29,3 @@ class BalancePointInDB(BalancePointBase):
 
     class Config:
         from_attributes = True
-
-# Schema for API responses
-class BalancePoint(BalancePointInDB):
-    pass
-
-class BalancePointCreateRequest(BalancePointBase):
-    account_id: UUID
-    date: datetime
-    balance: float
-    note: Optional[str] = None
-
-class BalancePointUpdateRequest(BalancePointBase):
-    pass
-
-class BalancePointResponse(BalancePointBase):
-    id: UUID
-    account_id: UUID
-    date: datetime
-    balance: float
-    note: str   
