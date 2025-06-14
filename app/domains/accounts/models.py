@@ -28,9 +28,9 @@ class Account(Base):
     balance = Column(Float, default=0.0, nullable=False)
     currency = Column(String, default="BRL", nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    broker_id = Column(UUID(as_uuid=True), ForeignKey("brokers.id", ondelete="CASCADE"), nullable=False)
+    broker_id = Column(UUID(as_uuid=True), ForeignKey("brokers.id"), nullable=False)
     # Foreign Keys
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
