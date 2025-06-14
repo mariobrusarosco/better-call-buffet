@@ -706,6 +706,418 @@ _**User**_
 
 _**Assistant**_
 
+```diff
+- from typing import Dict, Any
++ from datetime import datetime
++ from typing import Dict, Any, Optional
+  from pydantic import BaseModel
+  from uuid import UUID
+  
+- class InvoiceCreate(BaseModel):
++ # Base schema with shared properties
++ class InvoiceBase(BaseModel):
+      credit_card_id: UUID
+      broker_id: UUID
+      raw_content: Dict[str, Any]
+  
+- class Invoice(BaseModel):
++ # Schema for creating an invoice (what frontend sends)
++ class InvoiceIn(InvoiceBase):
++     pass
++ 
++ # Schema for updating an invoice (partial fields)
++ class InvoiceUpdateIn(BaseModel):
++     credit_card_id: Optional[UUID] = None
++     broker_id: Optional[UUID] = None
++     raw_content: Optional[Dict[str, Any]] = None
++ 
++ # Schema for API responses (what users see)
++ class Invoice(InvoiceBase):
+      id: UUID
+-     credit_card_id: UUID
+-     broker_id: UUID
+-     raw_content: Dict[str, Any]
++     user_id: UUID
++     created_at: datetime
++     updated_at: datetime
+  
+      class Config:
+```
+
+---
+
+## Fixed Inconsistencies in Invoice Schemas:
+
+1. **Added missing base schema** - Created `InvoiceBase` with shared properties
+
+2. **Renamed and restructured schemas**:
+   - `InvoiceCreate` → `InvoiceIn` (follows your naming pattern)
+   - Added missing `InvoiceUpdateIn` for partial updates
+
+3. **Enhanced response schema** - Added missing fields that should be in the database model:
+   - `user_id` - invoices should belong to users
+   - `created_at` and `updated_at` - standard timestamp fields
+
+4. **Added proper inheritance** - `InvoiceIn` inherits from `InvoiceBase`, `Invoice` response includes all base fields plus metadata
+
+## Clean Pattern Now:
+- **`InvoiceBase`** - All shared fields (credit_card_id, broker_id, raw_content)
+- **`InvoiceIn`** - For creation (inherits from base)
+- **`InvoiceUpdateIn`** - For updates (all optional fields)
+- **`Invoice`** - For responses (includes ID, user_id, timestamps)
+
+Perfect! Now it matches your established pattern exactly like all the other domain schemas.
+
+---
+
+_**User**_
+
+@schemas.py 
+
+---
+
+_**Assistant**_
+
+```diff
+  from typing import Optional
+  from pydantic import BaseModel, EmailStr
++ from uuid import UUID
+  
+- # Shared properties
++ # Base schema with shared properties
+  class UserBase(BaseModel):
+      email: EmailStr
+      full_name: Optional[str] = None
+      is_active: bool = True
+  
+- # Properties to receive via API on creation
+- class UserCreate(UserBase):
++ # Schema for creating a user (what frontend sends)
++ class UserIn(UserBase):
+      password: str
+  
+- # Properties to receive via API on update
+- class UserUpdate(UserBase):
++ # Schema for updating a user (partial fields)
++ class UserUpdateIn(BaseModel):
++     email: Optional[EmailStr] = None
++     full_name: Optional[str] = None
++     is_active: Optional[bool] = None
+      password: Optional[str] = None
+  
+- # Properties shared by models stored in DB
+- class UserInDBBase(UserBase):
+-     id: int
++ # Schema for API responses (what users see)
++ class User(UserBase):
++     id: UUID
+      created_at: datetime
+      updated_at: datetime
+```
+
+```diff
+          from_attributes = True
+  
+- # Additional properties to return via API
+- class User(UserInDBBase):
+-     pass
+- 
+- # Additional properties stored in DB
+- class UserInDB(UserInDBBase):
+-     hashed_password: str 
++ # Internal schema for database operations (includes hashed password)
++ class UserInDB(UserBase):
++     id: UUID
++     hashed_password: str
++     created_at: datetime
++     updated_at: datetime
++ 
++     class Config:
++         from_attributes = True 
+```
+
+---
+
+## Fixed Inconsistencies in User Schemas:
+
+1. **Renamed schemas to match pattern**:
+   - `UserCreate` → `UserIn` (follows your naming convention)
+   - `UserUpdate` → `UserUpdateIn` (follows your naming convention)
+
+2. **Fixed update schema** - `UserUpdateIn` now properly has all optional fields instead of inheriting from base (which would make fields required)
+
+3. **Removed redundant intermediate schema** - Eliminated `UserInDBBase` which was unnecessary
+
+4. **Updated ID type** - Changed from `int` to `UUID` to match your database rules and other domains
+
+5. **Kept `UserInDB` separate** - This one is actually needed because it includes `hashed_password` which should never be returned in API responses, only used internally
+
+## Clean Pattern Now:
+- **`UserBase`** - All shared fields (email, full_name, is_active)
+- **`UserIn`** - For creation (includes password)
+- **`UserUpdateIn`** - For updates (all optional fields)
+- **`User`** - For API responses (excludes hashed_password)
+- **`UserInDB`** - For internal use (includes hashed_password)
+
+Perfect! Now it matches your established pattern. The `UserInDB` schema is the only exception that makes sense - it's needed for internal database operations where you need the hashed password, but you never want to return that in API responses.
+
+---
+
+_**User**_
+
+Great!
+
+Now, search on the codebase and update old referecens regarding your changes  because the app is breaking! Take your time. Fix all
+
+---
+
+_**Assistant**_
+
+I'll search for all references to the old schema names and update them. Let me start by finding all the references:
+
+---
+
+<details>
+            <summary>Grep search for "UserCreate" • **9** files</summary>
+        
+| File | Line | Match |
+|------|------|-------|
+| `file:///c%3A/Users/mario/coding/better-call-buffet/docs/old/schema-validation.md` | L4 | `class UserCreate(BaseModel):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/docs/old/schema-validation.md` | L14 | `def create(self, user_in: UserCreate) -> User` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/docs/old/user-domain-implementation.md` | L176 | `class UserCreate(UserBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/docs/old/user-domain-implementation.md` | L211 | `from app.domains.users.schemas import UserCreate, UserUpdate` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/docs/old/user-domain-implementation.md` | L226 | `def create(self, user_in: UserCreate) -> User:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/docs/old/user-domain-implementation.md` | L285 | `user_in: schemas.UserCreate,` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/docs/old/domain-drive.md` | L6 | `def create(self, user_in: UserCreate) -> User` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L793 | `- class UserCreate(UserBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L843 | `- `UserCreate` → `UserIn` (follows your naming convention)` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-05-11_16-03-fixing-cors-error-in-web-application.md` | L1116 | `*   Defines Pydantic schemas for user operations: `UserBase`, `UserCreate`, `UserUpdate`, `UserInDBBase`, `User`, `UserInDB`.` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-20_21-11-starting-a-coding-conversation.md` | L3341 | `class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L5797 | `+   class UserCreate(UserBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L5832 | `+   from app.domains.users.schemas import UserCreate, UserUpdate` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L5847 | `+       def create(self, user_in: UserCreate) -> User:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L5906 | `+       user_in: schemas.UserCreate,` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-03-30_02-23-connect-local-database-in-dbeaver.md` | L333 | `from app.domains.users.schemas import User, UserCreate` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-02-23_16-40-building-a-python-rest-api-for-finance-app.md` | L2226 | `+ class UserCreate(UserBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-02-23_16-40-building-a-python-rest-api-for-finance-app.md` | L2263 | `+ from app.domains.users.schemas import UserCreate, UserUpdate` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-02-23_16-40-building-a-python-rest-api-for-finance-app.md` | L2274 | `+     def create(self, user_in: UserCreate) -> User:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-02-23_16-40-building-a-python-rest-api-for-finance-app.md` | L2310 | `+ from app.domains.users.schemas import User, UserCreate` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-02-23_16-40-building-a-python-rest-api-for-finance-app.md` | L2317 | `+     user_in: UserCreate,` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-02-23_16-40-building-a-python-rest-api-for-finance-app.md` | L2701 | `def create(self, user_in: UserCreate) -> User` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-02-23_16-40-building-a-python-rest-api-for-finance-app.md` | L2710 | `class UserCreate(UserBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-02-23_16-40-building-a-python-rest-api-for-finance-app.md` | L2758 | `user_in: UserCreate,` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-02-23_16-40-building-a-python-rest-api-for-finance-app.md` | L2765 | `- `user_in: UserCreate`: Input validation using Pydantic models` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-02-23_16-40-building-a-python-rest-api-for-finance-app.md` | L2780 | `class UserCreate(UserBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-02-23_16-40-building-a-python-rest-api-for-finance-app.md` | L4137 | `from app.domains.users.schemas import User, UserCreate` |
+
+</details>
+
+---
+
+<details>
+            <summary>Grep search for "UserUpdate" • **9** files</summary>
+        
+| File | Line | Match |
+|------|------|-------|
+| `file:///c%3A/Users/mario/coding/better-call-buffet/docs/old/user-domain-implementation.md` | L180 | `class UserUpdate(UserBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/docs/old/user-domain-implementation.md` | L211 | `from app.domains.users.schemas import UserCreate, UserUpdate` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/docs/old/user-domain-implementation.md` | L240 | `def update(self, user: User, user_in: UserUpdate) -> User:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/app/domains/users/schemas.py` | L16 | `class UserUpdateIn(BaseModel):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L799 | `- class UserUpdate(UserBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L801 | `+ class UserUpdateIn(BaseModel):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L844 | `- `UserUpdate` → `UserUpdateIn` (follows your naming convention)` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L846 | `2. **Fixed update schema** - `UserUpdateIn` now properly has all optional fields instead of inheriting from base (which would make fields required)` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L857 | `- **`UserUpdateIn`** - For updates (all optional fields)` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-05-11_16-03-fixing-cors-error-in-web-application.md` | L1116 | `*   Defines Pydantic schemas for user operations: `UserBase`, `UserCreate`, `UserUpdate`, `UserInDBBase`, `User`, `UserInDB`.` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-20_21-11-starting-a-coding-conversation.md` | L3341 | `class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5774 | `+ class UserUpdateIn(BaseModel):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5816 | `- `UserIn`, `UserUpdateIn`` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-03-30_02-23-connect-local-database-in-dbeaver.md` | L374 | `class UserUpdate(UserBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L5801 | `+   class UserUpdate(UserBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L5832 | `+   from app.domains.users.schemas import UserCreate, UserUpdate` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L5861 | `+       def update(self, user: User, user_in: UserUpdate) -> User:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-02-23_16-40-building-a-python-rest-api-for-finance-app.md` | L2230 | `+ class UserUpdate(UserBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-02-23_16-40-building-a-python-rest-api-for-finance-app.md` | L2263 | `+ from app.domains.users.schemas import UserCreate, UserUpdate` |
+
+</details>
+
+---
+
+<details>
+            <summary>Grep search for "BrokerCreate" • **4** files</summary>
+        
+| File | Line | Match |
+|------|------|-------|
+| `file:///c%3A/Users/mario/coding/better-call-buffet/app/domains/brokers/service.py` | L4 | `from app.domains.brokers.schemas import BrokerCreate` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/app/domains/brokers/service.py` | L10 | `def create_broker(self, broker_in: BrokerCreate):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/app/domains/brokers/router.py` | L3 | `from app.domains.brokers.schemas import BrokerIn, BrokerCreate, Broker` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/app/domains/brokers/router.py` | L23 | `broker_create = BrokerCreate(` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L53 | `+ class BrokerCreate(BrokerIn):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L90 | `3. **`BrokerCreate`** - Internal schema that extends `BrokerIn` and adds `user_id`. Use this when creating records in your database.` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L109 | `broker_create = BrokerCreate(` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L169 | `⟪ 159 characters skipped ⟫el object. Let's fix this by using the `BrokerCreate` schema we created earlier.` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L177 | `+ from app.domains.brokers.schemas import BrokerIn, BrokerCreate, Broker` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L192 | `+     broker_create = BrokerCreate(` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L209 | `+ from app.domains.brokers.schemas import BrokerCreate` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L216 | `+     def create_broker(self, broker_in: BrokerCreate):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L232 | `1. **Router**: Now uses `BrokerCreate` schema which includes the `user_id`` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L233 | `2. **Service**: Updated to expect `BrokerCreate` instead of `BrokerIn`` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L236 | `- Router creates `BrokerCreate` (with user_id injected)` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L253 | `I see! I`ve created BrokerIn and BrokerCreate. Is that a good practice?` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L265 | `- **`BrokerCreate`**: Internal business logic schema (what the service uses)` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L285 | `BrokerCreate      # Internal creation` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L289 | `BrokerCreateData  # Internal creation` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L303 | `2. **Explicit**: `BrokerCreate` clearly means "data for creating in database"` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L316 | `class BrokerCreate(BrokerIn):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L322 | `def transform_broker_input(broker_in: BrokerIn, user_id: UUID) -> BrokerCreate:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L323 | `return BrokerCreate(` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L563 | `- class BrokerCreate(BrokerIn):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L600 | `- `BrokerCreate` - redundant, service layer can handle adding `user_id`` |
+
+</details>
+
+---
+
+<details>
+            <summary>Grep search for "BrokerUpdate" • **4** files</summary>
+        
+| File | Line | Match |
+|------|------|-------|
+| `file:///c%3A/Users/mario/coding/better-call-buffet/app/domains/brokers/schemas.py` | L18 | `class BrokerUpdateIn(BaseModel):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L555 | `class BrokerUpdateIn(BaseModel):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L567 | `- class BrokerUpdate(BrokerUpdateIn):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L601 | `- `BrokerUpdate` - redundant, service layer can handle adding `user_id`` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L611 | `- **`BrokerUpdateIn`** - For updates (all optional)` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L44 | `class BrokerUpdateIn(BaseModel):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L57 | `+ class BrokerUpdate(BrokerUpdateIn):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L88 | `2. **`BrokerUpdateIn`** - Used for user input when updating a broker. Does NOT include `user_id` since you'll use it for filtering in your API endpoint.` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L92 | `4. **`BrokerUpdate`** - Internal schema that extends `BrokerUpdateIn` and adds `user_id`. Use this for database operations that need user context.` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-08_16-01-handling-user-id-in-broker-schema.md` | L304 | `3. **Consistent**: You can extend this pattern to `BrokerUpdateIn` → `BrokerUpdate`` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5721 | `+ class BrokerUpdateIn(BaseModel):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5815 | `- `BrokerIn`, `BrokerUpdateIn`` |
+
+</details>
+
+---
+
+<details>
+            <summary>Grep search for "InvoiceCreate" • **4** files</summary>
+        
+| File | Line | Match |
+|------|------|-------|
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L715 | `- class InvoiceCreate(BaseModel):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L753 | `- `InvoiceCreate` → `InvoiceIn` (follows your naming pattern)` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_21-31-untitled.md` | L258 | `+ class CreditCardInvoiceCreate(BaseModel):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_21-31-untitled.md` | L278 | `+ from app.domains.transactions.schemas import TransactionCreate, CreditCardInvoiceCreate` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_21-31-untitled.md` | L285 | `+     def create_transactions_from_invoice(self, invoice_data: CreditCardInvoiceCreate) -> List[Transaction]:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_21-31-untitled.md` | L335 | `+ from app.domains.transactions.schemas import Transaction, CreditCardInvoiceCreate` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_21-31-untitled.md` | L342 | `+     invoice_data: CreditCardInvoiceCreate,` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L201 | `+ class InvoiceCreate(InvoiceBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L253 | `+ from .schemas import InvoiceCreate, InvoiceUpdate` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L260 | `+     def create(self, user_id: UUID, invoice_in: InvoiceCreate) -> Invoice:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L382 | `+ from .schemas import Invoice, InvoiceCreate, InvoiceUpdate, InvoiceWithCreditCard` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L394 | `+     invoice_in: InvoiceCreate,` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L521 | `+ from .schemas import InvoiceCreate, InvoiceUpdate, Invoice as InvoiceSchema` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L527 | `+     "InvoiceCreate",` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L618 | `+ # Example of creating an InvoiceCreate schema` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L620 | `+     """Create an InvoiceCreate schema with sample data."""` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L621 | `+     from .schemas import InvoiceCreate` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L623 | `+     return InvoiceCreate(` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L937 | `- class InvoiceCreate(InvoiceBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L938 | `+ class InvoiceCreate(BaseModel):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L976 | `+ from .schemas import InvoiceCreate, Invoice as InvoiceSchema` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-01_17-00-designing-architecture-for-financial-app.md` | L982 | `+     invoice_in: InvoiceCreate,` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/app/domains/invoices/router.py` | L5 | `from .schemas import InvoiceCreate, Invoice as InvoiceSchema` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/app/domains/invoices/router.py` | L11 | `invoice_in: InvoiceCreate,` |
+
+</details>
+
+---
+
+<details>
+            <summary>Grep search for "BalancePointCreateRequest" • **2** files</summary>
+        
+| File | Line | Match |
+|------|------|-------|
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L656 | `class BalancePointCreateRequest(BalancePointBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L681 | `- `BalancePointCreateRequest` - redundant with `BalancePointIn`` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L2110 | `- from app.domains.balance_points.schemas import AccountBalancePointCreateRequest` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L2219 | `- from app.domains.balance_points.schemas import AccountBalancePointCreateRequest` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L2600 | `- from app.domains.balance_points.schemas import AccountBalancePointCreateRequest, AccountBalancePoint` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L2612 | `-     def create_balance_point(self, balance_point_in: AccountBalancePointCreateRequest) -> AccountBalancePoint:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5322 | `+ from app.domains.balance_points.schemas import BalancePointCreateRequest` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5334 | `+     def create_balance_point(self, balance_point_in: BalancePointCreateRequest, user_id: UUID) -> BalancePoint:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5497 | `- `BalancePointCreateRequest`: (renamed to `BalancePointIn`)` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5607 | `class BalancePointCreateRequest(BalancePointBase):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5629 | `- from app.domains.balance_points.schemas import BalancePointCreateRequest` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5638 | `-     def create_balance_point(self, balance_point_in: BalancePointCreateRequest, user_id: UUID) -> BalancePoint:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5649 | `- from app.domains.balance_points.schemas import BalancePointCreateRequest, BalancePoint` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5658 | `-     balance_point_in: BalancePointCreateRequest,` |
+
+</details>
+
+---
+
+<details>
+            <summary>Grep search for "AccountCreateRequest" • **5** files</summary>
+        
+| File | Line | Match |
+|------|------|-------|
+| `file:///c%3A/Users/mario/coding/better-call-buffet/docs/study/pydantic-model-dump-and-sqlalchemy-commit-flow.md` | L10 | `*   **Why use it?** FastAPI uses Pydantic schemas (e.g., `AccountCreateRequest`) for parsing and validation, giving you a Python object. SQLAlchemy models (e.g., `Account`), however, map to database tables and often expect initial values as keyword arguments` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L484 | `So, is AccountCreateRequest a redudent one? @schemas.py` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L490 | `Yes, `AccountCreateRequest` is **redundant**!` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L496 | `- **`AccountCreateRequest`** (line 75) - Duplicates the same purpose` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L499 | ``AccountCreateRequest` is essentially doing the same job as `AccountIn`, but:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L505 | `**Delete `AccountCreateRequest`** and stick with your existing pattern:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_22-21-understanding-uvicorn-error-logging-issues.md` | L516 | `So yes, you can safely remove `AccountCreateRequest` - it's redundant and `AccountIn` is the better, more complete schema for account creation.` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-06-14_19-28-querying-account-and-broker-data.md` | L686 | `class AccountCreateRequest(BaseModel):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L975 | `-     def create_account(self, account_in: AccountCreateRequest, user_id: int) -> Account:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L976 | `+     def create_account(self, account_in: AccountCreateRequest, user_id: UUID) -> Account:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L978 | `**account_in.model_dump(), # Unpack fields from AccountCreateRequest` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L1097 | `account_in: AccountCreateRequest,` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L2487 | `def create_account(self, account_in: AccountCreateRequest, user_id: UUID) -> Account:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L2723 | `-     def create_account(self, account_in: AccountCreateRequest, user_id: int) -> Account:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L2731 | `+     def create_account(self, account_in: AccountCreateRequest, user_id: UUID) -> Account:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L2733 | `**account_in.model_dump(), # Unpack fields from AccountCreateRequest` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L3928 | `-     def create_account(self, account_in: AccountCreateRequest, user_id: UUID) -> Account:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L3929 | `+     def create_account(self, account_in: AccountCreateRequest, user_id: int) -> Account:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L3931 | `**account_in.model_dump(), # Unpack fields from AccountCreateRequest` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L4000 | `account_in: AccountCreateRequest,` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L4030 | `-     def create_account(self, account_in: AccountCreateRequest, user_id: int) -> Account:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L4031 | `+     def create_account(self, account_in: AccountCreateRequest, user_id: UUID) -> Account:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L4033 | `**account_in.model_dump(), # Unpack fields from AccountCreateRequest` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L4264 | `| `vscode-remote://wsl%2Bubuntu/home/mario/coding/better-call-buffet/app/domains/accounts/schemas.py` | L68 | `class AccountCreateRequest(BaseModel):` |` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L4270 | `| `vscode-remote://wsl%2Bubuntu/home/mario/coding/better-call-buffet/app/domains/accounts/schemas.py` | L68 | `class AccountCreateRequest(BaseModel):` |` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5432 | `class AccountCreateRequest(BaseModel):` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5448 | `- from app.domains.accounts.schemas import Account, AccountCreateRequest` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5457 | `-     account_in: AccountCreateRequest,` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5472 | `- from app.domains.accounts.schemas import AccountCreateRequest` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5481 | `-     def create_account(self, account_in: AccountCreateRequest, user_id: UUID) -> Account:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-30_03-13-guide-to-database-seeding.md` | L5484 | `-             **account_in.model_dump(), # Unpack fields from AccountCreateRequest` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L9323 | `2.  **Update Signature:** Change the signature of that method to accept `account_in` (which should be type-hinted as `AccountCreateRequest` based on your latest router code) and `user_id`.` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L9351 | `1.  Change the parameter `account: Account` to `account_in: AccountCreateRequest`.` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L9355 | `I need to import `AccountCreateRequest` from the schemas file as well.` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L9364 | `+ from app.domains.accounts.schemas import AccountCreateRequest` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L9375 | `+     def create_account(self, account_in: AccountCreateRequest, user_id: int) -> Account:` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L9379 | `+             **account_in.model_dump(), # Unpack fields from AccountCreateRequest` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L9395 | `*   The signature now correctly accepts `account_in: AccountCreateRequest` and `user_id: int`, matching the call from the router.` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L9397 | `*   `**account_in.model_dump()` unpacks the fields from the validated `AccountCreateRequest` input (like name, type, currency, etc.) and passes them as keyword arguments to the `Account` constructor.` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L9421 | `⟪ 155 characters skipped ⟫ variable, which is an instance of the `AccountCreateRequest` schema). Its primary job is to convert that Pydantic model instance into a standard Python dictionary. In older Pydantic V1, this method was called `.dict()`.` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L9422 | `*   **Why use it?** When you receive data from a request body, FastAPI uses your Pydantic schema (`AccountCreateRequest`) to parse and validate that incoming JSON data. This gives you a nice, type-hinted Python object (`account_in`) to work with. However, your SQLAlchemy model (`Account`) is a *dif` |
+| `file:///c%3A/Users/mario/coding/better-call-buffet/.specstory/history/2025-04-15_12-05-brainstorming-personal-finance-api-development.md` | L9518 | `+ *   **Why use it?** FastAPI uses Pydantic schemas (e.g., `AccountCreateRequest`) for parsing and validation, giving you a Python object. SQLAlchemy models (e.g., `Account`), however, map to database tables and often expect initial values as keyword arguments` |
+
+</details>
+
+---
+
+Now let me find the actual service and router files that need to be updated:
+
+---
+
+
+
+---
+
 
 
 ---

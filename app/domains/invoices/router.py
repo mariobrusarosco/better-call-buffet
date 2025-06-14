@@ -3,13 +3,13 @@ from sqlalchemy.orm import Session
 
 from app.db.connection_and_session import get_db_session
 from .models import Invoice
-from .schemas import InvoiceCreate, Invoice as InvoiceSchema
+from .schemas import InvoiceIn, Invoice as InvoiceSchema
 
 router = APIRouter()
 
 @router.post("/", response_model=InvoiceSchema, status_code=201)
 def create_invoice(
-    invoice_in: InvoiceCreate,
+    invoice_in: InvoiceIn,
     db: Session = Depends(get_db_session)
 ):
     """Store invoice raw content."""
