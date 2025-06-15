@@ -14,4 +14,4 @@ api_router.include_router(balance_points_router, prefix="/balance_points", tags=
 api_router.include_router(reports_router, prefix="/reports", tags=["reports"])
 api_router.include_router(invoices_router, prefix="/invoices", tags=["invoices"])
 api_router.include_router(brokers_router, prefix="/brokers", tags=["brokers"])
-api_router.include_router(credit_cards_router, prefix="/credit-cards", tags=["credit-cards"])
+api_router.include_router(credit_cards_router, prefix="/credit_cards", tags=["credit_cards"])

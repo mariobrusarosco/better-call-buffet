@@ -1,7 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 import logging
 import sys
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.api.v1 import api_router
 
@@ -24,6 +26,19 @@ logger = logging.getLogger(__name__)
 from app.db import model_registration
 
 app = FastAPI(title="Better Call Buffet API")
+
+# Simple error handlers - NO MIDDLEWARE
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"❌ Validation Error: {request.method} {request.url}")
+    logger.error(f"💥 Details: {exc.errors()}")
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    logger.error(f"❌ Server Error: {request.method} {request.url}")
+    logger.error(f"💥 Exception: {str(exc)}")
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 # Configure CORS
 origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
