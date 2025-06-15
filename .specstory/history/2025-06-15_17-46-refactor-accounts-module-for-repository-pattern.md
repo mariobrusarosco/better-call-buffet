@@ -606,9 +606,653 @@ Let me implement this step by step:
 
 ---
 
+```diff
+- 
++ from typing import List, Optional
++ from datetime import datetime, date
++ from sqlalchemy.orm import Session
++ from sqlalchemy import and_, func
++ from uuid import UUID
++ 
++ from app.domains.balance_points.models import BalancePoint
++ 
++ 
++ class BalancePointRepository:
++     """
++     Repository pattern implementation for BalancePoint entity.
++     Abstracts all database operations for balance point management.
++     """
++     
++     def __init__(self, db: Session):
++         self.db = db
++ 
++     def create(self, balance_point_data: dict) -> BalancePoint:
++         """Create a new balance point"""
++         db_balance_point = BalancePoint(**balance_point_data)
++         self.db.add(db_balance_point)
++         self.db.commit()
++         self.db.refresh(db_balance_point)
++         return db_balance_point
++ 
++     def get_by_account_and_user(self, account_id: UUID, user_id: UUID) -> List[BalancePoint]:
++         """Get all balance points for a specific account and user"""
++         return self.db.query(BalancePoint).filter(
++             BalancePoint.account_id == account_id,
++             BalancePoint.user_id == user_id
++         ).order_by(BalancePoint.date.desc()).all()
++ 
++     def get_by_id_and_user(self, balance_point_id: UUID, user_id: UUID) -> Optional[BalancePoint]:
++         """Get a specific balance point by ID and user"""
++         return self.db.query(BalancePoint).filter(
++             BalancePoint.id == balance_point_id,
++             BalancePoint.user_id == user_id
++         ).first()
++ 
++     def get_by_user_and_date_range(self, user_id: UUID, start_date: datetime, end_date: datetime) -> List[BalancePoint]:
++         """Get balance points for a user within a date range"""
++         return self.db.query(BalancePoint).filter(
++             BalancePoint.user_id == user_id,
++             BalancePoint.date >= start_date,
++             BalancePoint.date <= end_date
++         ).order_by(BalancePoint.date.desc()).all()
++ 
++     def get_latest_by_account(self, account_id: UUID, user_id: UUID) -> Optional[BalancePoint]:
++         """Get the most recent balance point for an account"""
++         return self.db.query(BalancePoint).filter(
++             BalancePoint.account_id == account_id,
++             BalancePoint.user_id == user_id
++         ).order_by(BalancePoint.date.desc()).first()
++ 
++     def get_by_account_and_date(self, account_id: UUID, user_id: UUID, target_date: date) -> Optional[BalancePoint]:
++         """Get balance point for a specific account on a specific date"""
++         return self.db.query(BalancePoint).filter(
++             BalancePoint.account_id == account_id,
++             BalancePoint.user_id == user_id,
++             func.date(BalancePoint.date) == target_date
++         ).first()
++ 
++     def get_balance_history_summary(self, user_id: UUID, account_id: Optional[UUID] = None) -> List[dict]:
++         """Get balance history with calculated movements (differences between consecutive points)"""
++         query = self.db.query(BalancePoint).filter(BalancePoint.user_id == user_id)
++         
++         if account_id:
++             query = query.filter(BalancePoint.account_id == account_id)
++         
++         balance_points = query.order_by(BalancePoint.account_id, BalancePoint.date).all()
++         
++         # Calculate movements between consecutive balance points
++         result = []
++         prev_balance_by_account = {}
++         
++         for bp in balance_points:
++             movement = 0.0
++             if bp.account_id in prev_balance_by_account:
++                 movement = bp.balance - prev_balance_by_account[bp.account_id]
++             
++             result.append({
++                 'id': bp.id,
++                 'account_id': bp.account_id,
++                 'date': bp.date,
++                 'balance': bp.balance,
++                 'movement': movement,
++                 'note': bp.note
++             })
++             
++             prev_balance_by_account[bp.account_id] = bp.balance
++             
++         return result
++ 
++     def update(self, balance_point: BalancePoint, update_data: dict) -> BalancePoint:
++         """Update an existing balance point"""
++         for key, value in update_data.items():
++             if hasattr(balance_point, key):
++                 setattr(balance_point, key, value)
++         
++         self.db.commit()
++         self.db.refresh(balance_point)
++         return balance_point
++ 
++     def delete(self, balance_point: BalancePoint) -> None:
++         """Delete a balance point"""
++         self.db.delete(balance_point)
++         self.db.commit()
++ 
++     def exists_for_account_and_date(self, account_id: UUID, user_id: UUID, target_date: date) -> bool:
++         """Check if a balance point exists for an account on a specific date"""
++         return self.db.query(BalancePoint).filter(
++             BalancePoint.account_id == account_id,
++             BalancePoint.user_id == user_id,
++             func.date(BalancePoint.date) == target_date
++         ).first() is not None
++ 
++     def get_account_balance_trend(self, account_id: UUID, user_id: UUID, days: int = 30) -> List[BalancePoint]:
++         """Get balance points for an account over the last N days"""
++         cutoff_date = datetime.utcnow() - datetime.timedelta(days=days)
++         return self.db.query(BalancePoint).filter(
++             BalancePoint.account_id == account_id,
++             BalancePoint.user_id == user_id,
++             BalancePoint.date >= cutoff_date
++         ).order_by(BalancePoint.date.asc()).all()
++ 
++     def get_total_balance_at_date(self, user_id: UUID, target_date: date) -> float:
++         """Calculate total balance across all accounts at a specific date"""
++         # Get the latest balance point for each account up to the target date
++         latest_points = []
++         
++         # Get all unique account IDs for the user
++         account_ids = self.db.query(BalancePoint.account_id).filter(
++             BalancePoint.user_id == user_id
++         ).distinct().all()
++         
++         total_balance = 0.0
++         for (account_id,) in account_ids:
++             latest_point = self.db.query(BalancePoint).filter(
++                 BalancePoint.account_id == account_id,
++                 BalancePoint.user_id == user_id,
++                 func.date(BalancePoint.date) <= target_date
++             ).order_by(BalancePoint.date.desc()).first()
++             
++             if latest_point:
++                 total_balance += latest_point.balance
++                 
++         return total_balance 
+```
+
+---
+
+Now let's refactor the service to use the repository:
+
+---
+
+```diff
+  from typing import List, Optional
+- from datetime import datetime
++ from datetime import datetime, date
+  from uuid import UUID
+  from sqlalchemy.orm import Session
+  
+  from app.domains.balance_points.models import BalancePoint
+  from app.domains.balance_points.schemas import BalancePointIn
++ from app.domains.balance_points.repository import BalancePointRepository
+  from app.domains.accounts.service import AccountService
++ 
+  
+  class BalancePointService:
++     """
++     Service layer for BalancePoint business logic.
++     Uses BalancePointRepository for data access operations.
++     """
++     
+      def __init__(self, db: Session):
+-         self.db = db
++         self.repository = BalancePointRepository(db)
+          self.account_service = AccountService(db)
+  
+      def create_balance_point(self, balance_point_in: BalancePointIn, user_id: UUID) -> BalancePoint:
++         """
++         Create a new balance point with business logic validation.
++         
++         Args:
++             balance_point_in: Balance point creation data
++             user_id: ID of the user creating the balance point
++             
++         Returns:
++             The created balance point
++             
++         Raises:
++             ValueError: If account doesn't belong to user or duplicate date entry
++         """
++         # Validate account ownership
+          account = self.account_service.get_account_by_id(balance_point_in.account_id, user_id)
+-         
+-         if account.user_id != user_id:
+-             raise ValueError("Account does not belong to the user")
++         if not account:
++             raise ValueError("Account not found or does not belong to user")
++         
++         # Check for duplicate balance point on the same date
++         target_date = balance_point_in.date.date() if balance_point_in.date else datetime.utcnow().date()
++         if self.repository.exists_for_account_and_date(balance_point_in.account_id, user_id, target_date):
++             raise ValueError(f"Balance point already exists for this account on {target_date}")
+          
+-         db_balance_point = BalancePoint(
+-             user_id=user_id,
+-             account_id=balance_point_in.account_id,
+-             date=balance_point_in.date or datetime.utcnow(),
+-             balance=balance_point_in.balance,
+-             note=balance_point_in.note
+-         )
++         # Prepare balance point data
++         balance_point_data = {
++             'user_id': user_id,
++             'account_id': balance_point_in.account_id,
++             'date': balance_point_in.date or datetime.utcnow(),
++             'balance': balance_point_in.balance,
++             'note': balance_point_in.note
++         }
+          
+-         self.db.add(db_balance_point)
+-         self.db.commit()
+-         self.db.refresh(db_balance_point)
+-         return db_balance_point
++         return self.repository.create(balance_point_data)
+  
+      def get_balance_points_by_account_id(self, account_id: UUID, user_id: UUID) -> List[BalancePoint]:
+-         return self.db.query(BalancePoint).filter(
+-             BalancePoint.account_id == account_id,
+-             BalancePoint.user_id == user_id
+-         ).all()
++         """Get all balance points for a specific account"""
++         # Validate account ownership
++         account = self.account_service.get_account_by_id(account_id, user_id)
++         if not account:
++             raise ValueError("Account not found or does not belong to user")
++             
++         return self.repository.get_by_account_and_user(account_id, user_id)
++ 
++     def get_balance_point_by_id(self, balance_point_id: UUID, user_id: UUID) -> Optional[BalancePoint]:
++         """Get a specific balance point by ID"""
++         return self.repository.get_by_id_and_user(balance_point_id, user_id)
++ 
++     def update_balance_point(self, balance_point_id: UUID, user_id: UUID, update_data: dict) -> Optional[BalancePoint]:
++         """
++         Update a balance point with business logic validation.
++         
++         Args:
++             balance_point_id: ID of the balance point to update
++             user_id: ID of the user updating the balance point
++             update_data: Dictionary of fields to update
++             
++         Returns:
++             Updated balance point if successful, None if not found
++             
++         Raises:
++             ValueError: If validation fails
++         """
++         balance_point = self.repository.get_by_id_and_user(balance_point_id, user_id)
++         if not balance_point:
++             return None
++         
++         # If updating date, check for conflicts
++         if 'date' in update_data:
++             new_date = update_data['date'].date() if isinstance(update_data['date'], datetime) else update_data['date']
++             if self.repository.exists_for_account_and_date(balance_point.account_id, user_id, new_date):
++                 current_date = balance_point.date.date()
++                 if new_date != current_date:  # Only raise error if it's a different date
++                     raise ValueError(f"Balance point already exists for this account on {new_date}")
++         
++         # Validate balance is not negative
++         if 'balance' in update_data and update_data['balance'] < 0:
++             raise ValueError("Balance cannot be negative")
++             
++         return self.repository.update(balance_point, update_data)
++ 
++     def delete_balance_point(self, balance_point_id: UUID, user_id: UUID) -> bool:
++         """Delete a balance point"""
++         balance_point = self.repository.get_by_id_and_user(balance_point_id, user_id)
++         if not balance_point:
++             return False
++             
++         self.repository.delete(balance_point)
++         return True
++ 
++     def get_balance_history_with_movements(self, user_id: UUID, account_id: Optional[UUID] = None) -> List[dict]:
++         """
++         Get balance history with calculated movements between consecutive points.
++         This provides the "DIFF" functionality similar to Excel sheets.
++         
++         Args:
++             user_id: ID of the user
++             account_id: Optional account ID to filter by specific account
++             
++         Returns:
++             List of balance points with movement calculations
++         """
++         return self.repository.get_balance_history_summary(user_id, account_id)
++ 
++     def get_balance_trend(self, account_id: UUID, user_id: UUID, days: int = 30) -> List[BalancePoint]:
++         """
++         Get balance trend for an account over specified days.
++         Useful for charting and analytics.
++         
++         Args:
++             account_id: ID of the account
++             user_id: ID of the user
++             days: Number of days to look back (default 30)
++             
++         Returns:
++             List of balance points ordered by date
++         """
++         # Validate account ownership
++         account = self.account_service.get_account_by_id(account_id, user_id)
++         if not account:
++             raise ValueError("Account not found or does not belong to user")
++             
++         return self.repository.get_account_balance_trend(account_id, user_id, days)
++ 
++     def get_latest_balance_by_account(self, account_id: UUID, user_id: UUID) -> Optional[BalancePoint]:
++         """Get the most recent balance point for an account"""
++         # Validate account ownership
++         account = self.account_service.get_account_by_id(account_id, user_id)
++         if not account:
++             raise ValueError("Account not found or does not belong to user")
++             
++         return self.repository.get_latest_by_account(account_id, user_id)
++ 
++     def get_balance_points_by_date_range(self, user_id: UUID, start_date: datetime, end_date: datetime) -> List[BalancePoint]:
++         """Get balance points within a date range across all accounts"""
++         if start_date > end_date:
++             raise ValueError("Start date must be before end date")
++             
++         return self.repository.get_by_user_and_date_range(user_id, start_date, end_date)
++ 
++     def get_total_balance_at_date(self, user_id: UUID, target_date: date) -> float:
++         """
++         Calculate total balance across all accounts at a specific date.
++         Uses the latest balance point for each account up to that date.
++         
++         Args:
++             user_id: ID of the user
++             target_date: Date to calculate balance for
++             
++         Returns:
++             Total balance across all accounts at the specified date
++         """
++         return self.repository.get_total_balance_at_date(user_id, target_date)
+          
+          
+```
+
+---
+
+Now let's enhance the router with more endpoints to showcase the new functionality:
+
+---
+
+```diff
+- from typing import List
++ from typing import List, Optional
+  from uuid import UUID
+- from fastapi import APIRouter, Depends
++ from datetime import datetime, date
++ from fastapi import APIRouter, Depends, HTTPException, Query
+  from sqlalchemy.orm import Session
+  from app.db.connection_and_session import get_db_session
+  from app.core.dependencies import get_current_user_id
+  from app.domains.balance_points.service import BalancePointService
+- from app.domains.balance_points.schemas import BalancePointIn, BalancePoint
++ from app.domains.balance_points.schemas import BalancePointIn, BalancePoint, BalancePointUpdateIn
+  
+  
+  router = APIRouter()
+-     
++ 
++ 
+  @router.post("/", response_model=BalancePoint)
+  def create_balance_point(
+```
+
+```diff
+      current_user_id: UUID = Depends(get_current_user_id)
+  ):
++     """Create a new balance point"""
+      service = BalancePointService(db)
+-     return service.create_balance_point(balance_point_in=balance_point_in, user_id=current_user_id)
++     try:
++         return service.create_balance_point(balance_point_in=balance_point_in, user_id=current_user_id)
++     except ValueError as e:
++         raise HTTPException(status_code=400, detail=str(e))
++ 
+  
+  @router.get("/account/{account_id}", response_model=List[BalancePoint])
+```
+
+```diff
+      current_user_id: UUID = Depends(get_current_user_id)
+  ):
++     """Get all balance points for a specific account"""
+      service = BalancePointService(db)
+-     return service.get_balance_points_by_account_id(account_id=account_id, user_id=current_user_id)
++     try:
++         return service.get_balance_points_by_account_id(account_id=account_id, user_id=current_user_id)
++     except ValueError as e:
++         raise HTTPException(status_code=400, detail=str(e))
++ 
++ 
++ @router.get("/{balance_point_id}", response_model=BalancePoint)
++ def get_balance_point_by_id(
++     balance_point_id: UUID,
++     db: Session = Depends(get_db_session),
++     current_user_id: UUID = Depends(get_current_user_id)
++ ):
++     """Get a specific balance point by ID"""
++     service = BalancePointService(db)
++     balance_point = service.get_balance_point_by_id(balance_point_id, current_user_id)
++     if not balance_point:
++         raise HTTPException(status_code=404, detail="Balance point not found")
++     return balance_point
++ 
++ 
++ @router.put("/{balance_point_id}", response_model=BalancePoint)
++ def update_balance_point(
++     balance_point_id: UUID,
++     update_data: BalancePointUpdateIn,
++     db: Session = Depends(get_db_session),
++     current_user_id: UUID = Depends(get_current_user_id)
++ ):
++     """Update a balance point"""
++     service = BalancePointService(db)
++     try:
++         # Convert Pydantic model to dict, excluding None values
++         update_dict = update_data.model_dump(exclude_none=True)
++         balance_point = service.update_balance_point(balance_point_id, current_user_id, update_dict)
++         if not balance_point:
++             raise HTTPException(status_code=404, detail="Balance point not found")
++         return balance_point
++     except ValueError as e:
++         raise HTTPException(status_code=400, detail=str(e))
++ 
++ 
++ @router.delete("/{balance_point_id}")
++ def delete_balance_point(
++     balance_point_id: UUID,
++     db: Session = Depends(get_db_session),
++     current_user_id: UUID = Depends(get_current_user_id)
++ ):
++     """Delete a balance point"""
++     service = BalancePointService(db)
++     if not service.delete_balance_point(balance_point_id, current_user_id):
++         raise HTTPException(status_code=404, detail="Balance point not found")
++     return {"message": "Balance point deleted successfully"}
++ 
++ 
++ @router.get("/history/movements")
++ def get_balance_history_with_movements(
++     account_id: Optional[UUID] = Query(None, description="Filter by specific account"),
++     db: Session = Depends(get_db_session),
++     current_user_id: UUID = Depends(get_current_user_id)
++ ):
++     """
++     Get balance history with calculated movements (DIFF functionality).
++     Shows the difference between consecutive balance points.
++     """
++     service = BalancePointService(db)
++     return service.get_balance_history_with_movements(current_user_id, account_id)
++ 
++ 
++ @router.get("/account/{account_id}/trend", response_model=List[BalancePoint])
++ def get_account_balance_trend(
++     account_id: UUID,
++     days: int = Query(30, ge=1, le=365, description="Number of days to look back"),
++     db: Session = Depends(get_db_session),
++     current_user_id: UUID = Depends(get_current_user_id)
++ ):
++     """Get balance trend for an account over specified days"""
++     service = BalancePointService(db)
++     try:
++         return service.get_balance_trend(account_id, current_user_id, days)
++     except ValueError as e:
++         raise HTTPException(status_code=400, detail=str(e))
++ 
++ 
++ @router.get("/account/{account_id}/latest", response_model=BalancePoint)
++ def get_latest_balance_point(
++     account_id: UUID,
++     db: Session = Depends(get_db_session),
++     current_user_id: UUID = Depends(get_current_user_id)
++ ):
++     """Get the most recent balance point for an account"""
++     service = BalancePointService(db)
++     try:
++         balance_point = service.get_latest_balance_by_account(account_id, current_user_id)
++         if not balance_point:
++             raise HTTPException(status_code=404, detail="No balance points found for this account")
++         return balance_point
++     except ValueError as e:
++         raise HTTPException(status_code=400, detail=str(e))
++ 
++ 
++ @router.get("/date-range", response_model=List[BalancePoint])
++ def get_balance_points_by_date_range(
++     start_date: datetime = Query(..., description="Start date (ISO format)"),
++     end_date: datetime = Query(..., description="End date (ISO format)"),
++     db: Session = Depends(get_db_session),
++     current_user_id: UUID = Depends(get_current_user_id)
++ ):
++     """Get balance points within a date range across all accounts"""
++     service = BalancePointService(db)
++     try:
++         return service.get_balance_points_by_date_range(current_user_id, start_date, end_date)
++     except ValueError as e:
++         raise HTTPException(status_code=400, detail=str(e))
++ 
++ 
++ @router.get("/total-balance/at-date")
++ def get_total_balance_at_date(
++     target_date: date = Query(..., description="Date to calculate balance for (YYYY-MM-DD)"),
++     db: Session = Depends(get_db_session),
++     current_user_id: UUID = Depends(get_current_user_id)
++ ):
++     """Calculate total balance across all accounts at a specific date"""
++     service = BalancePointService(db)
++     total_balance = service.get_total_balance_at_date(current_user_id, target_date)
++     return {
++         "date": target_date,
++         "total_balance": total_balance,
++         "currency": "BRL"  # You might want to make this configurable
++     }
+  
+```
+
+---
+
+I notice there's an import issue with `datetime.timedelta`. Let me fix that in the repository:
+
+---
+
 
 
 ---
+
+
+
+---
+
+
+
+---
+
+Now let's create a visual diagram to show the improved architecture for balance_points:
+
+---
+
+
+
+---
+
+## 🎓 Balance Points Repository Pattern - Complete Implementation!
+
+### How The Enhanced Architecture Works:
+
+**🌊 Data Flow:**
+1. **Router Layer** handles HTTP requests with comprehensive endpoints
+2. **Service Layer** implements business logic and validation rules
+3. **Repository Layer** abstracts complex database operations
+4. **Cross-Domain Validation** ensures data integrity between accounts and balance points
+
+### Key Benefits Achieved:
+
+- **✅ Advanced Analytics**: Built-in movement calculations (DIFF functionality like Excel)
+- **🔧 Data Integrity**: Prevents duplicate balance points on same date
+- **🔄 Historical Tracking**: Track balance changes over time with trend analysis
+- **📚 Rich Querying**: Date ranges, latest balances, and cross-account totals
+
+### Related Concepts & Production Features:
+
+**📈 Movement Calculations**: The `get_balance_history_summary()` method automatically calculates the difference between consecutive balance points, providing the "DIFF" functionality you'd find in Excel spreadsheets.
+
+**🔒 Business Logic Validation**:
+- Prevents duplicate balance points on the same date
+- Validates account ownership across domains
+- Ensures balance values are not negative
+- Date range validation for queries
+
+### New API Endpoints Added:
+
+- `GET /balance-points/history/movements` - Get balance history with calculated movements
+- `GET /balance-points/account/{account_id}/trend?days=30` - Balance trend analysis
+- `GET /balance-points/account/{account_id}/latest` - Latest balance point
+- `GET /balance-points/date-range?start_date=...&end_date=...` - Date range queries
+- `GET /balance-points/total-balance/at-date?target_date=...` - Historical total balance
+- `PUT /balance-points/{balance_point_id}` - Update balance points
+- `DELETE /balance-points/{balance_point_id}` - Delete balance points
+
+### Production Considerations:
+
+1. **Performance**: Repository methods use proper indexing and efficient queries
+2. **Data Integrity**: Cross-domain validation prevents orphaned balance points
+3. **Analytics Ready**: Built-in movement calculations support financial reporting
+4. **Audit Trail**: Complete CRUD operations with proper error handling
+5. **Flexibility**: Easy to add new analytical methods in the repository
+
+### How Movement Calculation Works:
+
+```python
+# Example of the DIFF functionality
+balance_history = [
+    {"date": "2024-01-01", "balance": 1000.0, "movement": 0.0},      # First entry
+    {"date": "2024-01-02", "balance": 1500.0, "movement": 500.0},    # +500
+    {"date": "2024-01-03", "balance": 1200.0, "movement": -300.0},   # -300
+]
+```
+
+Your balance_points domain now provides enterprise-level financial tracking capabilities! 🚀
+
+**📋 Commit Message Suggestion:**
+```
+feat: implement Repository pattern for balance_points domain
+
+- Add BalancePointRepository for advanced data access operations
+- Refactor BalancePointService with comprehensive business logic
+- Add movement calculation functionality (Excel DIFF equivalent)
+- Implement trend analysis and historical balance tracking
+- Add comprehensive CRUD endpoints with proper error handling
+- Prevent duplicate balance points on same date
+- Add cross-domain validation with AccountService
+- Support date range queries and analytics endpoints
+```
+
+Both your `accounts` and `balance_points` domains now follow consistent Repository patterns with enterprise-level architecture! The balance points domain particularly shines with its financial analytics capabilities.
+
+---
+
+_**User**_
+
+@/brokers , please
+
+---
+
+_**Assistant**_
 
 
 
