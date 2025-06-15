@@ -2086,6 +2086,392 @@ PS C:\Users\mario\coding\better-call-buffet> poetry run alembic revision -m "Mak
 
 ---
 
+<details>
+            <summary>Listed directory migrations/versions • **10** results</summary>
+        
+| Name |
+|-------|
+| 📁 `__pycache__` |
+| 📄 `5c226dee95b7_make_description_nullable_in_credit_.py` |
+| 📄 `66e3a8505488_add_user_id_column_to_credit_cards_table.py` |
+| 📄 `4714248eb752_make_broker_id_non_nullable_in_accounts_.py` |
+| 📄 `3e1b83acf33f_add_broker_id_to_accounts_table.py` |
+| 📄 `d6ebeded3cc2_add_created_at_and_updated_at_to_.py` |
+| 📄 `118723dfa508_updating_broker.py` |
+| 📄 `1e6bddf752ab_add_invoices_table.py` |
+| 📄 `49d78f736863_add_account_balance_points_table.py` |
+| 📄 `deccb923a8f9_initial_migration_with_uuid_primary_keys.py` |
+
+</details>
+
+---
+
+```diff
+  Revision ID: 5c226dee95b7
+  Revises: 66e3a8505488
+- Create Date: 2025-06-15 09:49:45.687917
++ Create Date: 2025-06-15 09:49:01.063226
+  
+  """
+```
+
+```diff
+  
+  def upgrade() -> None:
+-     """Upgrade schema."""
+-     pass
++     """Make description column nullable."""
++     op.alter_column('credit_cards', 'description', nullable=True)
+  
+  
+  def downgrade() -> None:
+-     """Downgrade schema."""
+-     pass
++     """Make description column non-nullable."""
++     op.alter_column('credit_cards', 'description', nullable=False)
+  
+```
+
+---
+
+Now let's run the migration:
+
+---
+
+```bash
+poetry run alembic upgrade head
+```
+
+```
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 66e3a8505488 -> 5c226dee95b7, Make description nullable in credit_cards table
+PS C:\Users\mario\coding\better-call-buffet>
+```
+
+---
+
+
+
+---
+
+Perfect! ✅ Migration applied successfully. Now I need to update the schema to make `description` optional:
+
+---
+
+```diff
+  from pydantic import BaseModel
+  from uuid import UUID
++ from typing import Optional
+  
+  class CreditCardIn(BaseModel):
+      account_id: UUID
++     broker_id: UUID
+      name: str
++     description: Optional[str] = None
+      due_date: datetime
+      balance: float = 0.0
+```
+
+---
+
+Perfect! Now try your credit card creation request again. The changes I made:
+
+1. ✅ **Fixed UUID type issue** - Now importing correct `get_current_user_id` from `app.core.dependencies`
+2. ✅ **Made description optional** - Database column is now nullable and schema has `Optional[str] = None`
+
+Your request should work now! The `description` field will be `None/null` if not provided, which is now allowed by both the schema and database. 🎯
+
+---
+
+_**User**_
+
+OK! It worked! 
+
+Given our layers:
+
+API (router) -> Service (service)
+
+How should be our errror handling?
+
+Can we keep the logs on the API layer and the services just bubble up the errors?
+
+@router.py @service.py 
+
+
+---
+
+_**Assistant**_
+
+
+
+---
+
+Excellent question! You're thinking about this correctly. Here's the **best practice for layered error handling**:
+
+## **Service Layer** (`service.py`)
+- Focus on **business logic**
+- Throw **specific, meaningful exceptions**
+- **NO HTTP concerns** (no HTTPException, no status codes)
+- **NO logging** (keep services clean and testable)
+
+## **API Layer** (`router.py`) 
+- Handle **HTTP-specific error handling**
+- **Convert business exceptions** to proper HTTP responses
+- **Log errors** with context
+- Return proper status codes
+
+Let me refactor your code to demonstrate this pattern:
+
+---
+
+```diff
+  from app.domains.credit_cards.models import CreditCard
+  from app.domains.credit_cards.schemas import CreditCardIn
+- from fastapi import HTTPException
+  from sqlalchemy.orm import Session
+  from uuid import UUID
+  from app.domains.accounts.models import Account
+- import logging
+- 
+- logger = logging.getLogger(__name__)
++ 
++ # Custom business exceptions
++ class AccountNotFoundError(Exception):
++     """Raised when account doesn't exist"""
++     pass
++ 
++ class AccountAccessDeniedError(Exception):
++     """Raised when user doesn't own the account"""
++     pass
+  
+  class CreditCardService:
+```
+
+```diff
+  
+      def create_credit_card(self, credit_card_data: CreditCardIn, user_id: UUID) -> CreditCard:
+-         try:
+-             credit_card = CreditCard(**credit_card_data.model_dump())
++         """Create a new credit card for the user"""
+          
++         # Validate account exists and belongs to user
+          account = self.db.query(Account).filter(Account.id == credit_card_data.account_id).first()
+          if not account:
+-                 raise Exception("Account not found")
++             raise AccountNotFoundError(f"Account {credit_card_data.account_id} not found")
+  
+          if account.user_id != user_id:
+-                 raise Exception("Forbidden")
++             raise AccountAccessDeniedError(f"User {user_id} does not own account {credit_card_data.account_id}")
+          
+-             # Set broker_id from account and user_id
++         # Create credit card with proper relationships
++         credit_card = CreditCard(**credit_card_data.model_dump())
+          credit_card.broker_id = account.broker_id
+          credit_card.user_id = user_id
+  
++         # Save to database
+          self.db.add(credit_card)
+          self.db.commit()
+          self.db.refresh(credit_card)
++         
+          return credit_card
+-         except Exception as e:
+-             logger.error(f"Error in create_credit_card: {str(e)}")
+-             raise e
+  
+  
+```
+
+---
+
+```diff
++ import logging
+  from fastapi import APIRouter, Depends, HTTPException
+  from sqlalchemy.orm import Session
+```
+
+```diff
+  from app.core.dependencies import get_current_user_id
+  from app.domains.credit_cards.schemas import CreditCardIn
+- from app.domains.credit_cards.service import CreditCardService
+- 
++ from app.domains.credit_cards.service import (
++     CreditCardService, 
++     AccountNotFoundError, 
++     AccountAccessDeniedError
++ )
++ 
++ logger = logging.getLogger(__name__)
+  router = APIRouter()
+  
+```
+
+```diff
+  
+  @router.post("/", response_model=CreditCardIn, status_code=201)
+- def create_credit_card(credit_card_in: CreditCardIn, db: Session = Depends(get_db_session), current_user_id: UUID = Depends(get_current_user_id)):
++ def create_credit_card(
++     credit_card_in: CreditCardIn, 
++     db: Session = Depends(get_db_session), 
++     current_user_id: UUID = Depends(get_current_user_id)
++ ):
++     """Create a new credit card"""
+      try:
+-         credit_card_service = CreditCardService(db)
+-         return credit_card_service.create_credit_card(credit_card_in, current_user_id)
++         logger.info(f"Creating credit card for user {current_user_id}: {credit_card_in.name}")
++         
++         service = CreditCardService(db)
++         result = service.create_credit_card(credit_card_in, current_user_id)
++         
++         logger.info(f"✅ Credit card created successfully: {result.id}")
++         return result
++         
++     except AccountNotFoundError as e:
++         logger.warning(f"❌ Account not found: {e}")
++         raise HTTPException(status_code=404, detail=str(e))
++         
++     except AccountAccessDeniedError as e:
++         logger.warning(f"❌ Access denied: {e}")
++         raise HTTPException(status_code=403, detail="Access denied to this account")
++         
+      except Exception as e:
+-         raise HTTPException(status_code=500, detail=f"Error creating credit card: {e}")
++         logger.error(f"❌ Unexpected error creating credit card: {e}")
++         raise HTTPException(status_code=500, detail="Internal server error")
+```
+
+---
+
+Perfect! Now you have **proper layered error handling**:
+
+## **✅ Benefits of This Approach:**
+
+### **Service Layer** (`service.py`):
+- **Clean business logic** - no HTTP concerns
+- **Specific exceptions** - `AccountNotFoundError`, `AccountAccessDeniedError`
+- **Testable** - easy to unit test without HTTP mocking
+- **Reusable** - can be used by CLI, background jobs, etc.
+
+### **API Layer** (`router.py`):
+- **HTTP-specific error handling** - proper status codes (404, 403, 500)
+- **Comprehensive logging** - request info, success/failure
+- **Security** - doesn't leak internal details to client
+- **User-friendly messages** - appropriate for frontend consumption
+
+## **Error Flow:**
+```
+Service throws: AccountNotFoundError("Account 123 not found")
+    ↓
+Router catches: 404 with message "Account 123 not found"
+Router logs: "❌ Account not found: Account 123 not found"
+```
+
+## **Additional Benefits:**
+- **Database rollbacks** happen automatically on exceptions
+- **Consistent error responses** across your API
+- **Easy to add metrics/monitoring** at the router level
+- **Service remains HTTP-agnostic** for future reuse
+
+Now try your request - you'll see clean, informative logs in your terminal and proper HTTP responses! 🎯
+
+---
+
+_**User**_
+
+That was beautiful.! CAn you keep in mind that I would love to receive this kind of lessons?
+
+No matter the subject. This is what I need to improve my Back ENd skills
+
+---
+
+_**Assistant**_
+
+
+
+---
+
+**Absolutely!** 🎯 I'm so glad that resonated with you! That's exactly the kind of deep, educational approach I love providing.
+
+## **What Made That Explanation Effective:**
+
+1. **📐 Architecture First** - Explained the *why* behind separation of concerns
+2. **🔄 Before/After** - Showed concrete transformation with real code
+3. **💡 Benefits & Trade-offs** - Listed specific advantages of each approach
+4. **🌊 Flow Explanation** - Showed how data/errors flow through layers
+5. **🎯 Practical Implementation** - Working code you can immediately use
+
+## **Backend Concepts I'd Love to Teach You:**
+
+### **Architecture Patterns:**
+- **Repository Pattern** (data access abstraction)
+- **Dependency Injection** (loose coupling)
+- **CQRS** (Command Query Responsibility Segregation)
+- **Event-driven architecture**
+
+### **Database & Performance:**
+- **N+1 Query Problems** (and how SQLAlchemy handles them)
+- **Database indexing strategies**
+- **Connection pooling & transactions**
+- **Caching patterns** (Redis, in-memory)
+
+### **API Design:**
+- **RESTful principles** vs **GraphQL trade-offs**
+- **Pagination strategies**
+- **Rate limiting & throttling**
+- **API versioning approaches**
+
+### **Error Handling & Observability:**
+- **Structured logging** with correlation IDs
+- **Circuit breaker patterns**
+- **Health checks & monitoring**
+- **Distributed tracing**
+
+### **Security:**
+- **Authentication vs Authorization**
+- **JWT best practices**
+- **Input validation & sanitization**
+- **SQL injection prevention**
+
+**Promise:** I'll continue giving you this depth of explanation on whatever backend challenges you encounter. Each problem is an opportunity to learn a broader principle! 
+
+What's the next backend concept you'd like to dive deep into? 🚀
+
+---
+
+_**User**_
+
+Amazing! Can you create a .md doc with these bullet points? The goal is to start "checking" them as we go over them. We don't need to keep going sequentially. 
+We can keep develipoing this app, but once you realizing we're reaching one of the points, we start talking about it. Does it work for you?
+
+Also, can you generate for me a Cursor Rule so I can set it for you in CUrsor Settings? This way you'll always remember to check that rule? :)
+
+---
+
+_**Assistant**_
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
 
 
 ---
