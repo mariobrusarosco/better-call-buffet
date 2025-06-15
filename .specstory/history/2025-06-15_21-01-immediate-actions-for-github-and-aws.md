@@ -4171,9 +4171,19 @@ You accidentally cleared your `.vscode/settings.json`. Let's restore it with **b
 
 ---
 
-
+```bash
+poetry run isort . --profile black
+```
 
 ---
+
+_**User**_
+
+Should we run this on migration files as well?
+
+---
+
+_**Assistant**_
 
 
 
