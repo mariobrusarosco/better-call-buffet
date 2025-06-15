@@ -1,13 +1,13 @@
 from typing import List
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.db.connection_and_session import get_db_session
 from app.core.dependencies import get_current_user_id  # Assuming this exists
-from app.domains.users.schemas import UserIn, User, UserUpdateIn
+from app.db.connection_and_session import get_db_session
+from app.domains.users.schemas import User, UserIn, UserUpdateIn
 from app.domains.users.service import UserService
-
 
 router = APIRouter()
 

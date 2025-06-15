@@ -1,24 +1,20 @@
+import sys
 from logging.config import fileConfig
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from pathlib import Path
 
 from alembic import context
-
-import sys
-from pathlib import Path
+from sqlalchemy import engine_from_config, pool
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+from app.core.config import settings
 from app.db.connection_and_session import Base
-from app.domains.users.models import User
 from app.domains.accounts.models import Account
 from app.domains.balance_points.models import BalancePoint
 from app.domains.brokers.models import Broker
-from app.domains.invoices.models import Invoice
 from app.domains.credit_cards.models import CreditCard
-
-from app.core.config import settings
+from app.domains.invoices.models import Invoice
+from app.domains.users.models import User
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

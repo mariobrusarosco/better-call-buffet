@@ -1,8 +1,10 @@
-from datetime import datetime
-from sqlalchemy import DateTime, Float, ForeignKey, Column, String, Index
-from sqlalchemy.dialects.postgresql import UUID
-from app.db.connection_and_session import Base
 import uuid
+from datetime import datetime
+
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, String
+from sqlalchemy.dialects.postgresql import UUID
+
+from app.db.connection_and_session import Base
 
 
 class BalancePoint(Base):

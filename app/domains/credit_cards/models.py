@@ -1,12 +1,13 @@
 import uuid
 from datetime import datetime
+
 from sqlalchemy import (
+    Boolean,
     Column,
+    DateTime,
+    Float,
     ForeignKey,
     String,
-    Float,
-    Boolean,
-    DateTime,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID

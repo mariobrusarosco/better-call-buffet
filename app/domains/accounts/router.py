@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
 from typing import List
-from sqlalchemy.orm import Session
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.core.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
 from app.domains.accounts.schemas import Account, AccountIn, AccountType
 from app.domains.accounts.service import AccountService
-from app.core.dependencies import get_current_user_id
 
 router = APIRouter()
 

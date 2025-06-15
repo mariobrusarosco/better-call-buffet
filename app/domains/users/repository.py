@@ -1,7 +1,8 @@
 from typing import List, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 from uuid import UUID
+
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from app.domains.users.models import User
 

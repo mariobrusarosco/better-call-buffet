@@ -1,8 +1,9 @@
-from typing import List, Optional, Dict, Any
-from datetime import datetime, date
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, func, or_
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
 from uuid import UUID
+
+from sqlalchemy import and_, func, or_
+from sqlalchemy.orm import Session
 
 from app.domains.invoices.models import Invoice
 

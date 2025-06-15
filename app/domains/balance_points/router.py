@@ -1,17 +1,18 @@
+from datetime import date, datetime
 from typing import List, Optional
 from uuid import UUID
-from datetime import datetime, date
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from app.db.connection_and_session import get_db_session
+
 from app.core.dependencies import get_current_user_id
-from app.domains.balance_points.service import BalancePointService
+from app.db.connection_and_session import get_db_session
 from app.domains.balance_points.schemas import (
-    BalancePointIn,
     BalancePoint,
+    BalancePointIn,
     BalancePointUpdateIn,
 )
-
+from app.domains.balance_points.service import BalancePointService
 
 router = APIRouter()
 

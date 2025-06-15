@@ -1,13 +1,13 @@
-from typing import List, Optional
 from datetime import datetime, timedelta
+from typing import List, Optional
 from uuid import UUID
-from sqlalchemy.orm import Session
+
 from passlib.context import CryptContext
+from sqlalchemy.orm import Session
 
 from app.domains.users.models import User
-from app.domains.users.schemas import UserIn
 from app.domains.users.repository import UserRepository
-
+from app.domains.users.schemas import UserIn
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

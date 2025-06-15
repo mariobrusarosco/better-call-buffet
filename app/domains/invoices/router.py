@@ -1,19 +1,16 @@
-from typing import List, Optional, Any
-from uuid import UUID
 from datetime import datetime
+from typing import Any, List, Optional
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.db.connection_and_session import get_db_session
 from app.core.dependencies import get_current_user_id
+from app.db.connection_and_session import get_db_session
 from app.domains.invoices.models import Invoice
-from app.domains.invoices.schemas import (
-    InvoiceIn,
-    Invoice as InvoiceSchema,
-    InvoiceUpdateIn,
-)
+from app.domains.invoices.schemas import Invoice as InvoiceSchema
+from app.domains.invoices.schemas import InvoiceIn, InvoiceUpdateIn
 from app.domains.invoices.service import InvoiceService
-
 
 router = APIRouter()
 

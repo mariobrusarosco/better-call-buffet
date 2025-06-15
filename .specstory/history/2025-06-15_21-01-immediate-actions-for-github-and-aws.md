@@ -3975,3 +3975,207 @@ I can see you're missing the **Black Formatter extension**. You have:
 
 ---
 
+### **Step 3: Reload Cursor**
+
+After installing the extension:
+1. **Press `Ctrl+Shift+P`**
+2. **Run**: `Developer: Reload Window`
+
+### **Step 4: Test Black Formatting**
+
+Try formatting a Python file:
+1. **Press `Shift+Alt+F`** (Format Document)
+2. **Or** just save a file with `Ctrl+S`
+
+## 🎯 What This Fixes
+
+| **Before** | **After** |
+|------------|-----------|
+| Prettier tries to format `.py` files | Black handles all Python formatting |
+| Conflicting formatters | Single source of truth |
+| Inconsistent formatting | Black's opinionated style |
+
+## 🔍 Troubleshooting
+
+If it's still not working after these steps:
+
+1. **Check Python interpreter**:
+   - `Ctrl+Shift+P` → `Python: Select Interpreter`
+   - Choose the one with `poetry` or your virtual environment
+
+2. **Check Black is available**:
+   ```bash
+   poetry run black --version
+   ```
+
+3. **Force Black formatter**:
+   - `Ctrl+Shift+P` → `Format Document With...`
+   - Select `Black Formatter`
+
+Let me know if Prettier is still interfering after installing the Black Formatter extension!
+
+---
+
+_**User**_
+
+un poetry run isort --check-only .
+  poetry run isort --check-only .
+  shell: /usr/bin/bash -e {0}
+  env:
+    PYTHON_VERSION: 3.11
+    POETRY_VERSION: 1.8.3
+    pythonLocation: /opt/hostedtoolcache/Python/3.11.13/x64
+    PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.13/x64/lib/pkgconfig
+    Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.13/x64
+    Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.13/x64
+    Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.13/x64
+    LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.13/x64/lib
+    VENV: .venv/bin/activate
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/main.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/core/config.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/core/error_handlers.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/core/secrets.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/core/dependencies.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/core/logging_config.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/invoices/router.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/invoices/schemas.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/invoices/models.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/invoices/service.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/invoices/repository.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/users/router.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/users/schemas.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/users/models.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/users/service.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/users/repository.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/reports/router.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/reports/accounts/router.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/reports/accounts/schemas.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/reports/accounts/service.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/reports/accounts/repository.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/balance_points/router.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/balance_points/schemas.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/balance_points/models.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/balance_points/service.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/balance_points/repository.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/credit_cards/router.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/credit_cards/schemas.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/credit_cards/models.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/credit_cards/service.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/credit_cards/repository.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/brokers/router.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/brokers/schemas.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/brokers/models.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/brokers/service.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/brokers/repository.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/accounts/router.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/accounts/schemas.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/accounts/models.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/accounts/service.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/domains/accounts/repository.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/db/model_registration.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/db/seeds/seed_prod_db.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/db/seeds/seed_db.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/app/api/v1/__init__.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/migrations/env.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/migrations/versions/5c226dee95b7_make_description_nullable_in_credit_.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/migrations/versions/4714248eb752_make_broker_id_non_nullable_in_accounts_.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/migrations/versions/deccb923a8f9_initial_migration_with_uuid_primary_keys.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/migrations/versions/1e6bddf752ab_add_invoices_table.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/migrations/versions/014a78e888b0_update_credit_card.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/migrations/versions/118723dfa508_updating_broker.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/migrations/versions/3e1b83acf33f_add_broker_id_to_accounts_table.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/migrations/versions/49d78f736863_add_account_balance_points_table.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/migrations/versions/d6ebeded3cc2_add_created_at_and_updated_at_to_.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/migrations/versions/710bf3b90f98_udate_credit_card.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/migrations/versions/66e3a8505488_add_user_id_column_to_credit_cards_table.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/migrations/versions/6513790b02ea_update_credit_card.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/utilities/test_db_connection.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/scripts/seed_db.py Imports are incorrectly sorted and/or formatted.
+ERROR: /home/runner/work/better-call-buffet/better-call-buffet/scripts/create_tables.py Imports are incorrectly sorted and/or formatted.
+Skipped 2 files
+
+---
+
+_**Assistant**_
+
+
+
+---
+
+Perfect! 🎉 **Your CI/CD pipeline is working exactly as designed!** 
+
+This is **good news** - it's catching code quality issues before they reach production. Now we have **two formatting tools** to fix:
+
+1. ✅ **Black** (for code formatting) - already fixed
+2. ❌ **isort** (for import sorting) - needs fixing
+
+## 🔧 Let's Fix Both Issues
+
+### **Step 1: Restore Your VS Code Settings**
+
+You accidentally cleared your `.vscode/settings.json`. Let's restore it with **both Black AND isort** support:
+
+---
+
+```diff
+- 
++ {
++   "specstory.derivedRules.enabled": false,
++   
++   // Python interpreter
++   "python.defaultInterpreterPath": "./.venv/Scripts/python.exe",
++   
++   // Auto-format on save
++   "editor.formatOnSave": true,
++   "editor.formatOnPaste": true,
++   "editor.formatOnType": false,
++   
++   // Python-specific settings
++   "[python]": {
++     "editor.defaultFormatter": "ms-python.black-formatter",
++     "editor.formatOnSave": true,
++     "editor.codeActionsOnSave": {
++       "source.organizeImports": "explicit"
++     }
++   },
++   
++   // Disable Prettier for Python files
++   "prettier.disableLanguages": ["python"],
++   
++   // Black configuration
++   "python.formatting.blackArgs": ["--line-length=88"],
++   
++   // isort configuration
++   "isort.args": [
++     "--profile=black",
++     "--line-length=88",
++     "--multi-line=3",
++     "--trailing-comma"
++   ],
++   
++   // File associations
++   "files.associations": {
++     "*.py": "python"
++   },
++   
++   // Auto-save
++   "files.autoSave": "afterDelay",
++   "files.autoSaveDelay": 1000
++ }
++ 
+```
+
+---
+
+### **Step 2: Fix All isort Issues Locally**
+
+---
+
+
+
+---
+
+
+
+---
+

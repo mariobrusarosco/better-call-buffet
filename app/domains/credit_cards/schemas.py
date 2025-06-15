@@ -1,7 +1,8 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from typing import List, Optional
 from uuid import UUID
-from typing import Optional, List
+
+from pydantic import BaseModel, ConfigDict
 
 
 # Input schemas

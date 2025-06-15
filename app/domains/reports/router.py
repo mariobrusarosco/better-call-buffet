@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+
 from app.domains.reports.accounts.router import router as accounts_router
 
 router = APIRouter()

@@ -1,14 +1,14 @@
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.domains.reports.accounts.schemas import AccountsBalanceReportParams
-from app.domains.reports.accounts.service import ReportAccountsService
 from app.core.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
-
+from app.domains.reports.accounts.schemas import AccountsBalanceReportParams
+from app.domains.reports.accounts.service import ReportAccountsService
 
 router = APIRouter(tags=["account-reports"])
 

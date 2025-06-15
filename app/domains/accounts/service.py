@@ -1,10 +1,11 @@
 from typing import List, Optional
-from sqlalchemy.orm import Session
 from uuid import UUID
 
+from sqlalchemy.orm import Session
+
 from app.domains.accounts.models import Account
-from app.domains.accounts.schemas import AccountIn, AccountType, AccountWithBroker
 from app.domains.accounts.repository import AccountRepository
+from app.domains.accounts.schemas import AccountIn, AccountType, AccountWithBroker
 
 
 class AccountService:

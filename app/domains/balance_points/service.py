@@ -1,12 +1,13 @@
+from datetime import date, datetime
 from typing import List, Optional
-from datetime import datetime, date
 from uuid import UUID
+
 from sqlalchemy.orm import Session
 
-from app.domains.balance_points.models import BalancePoint
-from app.domains.balance_points.schemas import BalancePointIn
-from app.domains.balance_points.repository import BalancePointRepository
 from app.domains.accounts.service import AccountService
+from app.domains.balance_points.models import BalancePoint
+from app.domains.balance_points.repository import BalancePointRepository
+from app.domains.balance_points.schemas import BalancePointIn
 
 
 class BalancePointService:

@@ -1,7 +1,8 @@
 import os
 from typing import List
-from pydantic_settings import BaseSettings
+
 from pydantic import AnyHttpUrl
+from pydantic_settings import BaseSettings
 
 # Only import secrets in production to avoid boto3 requirement in development
 if os.getenv("ENVIRONMENT") == "production":

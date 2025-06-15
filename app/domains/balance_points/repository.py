@@ -1,8 +1,9 @@
+from datetime import date, datetime, timedelta
 from typing import List, Optional
-from datetime import datetime, date, timedelta
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, func
 from uuid import UUID
+
+from sqlalchemy import and_, func
+from sqlalchemy.orm import Session
 
 from app.domains.balance_points.models import BalancePoint
 

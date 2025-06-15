@@ -11,8 +11,10 @@ Repository Pattern Benefits:
 
 from typing import List, Optional
 from uuid import UUID
-from sqlalchemy.orm import Session
+
 from sqlalchemy import asc, desc, extract
+from sqlalchemy.orm import Session
+
 from app.domains.credit_cards.models import CreditCard
 from app.domains.credit_cards.schemas import CreditCardFilters
 

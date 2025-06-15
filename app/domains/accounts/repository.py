@@ -1,6 +1,7 @@
 from typing import List, Optional
-from sqlalchemy.orm import Session, joinedload
 from uuid import UUID
+
+from sqlalchemy.orm import Session, joinedload
 
 from app.domains.accounts.models import Account
 from app.domains.accounts.schemas import AccountIn, AccountType

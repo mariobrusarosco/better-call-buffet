@@ -1,11 +1,12 @@
-from typing import List, Dict, Any, Optional
-from uuid import UUID
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from sqlalchemy.orm import Session
-from app.domains.reports.accounts.repository import ReportsAccountsRepository
+
 from app.domains.accounts.schemas import AccountType
 from app.domains.accounts.service import AccountService
+from app.domains.reports.accounts.repository import ReportsAccountsRepository
 
 
 class ReportAccountsService:

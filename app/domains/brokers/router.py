@@ -1,13 +1,13 @@
 from typing import List, Optional
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
-from app.domains.brokers.schemas import BrokerIn, Broker, BrokerUpdateIn
+from app.domains.brokers.schemas import Broker, BrokerIn, BrokerUpdateIn
 from app.domains.brokers.service import BrokersService
-
 
 router = APIRouter()
 

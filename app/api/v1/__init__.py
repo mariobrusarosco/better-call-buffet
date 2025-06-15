@@ -2,10 +2,10 @@ from fastapi import APIRouter
 
 from app.domains.accounts.router import router as accounts_router
 from app.domains.balance_points.router import router as balance_points_router
-from app.domains.reports.router import router as reports_router
-from app.domains.invoices.router import router as invoices_router
 from app.domains.brokers.router import router as brokers_router
 from app.domains.credit_cards.router import router as credit_cards_router
+from app.domains.invoices.router import router as invoices_router
+from app.domains.reports.router import router as reports_router
 
 api_router = APIRouter(prefix="/api/v1")
 

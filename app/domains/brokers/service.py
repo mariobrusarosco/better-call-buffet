@@ -1,10 +1,11 @@
 from typing import List, Optional
 from uuid import UUID
+
 from sqlalchemy.orm import Session
 
 from app.domains.brokers.models import Broker
-from app.domains.brokers.schemas import BrokerIn
 from app.domains.brokers.repository import BrokerRepository
+from app.domains.brokers.schemas import BrokerIn
 
 
 class BrokersService:

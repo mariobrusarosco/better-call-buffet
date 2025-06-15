@@ -1,7 +1,8 @@
 from datetime import datetime
-from typing import Dict, Any, Optional
-from pydantic import BaseModel
+from typing import Any, Dict, Optional
 from uuid import UUID
+
+from pydantic import BaseModel
 
 
 # Base schema with shared properties

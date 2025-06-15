@@ -10,7 +10,8 @@ This module centralizes all logging configuration to:
 
 import logging
 import sys
-from typing import Dict, Any
+from typing import Any, Dict
+
 from app.core.config import settings
 
 

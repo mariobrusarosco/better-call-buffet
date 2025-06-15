@@ -1,9 +1,10 @@
 import os
 import sys
+import uuid
 from datetime import datetime
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-import uuid
 
 # Add the parent directory to the path to import app modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -11,8 +12,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import models
 from app.db.connection_and_session import Base
 from app.domains.accounts.models import Account, AccountType
-from app.domains.users.models import User
 from app.domains.brokers.models import Broker
+from app.domains.users.models import User
 
 
 def truncate_tables(db):
