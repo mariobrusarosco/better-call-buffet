@@ -1,23 +1,30 @@
-from typing import List
+from typing import List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends
+from datetime import datetime, date
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.db.connection_and_session import get_db_session
 from app.core.dependencies import get_current_user_id
 from app.domains.balance_points.service import BalancePointService
-from app.domains.balance_points.schemas import BalancePointIn, BalancePoint
+from app.domains.balance_points.schemas import BalancePointIn, BalancePoint, BalancePointUpdateIn
 
 
 router = APIRouter()
-    
+
+
 @router.post("/", response_model=BalancePoint)
 def create_balance_point(
     balance_point_in: BalancePointIn,
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id)
 ):
+    """Create a new balance point"""
     service = BalancePointService(db)
-    return service.create_balance_point(balance_point_in=balance_point_in, user_id=current_user_id)
+    try:
+        return service.create_balance_point(balance_point_in=balance_point_in, user_id=current_user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.get("/account/{account_id}", response_model=List[BalancePoint])
 def get_balance_points_by_account_id(
@@ -25,5 +32,133 @@ def get_balance_points_by_account_id(
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id)
 ):
+    """Get all balance points for a specific account"""
     service = BalancePointService(db)
-    return service.get_balance_points_by_account_id(account_id=account_id, user_id=current_user_id)
+    try:
+        return service.get_balance_points_by_account_id(account_id=account_id, user_id=current_user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{balance_point_id}", response_model=BalancePoint)
+def get_balance_point_by_id(
+    balance_point_id: UUID,
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id)
+):
+    """Get a specific balance point by ID"""
+    service = BalancePointService(db)
+    balance_point = service.get_balance_point_by_id(balance_point_id, current_user_id)
+    if not balance_point:
+        raise HTTPException(status_code=404, detail="Balance point not found")
+    return balance_point
+
+
+@router.put("/{balance_point_id}", response_model=BalancePoint)
+def update_balance_point(
+    balance_point_id: UUID,
+    update_data: BalancePointUpdateIn,
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id)
+):
+    """Update a balance point"""
+    service = BalancePointService(db)
+    try:
+        # Convert Pydantic model to dict, excluding None values
+        update_dict = update_data.model_dump(exclude_none=True)
+        balance_point = service.update_balance_point(balance_point_id, current_user_id, update_dict)
+        if not balance_point:
+            raise HTTPException(status_code=404, detail="Balance point not found")
+        return balance_point
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/{balance_point_id}")
+def delete_balance_point(
+    balance_point_id: UUID,
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id)
+):
+    """Delete a balance point"""
+    service = BalancePointService(db)
+    if not service.delete_balance_point(balance_point_id, current_user_id):
+        raise HTTPException(status_code=404, detail="Balance point not found")
+    return {"message": "Balance point deleted successfully"}
+
+
+@router.get("/history/movements")
+def get_balance_history_with_movements(
+    account_id: Optional[UUID] = Query(None, description="Filter by specific account"),
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id)
+):
+    """
+    Get balance history with calculated movements (DIFF functionality).
+    Shows the difference between consecutive balance points.
+    """
+    service = BalancePointService(db)
+    return service.get_balance_history_with_movements(current_user_id, account_id)
+
+
+@router.get("/account/{account_id}/trend", response_model=List[BalancePoint])
+def get_account_balance_trend(
+    account_id: UUID,
+    days: int = Query(30, ge=1, le=365, description="Number of days to look back"),
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id)
+):
+    """Get balance trend for an account over specified days"""
+    service = BalancePointService(db)
+    try:
+        return service.get_balance_trend(account_id, current_user_id, days)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/account/{account_id}/latest", response_model=BalancePoint)
+def get_latest_balance_point(
+    account_id: UUID,
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id)
+):
+    """Get the most recent balance point for an account"""
+    service = BalancePointService(db)
+    try:
+        balance_point = service.get_latest_balance_by_account(account_id, current_user_id)
+        if not balance_point:
+            raise HTTPException(status_code=404, detail="No balance points found for this account")
+        return balance_point
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/date-range", response_model=List[BalancePoint])
+def get_balance_points_by_date_range(
+    start_date: datetime = Query(..., description="Start date (ISO format)"),
+    end_date: datetime = Query(..., description="End date (ISO format)"),
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id)
+):
+    """Get balance points within a date range across all accounts"""
+    service = BalancePointService(db)
+    try:
+        return service.get_balance_points_by_date_range(current_user_id, start_date, end_date)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/total-balance/at-date")
+def get_total_balance_at_date(
+    target_date: date = Query(..., description="Date to calculate balance for (YYYY-MM-DD)"),
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id)
+):
+    """Calculate total balance across all accounts at a specific date"""
+    service = BalancePointService(db)
+    total_balance = service.get_total_balance_at_date(current_user_id, target_date)
+    return {
+        "date": target_date,
+        "total_balance": total_balance,
+        "currency": "BRL"  # You might want to make this configurable
+    }
