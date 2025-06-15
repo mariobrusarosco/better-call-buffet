@@ -116,6 +116,40 @@ better-call-buffet/
 4. Format code: `black .`
 5. Submit a pull request
 
+## CI/CD Pipeline
+
+This project uses an automated CI/CD pipeline powered by GitHub Actions. The pipeline includes:
+
+- **Code Quality Checks**: Automated linting, formatting, and type checking
+- **Security Scanning**: Dependency vulnerability detection
+- **Docker Build**: Containerized application building and testing
+- **Automated Deployment**: Production deployment to AWS App Runner
+
+### 📚 Documentation
+
+- **[CI/CD Pipeline Guide](docs/guides/cicd-pipeline-guide.md)** - Comprehensive guide to our deployment pipeline
+- **[ADR-005: CI/CD Implementation](docs/decisions/005-cicd-pipeline-implementation.md)** - Architecture decision record
+
+### 🚀 Quick Start for Contributors
+
+```bash
+# Before pushing, run these locally:
+poetry run black .
+poetry run isort .
+poetry run flake8 app
+poetry run mypy app
+
+# Test Docker build locally:
+docker build -t better-call-buffet:local .
+docker run -p 8000:8000 better-call-buffet:local
+```
+
+The pipeline automatically runs on:
+
+- **Push to `main`**: Full pipeline including production deployment
+- **Push to `develop`**: Lint, validate, and build (no deployment)
+- **Pull Request to `main`**: Lint and validation checks
+
 ## AWS Deployment
 
 ### Database Setup (RDS)

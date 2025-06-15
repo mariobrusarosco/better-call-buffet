@@ -1,52 +1,36 @@
+# Use Python 3.11 slim image for smaller size and faster builds
 FROM python:3.11-slim
 
+# Set working directory
 WORKDIR /app
 
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VENV_IN_PROJECT=1 \
+    POETRY_CACHE_DIR=/tmp/poetry_cache
+
 # Install system dependencies
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        curl \
-        build-essential \
-        gcc \
-        python3-dev \
+RUN apt-get update && apt-get install -y \
+    gcc \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry using pip (more reliable in WSL environments)
-RUN pip install poetry==2.1.2
-
-# Set PATH to include Poetry binaries
-ENV PATH="${PATH}:/root/.local/bin"
-
-# Copy README.md first (needed for poetry install)
-COPY README.md ./
+# Install Poetry
+RUN pip install poetry
 
 # Copy poetry files
-COPY pyproject.toml poetry.lock* ./
+COPY pyproject.toml poetry.lock ./
 
-# Configure poetry to not create a virtual environment
-RUN poetry config virtualenvs.create false
-
-# Install dependencies (skip installing the root project)
-RUN poetry install --no-interaction --no-ansi --no-root
+# Install dependencies
+RUN poetry install --only=main && rm -rf $POETRY_CACHE_DIR
 
 # Copy application code
 COPY . .
 
-# Create non-root user
-RUN adduser --disabled-password --gecos '' appuser
-
-# Give appuser ownership of app directory
-RUN chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
-
-# Expose port
+# Expose port (App Runner expects port 8000)
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Default command
-CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run database migrations and start the application
+CMD ["sh", "-c", "poetry run alembic upgrade head && poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000"]
