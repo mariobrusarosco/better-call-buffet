@@ -10,44 +10,52 @@ from app.domains.credit_cards.schemas import (
     CreditCardResponse,
     CreditCardListResponse,
     CreditCardListMeta,
-    CreditCardFilters
+    CreditCardFilters,
 )
 from app.domains.credit_cards.service import (
-    CreditCardService, 
-    AccountNotFoundError, 
-    AccountAccessDeniedError
+    CreditCardService,
+    AccountNotFoundError,
+    AccountAccessDeniedError,
 )
 from app.domains.credit_cards.models import CreditCard
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
 @router.get("/{account_id}", response_model=CreditCardListResponse)
 def get_credit_cards_for_account(
     account_id: UUID,
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     is_deleted: Optional[bool] = Query(False, description="Include deleted cards"),
-    card_brand: Optional[str] = Query(None, description="Filter by card brand (partial match)"),
-    name_contains: Optional[str] = Query(None, description="Filter by name (partial match)"),
-    due_date_month: Optional[int] = Query(None, description="Filter by due date month (1-12)"),
-    sort_by: Optional[str] = Query("name", description="Sort field: name, balance, due_date, created_at"),
+    card_brand: Optional[str] = Query(
+        None, description="Filter by card brand (partial match)"
+    ),
+    name_contains: Optional[str] = Query(
+        None, description="Filter by name (partial match)"
+    ),
+    due_date_month: Optional[int] = Query(
+        None, description="Filter by due date month (1-12)"
+    ),
+    sort_by: Optional[str] = Query(
+        "name", description="Sort field: name, balance, due_date, created_at"
+    ),
     sort_order: Optional[str] = Query("asc", description="Sort order: asc, desc"),
-    
     # Dependencies
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """
     🎓 RESTful Resource Hierarchy (RECOMMENDED)
-    
+
     This follows REST best practices by treating credit cards as a sub-resource of accounts.
-    
+
     Examples:
     - GET /credit_cards/{account_id} → All cards for that account
-    - GET /credit_cards/{account_id}?is_active=true → Active cards only  
+    - GET /credit_cards/{account_id}?is_active=true → Active cards only
     - GET /credit_cards/{account_id}?card_brand=visa → Visa cards for account
     - GET /credit_cards/{account_id}?sort_by=balance&sort_order=desc → Sorted by balance
-    
+
     Benefits:
     - Clear resource ownership (cards belong to accounts)
     - Better security (can't accidentally query wrong account)
@@ -63,11 +71,11 @@ def get_credit_cards_for_account(
             name_contains=name_contains,
             due_date_month=due_date_month,
             sort_by=sort_by,
-            sort_order=sort_order
+            sort_order=sort_order,
         )
-        
+
         service = CreditCardService(db)
-        
+
         credit_cards = service.get_user_credit_cards_filtered(current_user_id, filters)
 
         return CreditCardListResponse(
@@ -77,34 +85,35 @@ def get_credit_cards_for_account(
                 page=1,
                 per_page=len(credit_cards),  # No pagination yet
                 has_next=False,
-                has_previous=False
-            )
+                has_previous=False,
+            ),
         )
-        
+
     except Exception as e:
         logger.error(f"❌ Error retrieving credit cards: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving credit cards")
 
+
 @router.post("/", response_model=CreditCardResponse, status_code=201)
 def create_credit_card(
-    credit_card_in: CreditCardIn, 
-    db: Session = Depends(get_db_session), 
-    current_user_id: UUID = Depends(get_current_user_id)
+    credit_card_in: CreditCardIn,
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     try:
         service = CreditCardService(db)
         result = service.create_credit_card(credit_card_in, current_user_id)
-        
+
         return CreditCardResponse.model_validate(result)
-        
+
     except AccountNotFoundError as e:
         logger.warning(f"❌ Account not found: {e}")
         raise HTTPException(status_code=404, detail=str(e))
-        
+
     except AccountAccessDeniedError as e:
         logger.warning(f"❌ Access denied: {e}")
         raise HTTPException(status_code=403, detail="Access denied to this account")
-        
+
     except Exception as e:
         logger.error(f"❌ Unexpected error creating credit card: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

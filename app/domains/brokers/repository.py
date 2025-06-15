@@ -10,7 +10,7 @@ class BrokerRepository:
     Repository pattern implementation for Broker entity.
     Abstracts all database operations for broker management.
     """
-    
+
     def __init__(self, db: Session):
         self.db = db
 
@@ -24,48 +24,51 @@ class BrokerRepository:
 
     def get_by_id_and_user(self, broker_id: UUID, user_id: UUID) -> Optional[Broker]:
         """Get a specific broker by ID and user"""
-        return self.db.query(Broker).filter(
-            Broker.id == broker_id,
-            Broker.user_id == user_id
-        ).first()
+        return (
+            self.db.query(Broker)
+            .filter(Broker.id == broker_id, Broker.user_id == user_id)
+            .first()
+        )
 
     def get_active_brokers_by_user(self, user_id: UUID) -> List[Broker]:
         """Get all active brokers for a user"""
-        return self.db.query(Broker).filter(
-            Broker.user_id == user_id,
-            Broker.is_active == True
-        ).all()
+        return (
+            self.db.query(Broker)
+            .filter(Broker.user_id == user_id, Broker.is_active == True)
+            .all()
+        )
 
     def get_inactive_brokers_by_user(self, user_id: UUID) -> List[Broker]:
         """Get all inactive brokers for a user"""
-        return self.db.query(Broker).filter(
-            Broker.user_id == user_id,
-            Broker.is_active == False
-        ).all()
+        return (
+            self.db.query(Broker)
+            .filter(Broker.user_id == user_id, Broker.is_active == False)
+            .all()
+        )
 
     def get_all_brokers_by_user(self, user_id: UUID) -> List[Broker]:
         """Get all brokers (active and inactive) for a user"""
-        return self.db.query(Broker).filter(
-            Broker.user_id == user_id
-        ).all()
+        return self.db.query(Broker).filter(Broker.user_id == user_id).all()
 
     def get_by_name_and_user(self, name: str, user_id: UUID) -> Optional[Broker]:
         """Get broker by name and user (case-insensitive)"""
-        return self.db.query(Broker).filter(
-            Broker.name.ilike(name),
-            Broker.user_id == user_id
-        ).first()
+        return (
+            self.db.query(Broker)
+            .filter(Broker.name.ilike(name), Broker.user_id == user_id)
+            .first()
+        )
 
-    def exists_by_name_and_user(self, name: str, user_id: UUID, exclude_id: Optional[UUID] = None) -> bool:
+    def exists_by_name_and_user(
+        self, name: str, user_id: UUID, exclude_id: Optional[UUID] = None
+    ) -> bool:
         """Check if a broker with the given name exists for a user"""
         query = self.db.query(Broker).filter(
-            Broker.name.ilike(name),
-            Broker.user_id == user_id
+            Broker.name.ilike(name), Broker.user_id == user_id
         )
-        
+
         if exclude_id:
             query = query.filter(Broker.id != exclude_id)
-            
+
         return query.first() is not None
 
     def update(self, broker: Broker, update_data: dict) -> Broker:
@@ -73,7 +76,7 @@ class BrokerRepository:
         for key, value in update_data.items():
             if hasattr(broker, key):
                 setattr(broker, key, value)
-        
+
         self.db.commit()
         self.db.refresh(broker)
         return broker
@@ -99,23 +102,32 @@ class BrokerRepository:
 
     def get_brokers_by_color(self, user_id: UUID, color: str) -> List[Broker]:
         """Get brokers that contain a specific color in their colors array"""
-        return self.db.query(Broker).filter(
-            Broker.user_id == user_id,
-            Broker.colors.contains([color]),
-            Broker.is_active == True
-        ).all()
+        return (
+            self.db.query(Broker)
+            .filter(
+                Broker.user_id == user_id,
+                Broker.colors.contains([color]),
+                Broker.is_active == True,
+            )
+            .all()
+        )
 
     def count_active_brokers_by_user(self, user_id: UUID) -> int:
         """Count active brokers for a user"""
-        return self.db.query(Broker).filter(
-            Broker.user_id == user_id,
-            Broker.is_active == True
-        ).count()
+        return (
+            self.db.query(Broker)
+            .filter(Broker.user_id == user_id, Broker.is_active == True)
+            .count()
+        )
 
     def search_brokers_by_name(self, user_id: UUID, search_term: str) -> List[Broker]:
         """Search brokers by name (case-insensitive partial match)"""
-        return self.db.query(Broker).filter(
-            Broker.user_id == user_id,
-            Broker.name.ilike(f"%{search_term}%"),
-            Broker.is_active == True
-        ).all() 
+        return (
+            self.db.query(Broker)
+            .filter(
+                Broker.user_id == user_id,
+                Broker.name.ilike(f"%{search_term}%"),
+                Broker.is_active == True,
+            )
+            .all()
+        )

@@ -12,16 +12,17 @@ class AccountRepository:
     Repository pattern implementation for Account entity.
     Abstracts all database operations and provides a clean interface for data access.
     """
-    
+
     def __init__(self, db: Session):
         self.db = db
 
     def get_by_user_and_status(self, user_id: UUID, is_active: bool) -> List[Account]:
         """Get accounts by user ID and active status"""
-        return self.db.query(Account).filter(
-            Account.user_id == user_id,
-            Account.is_active == is_active
-        ).all()
+        return (
+            self.db.query(Account)
+            .filter(Account.user_id == user_id, Account.is_active == is_active)
+            .all()
+        )
 
     def get_active_accounts_by_user(self, user_id: UUID) -> List[Account]:
         """Get all active accounts for a user"""
@@ -33,23 +34,27 @@ class AccountRepository:
 
     def get_by_id_and_user(self, account_id: UUID, user_id: UUID) -> Optional[Account]:
         """Get account by ID and user ID with broker relationship loaded"""
-        return self.db.query(Account).options(
-            joinedload(Account.broker)  # Eagerly load the broker relationship
-        ).join(
-            Broker,
-            Account.broker_id == Broker.id
-        ).filter(
-            Account.id == account_id,
-            Account.user_id == user_id
-        ).first()
+        return (
+            self.db.query(Account)
+            .options(joinedload(Account.broker))  # Eagerly load the broker relationship
+            .join(Broker, Account.broker_id == Broker.id)
+            .filter(Account.id == account_id, Account.user_id == user_id)
+            .first()
+        )
 
-    def get_by_type_and_user(self, user_id: UUID, account_type: AccountType, is_active: bool = True) -> List[Account]:
+    def get_by_type_and_user(
+        self, user_id: UUID, account_type: AccountType, is_active: bool = True
+    ) -> List[Account]:
         """Get accounts by type and user ID, optionally filtered by active status"""
-        return self.db.query(Account).filter(
-            Account.user_id == user_id,
-            Account.type == account_type,
-            Account.is_active == is_active
-        ).all()
+        return (
+            self.db.query(Account)
+            .filter(
+                Account.user_id == user_id,
+                Account.type == account_type,
+                Account.is_active == is_active,
+            )
+            .all()
+        )
 
     def create(self, account_data: dict) -> Account:
         """Create a new account"""
@@ -64,7 +69,7 @@ class AccountRepository:
         for key, value in update_data.items():
             if hasattr(account, key):
                 setattr(account, key, value)
-        
+
         self.db.commit()
         self.db.refresh(account)
         return account
@@ -81,33 +86,39 @@ class AccountRepository:
         self.db.refresh(account)
         return account
 
-    def exists_by_name_and_user(self, name: str, user_id: UUID, exclude_id: Optional[UUID] = None) -> bool:
+    def exists_by_name_and_user(
+        self, name: str, user_id: UUID, exclude_id: Optional[UUID] = None
+    ) -> bool:
         """Check if an account with the given name exists for a user"""
         query = self.db.query(Account).filter(
-            Account.name == name,
-            Account.user_id == user_id
+            Account.name == name, Account.user_id == user_id
         )
-        
+
         if exclude_id:
             query = query.filter(Account.id != exclude_id)
-            
+
         return query.first() is not None
 
     def get_total_balance_by_user(self, user_id: UUID) -> float:
         """Calculate total balance across all active accounts for a user"""
-        result = self.db.query(Account).filter(
-            Account.user_id == user_id,
-            Account.is_active == True
-        ).all()
-        
+        result = (
+            self.db.query(Account)
+            .filter(Account.user_id == user_id, Account.is_active == True)
+            .all()
+        )
+
         return sum(account.balance for account in result)
 
     def get_balance_by_currency(self, user_id: UUID, currency: str) -> float:
         """Get total balance for a specific currency"""
-        result = self.db.query(Account).filter(
-            Account.user_id == user_id,
-            Account.currency == currency,
-            Account.is_active == True
-        ).all()
-        
-        return sum(account.balance for account in result) 
+        result = (
+            self.db.query(Account)
+            .filter(
+                Account.user_id == user_id,
+                Account.currency == currency,
+                Account.is_active == True,
+            )
+            .all()
+        )
+
+        return sum(account.balance for account in result)

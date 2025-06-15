@@ -16,7 +16,7 @@ class InvoiceService:
     Service layer for Invoice business logic.
     Uses InvoiceRepository for data access operations.
     """
-    
+
     def __init__(self, db: Session):
         self.repository = InvoiceRepository(db)
         self.broker_service = BrokersService(db)
@@ -24,14 +24,14 @@ class InvoiceService:
     def create_invoice(self, invoice_in: InvoiceIn, user_id: UUID) -> Invoice:
         """
         Create a new invoice with business logic validation.
-        
+
         Args:
             invoice_in: Invoice creation data
             user_id: ID of the user creating the invoice
-            
+
         Returns:
             The created invoice
-            
+
         Raises:
             ValueError: If validation fails or duplicate content detected
         """
@@ -39,42 +39,52 @@ class InvoiceService:
         broker = self.broker_service.get_broker_by_id(invoice_in.broker_id, user_id)
         if not broker:
             raise ValueError("Broker not found or does not belong to user")
-        
+
         # Business logic: Validate raw_content is not empty
         if not invoice_in.raw_content:
             raise ValueError("Raw content cannot be empty")
-        
+
         # Business logic: Check for duplicate content (optional)
         content_hash = self._generate_content_hash(invoice_in.raw_content)
-        if self.repository.exists_for_credit_card_and_content(invoice_in.credit_card_id, user_id, content_hash):
-            raise ValueError("Invoice with similar content already exists for this credit card")
-        
+        if self.repository.exists_for_credit_card_and_content(
+            invoice_in.credit_card_id, user_id, content_hash
+        ):
+            raise ValueError(
+                "Invoice with similar content already exists for this credit card"
+            )
+
         # Prepare invoice data
         invoice_data = invoice_in.model_dump()
-        invoice_data['user_id'] = user_id
-        
+        invoice_data["user_id"] = user_id
+
         return self.repository.create(invoice_data)
 
-    def get_invoice_by_id(self, invoice_id: UUID, user_id: UUID, include_deleted: bool = False) -> Optional[Invoice]:
+    def get_invoice_by_id(
+        self, invoice_id: UUID, user_id: UUID, include_deleted: bool = False
+    ) -> Optional[Invoice]:
         """Get invoice by ID with user validation"""
         return self.repository.get_by_id_and_user(invoice_id, user_id, include_deleted)
 
-    def get_user_invoices(self, user_id: UUID, include_deleted: bool = False) -> List[Invoice]:
+    def get_user_invoices(
+        self, user_id: UUID, include_deleted: bool = False
+    ) -> List[Invoice]:
         """Get all invoices for a user"""
         return self.repository.get_by_user(user_id, include_deleted)
 
-    def get_invoices_by_broker(self, broker_id: UUID, user_id: UUID, include_deleted: bool = False) -> List[Invoice]:
+    def get_invoices_by_broker(
+        self, broker_id: UUID, user_id: UUID, include_deleted: bool = False
+    ) -> List[Invoice]:
         """
         Get all invoices for a specific broker.
-        
+
         Args:
             broker_id: ID of the broker
             user_id: ID of the user
             include_deleted: Whether to include soft-deleted invoices
-            
+
         Returns:
             List of invoices for the broker
-            
+
         Raises:
             ValueError: If broker doesn't belong to user
         """
@@ -82,78 +92,104 @@ class InvoiceService:
         broker = self.broker_service.get_broker_by_id(broker_id, user_id)
         if not broker:
             raise ValueError("Broker not found or does not belong to user")
-        
-        return self.repository.get_by_broker_and_user(broker_id, user_id, include_deleted)
 
-    def get_invoices_by_credit_card(self, credit_card_id: UUID, user_id: UUID, include_deleted: bool = False) -> List[Invoice]:
+        return self.repository.get_by_broker_and_user(
+            broker_id, user_id, include_deleted
+        )
+
+    def get_invoices_by_credit_card(
+        self, credit_card_id: UUID, user_id: UUID, include_deleted: bool = False
+    ) -> List[Invoice]:
         """Get all invoices for a specific credit card"""
-        return self.repository.get_by_credit_card_and_user(credit_card_id, user_id, include_deleted)
+        return self.repository.get_by_credit_card_and_user(
+            credit_card_id, user_id, include_deleted
+        )
 
-    def search_invoices(self, user_id: UUID, search_term: str, include_deleted: bool = False) -> List[Invoice]:
+    def search_invoices(
+        self, user_id: UUID, search_term: str, include_deleted: bool = False
+    ) -> List[Invoice]:
         """
         Search invoices by content in raw_content JSON field.
-        
+
         Args:
             user_id: ID of the user
             search_term: Term to search for in invoice content
             include_deleted: Whether to include soft-deleted invoices
-            
+
         Returns:
             List of matching invoices
-            
+
         Raises:
             ValueError: If search term is too short
         """
         if not search_term or len(search_term.strip()) < 3:
             raise ValueError("Search term must be at least 3 characters long")
-        
-        return self.repository.search_in_raw_content(user_id, search_term.strip(), include_deleted)
 
-    def get_invoices_by_json_field(self, user_id: UUID, json_path: str, value: Any, include_deleted: bool = False) -> List[Invoice]:
+        return self.repository.search_in_raw_content(
+            user_id, search_term.strip(), include_deleted
+        )
+
+    def get_invoices_by_json_field(
+        self, user_id: UUID, json_path: str, value: Any, include_deleted: bool = False
+    ) -> List[Invoice]:
         """
         Get invoices where a specific JSON field matches a value.
-        
+
         Example: Find all invoices with amount = 100.0
         """
-        return self.repository.get_by_json_field(user_id, json_path, value, include_deleted)
+        return self.repository.get_by_json_field(
+            user_id, json_path, value, include_deleted
+        )
 
-    def get_invoices_by_date_range(self, user_id: UUID, start_date: datetime, end_date: datetime, include_deleted: bool = False) -> List[Invoice]:
+    def get_invoices_by_date_range(
+        self,
+        user_id: UUID,
+        start_date: datetime,
+        end_date: datetime,
+        include_deleted: bool = False,
+    ) -> List[Invoice]:
         """Get invoices within a date range"""
         if start_date > end_date:
             raise ValueError("Start date must be before end date")
-        
-        return self.repository.get_by_date_range(user_id, start_date, end_date, include_deleted)
 
-    def update_invoice(self, invoice_id: UUID, user_id: UUID, update_data: dict) -> Optional[Invoice]:
+        return self.repository.get_by_date_range(
+            user_id, start_date, end_date, include_deleted
+        )
+
+    def update_invoice(
+        self, invoice_id: UUID, user_id: UUID, update_data: dict
+    ) -> Optional[Invoice]:
         """
         Update an invoice with business logic validation.
-        
+
         Args:
             invoice_id: ID of the invoice to update
             user_id: ID of the user updating the invoice
             update_data: Dictionary of fields to update
-            
+
         Returns:
             Updated invoice if successful, None if not found
-            
+
         Raises:
             ValueError: If validation fails
         """
         invoice = self.repository.get_by_id_and_user(invoice_id, user_id)
         if not invoice:
             return None
-        
+
         # Business logic: Validate broker if being updated
-        if 'broker_id' in update_data:
-            broker = self.broker_service.get_broker_by_id(update_data['broker_id'], user_id)
+        if "broker_id" in update_data:
+            broker = self.broker_service.get_broker_by_id(
+                update_data["broker_id"], user_id
+            )
             if not broker:
                 raise ValueError("Broker not found or does not belong to user")
-        
+
         # Business logic: Validate raw_content if being updated
-        if 'raw_content' in update_data:
-            if not update_data['raw_content']:
+        if "raw_content" in update_data:
+            if not update_data["raw_content"]:
                 raise ValueError("Raw content cannot be empty")
-        
+
         return self.repository.update(invoice, update_data)
 
     def delete_invoice(self, invoice_id: UUID, user_id: UUID) -> Optional[Invoice]:
@@ -161,23 +197,27 @@ class InvoiceService:
         invoice = self.repository.get_by_id_and_user(invoice_id, user_id)
         if not invoice:
             return None
-        
+
         return self.repository.soft_delete(invoice)
 
     def restore_invoice(self, invoice_id: UUID, user_id: UUID) -> Optional[Invoice]:
         """Restore a soft-deleted invoice"""
-        invoice = self.repository.get_by_id_and_user(invoice_id, user_id, include_deleted=True)
+        invoice = self.repository.get_by_id_and_user(
+            invoice_id, user_id, include_deleted=True
+        )
         if not invoice or not invoice.is_deleted:
             return None
-        
+
         return self.repository.restore(invoice)
 
     def permanently_delete_invoice(self, invoice_id: UUID, user_id: UUID) -> bool:
         """Permanently delete an invoice (hard delete)"""
-        invoice = self.repository.get_by_id_and_user(invoice_id, user_id, include_deleted=True)
+        invoice = self.repository.get_by_id_and_user(
+            invoice_id, user_id, include_deleted=True
+        )
         if not invoice:
             return False
-        
+
         self.repository.hard_delete(invoice)
         return True
 
@@ -189,18 +229,20 @@ class InvoiceService:
         """Get count of invoices for a user"""
         return self.repository.count_by_user(user_id, include_deleted)
 
-    def get_invoice_count_by_broker(self, broker_id: UUID, user_id: UUID, include_deleted: bool = False) -> int:
+    def get_invoice_count_by_broker(
+        self, broker_id: UUID, user_id: UUID, include_deleted: bool = False
+    ) -> int:
         """
         Get count of invoices for a specific broker.
-        
+
         Args:
             broker_id: ID of the broker
             user_id: ID of the user
             include_deleted: Whether to include soft-deleted invoices
-            
+
         Returns:
             Count of invoices for the broker
-            
+
         Raises:
             ValueError: If broker doesn't belong to user
         """
@@ -208,29 +250,31 @@ class InvoiceService:
         broker = self.broker_service.get_broker_by_id(broker_id, user_id)
         if not broker:
             raise ValueError("Broker not found or does not belong to user")
-        
+
         return self.repository.count_by_broker(broker_id, user_id, include_deleted)
 
-    def extract_json_field(self, invoice_id: UUID, user_id: UUID, json_path: str) -> Any:
+    def extract_json_field(
+        self, invoice_id: UUID, user_id: UUID, json_path: str
+    ) -> Any:
         """
         Extract a specific field from an invoice's raw_content JSON.
-        
+
         Args:
             invoice_id: ID of the invoice
             user_id: ID of the user
             json_path: Path to the JSON field (e.g., "transaction.amount")
-            
+
         Returns:
             The extracted value or None if not found
         """
         invoice = self.repository.get_by_id_and_user(invoice_id, user_id)
         if not invoice:
             return None
-        
+
         try:
             # Handle nested paths like "transaction.amount"
             value = invoice.raw_content
-            for key in json_path.split('.'):
+            for key in json_path.split("."):
                 value = value[key]
             return value
         except (KeyError, TypeError):
@@ -239,5 +283,5 @@ class InvoiceService:
     def _generate_content_hash(self, raw_content: Dict[str, Any]) -> str:
         """Generate a hash of the raw content for duplicate detection"""
         # Sort the JSON to ensure consistent hashing
-        content_str = json.dumps(raw_content, sort_keys=True, separators=(',', ':'))
-        return hashlib.md5(content_str.encode()).hexdigest() 
+        content_str = json.dumps(raw_content, sort_keys=True, separators=(",", ":"))
+        return hashlib.md5(content_str.encode()).hexdigest()

@@ -1,11 +1,22 @@
 from datetime import datetime
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Float, ForeignKey, Enum, Index
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    String,
+    Float,
+    ForeignKey,
+    Enum,
+    Index,
+)
 from sqlalchemy.orm import relationship
 import enum
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
 from app.db.connection_and_session import Base
+
 
 class AccountType(enum.Enum):
     SAVINGS = "savings"
@@ -14,11 +25,12 @@ class AccountType(enum.Enum):
     INVESTMENT = "investment"
     OTHER = "other"
 
+
 class Account(Base):
     __tablename__ = "accounts"
     __table_args__ = (
-        Index('ix_accounts_user_id', 'user_id'),  # Index for faster user lookups
-        Index('ix_accounts_type', 'type'),  # Index for filtering by type
+        Index("ix_accounts_user_id", "user_id"),  # Index for faster user lookups
+        Index("ix_accounts_type", "type"),  # Index for filtering by type
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
@@ -33,8 +45,9 @@ class Account(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relationships
     broker = relationship("Broker", foreign_keys=[broker_id])
-

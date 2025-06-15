@@ -14,9 +14,11 @@ router = APIRouter()
 
 @router.get("/", response_model=List[Broker])
 def get_brokers(
-    include_inactive: bool = Query(False, description="Include inactive brokers in results"),
-    db: Session = Depends(get_db_session), 
-    user_id: UUID = Depends(get_current_user_id)
+    include_inactive: bool = Query(
+        False, description="Include inactive brokers in results"
+    ),
+    db: Session = Depends(get_db_session),
+    user_id: UUID = Depends(get_current_user_id),
 ):
     """Get all brokers for the current user"""
     service = BrokersService(db)
@@ -28,8 +30,7 @@ def get_brokers(
 
 @router.get("/active", response_model=List[Broker])
 def get_active_brokers(
-    db: Session = Depends(get_db_session), 
-    user_id: UUID = Depends(get_current_user_id)
+    db: Session = Depends(get_db_session), user_id: UUID = Depends(get_current_user_id)
 ):
     """Get only active brokers for the current user"""
     service = BrokersService(db)
@@ -38,8 +39,7 @@ def get_active_brokers(
 
 @router.get("/inactive", response_model=List[Broker])
 def get_inactive_brokers(
-    db: Session = Depends(get_db_session), 
-    user_id: UUID = Depends(get_current_user_id)
+    db: Session = Depends(get_db_session), user_id: UUID = Depends(get_current_user_id)
 ):
     """Get only inactive brokers for the current user"""
     service = BrokersService(db)
@@ -50,7 +50,7 @@ def get_inactive_brokers(
 def search_brokers(
     q: str = Query(..., min_length=2, description="Search term for broker names"),
     db: Session = Depends(get_db_session),
-    user_id: UUID = Depends(get_current_user_id)
+    user_id: UUID = Depends(get_current_user_id),
 ):
     """Search brokers by name"""
     service = BrokersService(db)
@@ -64,7 +64,7 @@ def search_brokers(
 def get_brokers_by_color(
     color: str,
     db: Session = Depends(get_db_session),
-    user_id: UUID = Depends(get_current_user_id)
+    user_id: UUID = Depends(get_current_user_id),
 ):
     """Get brokers that contain a specific color"""
     service = BrokersService(db)
@@ -73,8 +73,7 @@ def get_brokers_by_color(
 
 @router.get("/count")
 def get_broker_count(
-    db: Session = Depends(get_db_session),
-    user_id: UUID = Depends(get_current_user_id)
+    db: Session = Depends(get_db_session), user_id: UUID = Depends(get_current_user_id)
 ):
     """Get count of active brokers"""
     service = BrokersService(db)
@@ -84,9 +83,9 @@ def get_broker_count(
 
 @router.post("/", response_model=Broker)
 def create_broker(
-    broker_in: BrokerIn, 
-    db: Session = Depends(get_db_session), 
-    current_user_id: UUID = Depends(get_current_user_id)
+    broker_in: BrokerIn,
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Create a new broker"""
     service = BrokersService(db)
@@ -100,7 +99,7 @@ def create_broker(
 def get_broker_by_id(
     broker_id: UUID,
     db: Session = Depends(get_db_session),
-    user_id: UUID = Depends(get_current_user_id)
+    user_id: UUID = Depends(get_current_user_id),
 ):
     """Get a specific broker by ID"""
     service = BrokersService(db)
@@ -115,7 +114,7 @@ def update_broker(
     broker_id: UUID,
     update_data: BrokerUpdateIn,
     db: Session = Depends(get_db_session),
-    user_id: UUID = Depends(get_current_user_id)
+    user_id: UUID = Depends(get_current_user_id),
 ):
     """Update a broker"""
     service = BrokersService(db)
@@ -134,7 +133,7 @@ def update_broker(
 def deactivate_broker(
     broker_id: UUID,
     db: Session = Depends(get_db_session),
-    user_id: UUID = Depends(get_current_user_id)
+    user_id: UUID = Depends(get_current_user_id),
 ):
     """Deactivate a broker (soft delete)"""
     service = BrokersService(db)
@@ -148,7 +147,7 @@ def deactivate_broker(
 def reactivate_broker(
     broker_id: UUID,
     db: Session = Depends(get_db_session),
-    user_id: UUID = Depends(get_current_user_id)
+    user_id: UUID = Depends(get_current_user_id),
 ):
     """Reactivate a previously deactivated broker"""
     service = BrokersService(db)
@@ -162,7 +161,7 @@ def reactivate_broker(
 def get_broker_by_name(
     name: str,
     db: Session = Depends(get_db_session),
-    user_id: UUID = Depends(get_current_user_id)
+    user_id: UUID = Depends(get_current_user_id),
 ):
     """Get broker by exact name (case-insensitive)"""
     service = BrokersService(db)

@@ -7,7 +7,11 @@ from sqlalchemy.orm import Session
 from app.db.connection_and_session import get_db_session
 from app.core.dependencies import get_current_user_id
 from app.domains.invoices.models import Invoice
-from app.domains.invoices.schemas import InvoiceIn, Invoice as InvoiceSchema, InvoiceUpdateIn
+from app.domains.invoices.schemas import (
+    InvoiceIn,
+    Invoice as InvoiceSchema,
+    InvoiceUpdateIn,
+)
 from app.domains.invoices.service import InvoiceService
 
 
@@ -18,7 +22,7 @@ router = APIRouter()
 def create_invoice(
     invoice_in: InvoiceIn,
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Create a new invoice with business logic validation"""
     service = InvoiceService(db)
@@ -32,7 +36,7 @@ def create_invoice(
 def get_invoices(
     include_deleted: bool = Query(False, description="Include soft-deleted invoices"),
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Get all invoices for the current user"""
     service = InvoiceService(db)
@@ -42,7 +46,7 @@ def get_invoices(
 @router.get("/deleted", response_model=List[InvoiceSchema])
 def get_deleted_invoices(
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Get all soft-deleted invoices for the current user"""
     service = InvoiceService(db)
@@ -51,9 +55,11 @@ def get_deleted_invoices(
 
 @router.get("/count")
 def get_invoice_count(
-    include_deleted: bool = Query(False, description="Include soft-deleted invoices in count"),
+    include_deleted: bool = Query(
+        False, description="Include soft-deleted invoices in count"
+    ),
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Get count of invoices for the current user"""
     service = InvoiceService(db)
@@ -66,7 +72,7 @@ def search_invoices(
     q: str = Query(..., min_length=3, description="Search term for invoice content"),
     include_deleted: bool = Query(False, description="Include soft-deleted invoices"),
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Search invoices by content in raw_content JSON field"""
     service = InvoiceService(db)
@@ -81,12 +87,14 @@ def get_invoices_by_broker(
     broker_id: UUID,
     include_deleted: bool = Query(False, description="Include soft-deleted invoices"),
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Get all invoices for a specific broker"""
     service = InvoiceService(db)
     try:
-        return service.get_invoices_by_broker(broker_id, current_user_id, include_deleted)
+        return service.get_invoices_by_broker(
+            broker_id, current_user_id, include_deleted
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -96,24 +104,30 @@ def get_invoices_by_credit_card(
     credit_card_id: UUID,
     include_deleted: bool = Query(False, description="Include soft-deleted invoices"),
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Get all invoices for a specific credit card"""
     service = InvoiceService(db)
-    return service.get_invoices_by_credit_card(credit_card_id, current_user_id, include_deleted)
+    return service.get_invoices_by_credit_card(
+        credit_card_id, current_user_id, include_deleted
+    )
 
 
 @router.get("/by-json-field")
 def get_invoices_by_json_field(
-    json_path: str = Query(..., description="JSON path (e.g., 'amount' or 'transaction.type')"),
+    json_path: str = Query(
+        ..., description="JSON path (e.g., 'amount' or 'transaction.type')"
+    ),
     value: str = Query(..., description="Value to match"),
     include_deleted: bool = Query(False, description="Include soft-deleted invoices"),
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Get invoices where a specific JSON field matches a value"""
     service = InvoiceService(db)
-    return service.get_invoices_by_json_field(current_user_id, json_path, value, include_deleted)
+    return service.get_invoices_by_json_field(
+        current_user_id, json_path, value, include_deleted
+    )
 
 
 @router.get("/date-range", response_model=List[InvoiceSchema])
@@ -122,12 +136,14 @@ def get_invoices_by_date_range(
     end_date: datetime = Query(..., description="End date (ISO format)"),
     include_deleted: bool = Query(False, description="Include soft-deleted invoices"),
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Get invoices within a date range"""
     service = InvoiceService(db)
     try:
-        return service.get_invoices_by_date_range(current_user_id, start_date, end_date, include_deleted)
+        return service.get_invoices_by_date_range(
+            current_user_id, start_date, end_date, include_deleted
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -135,14 +151,18 @@ def get_invoices_by_date_range(
 @router.get("/broker/{broker_id}/count")
 def get_invoice_count_by_broker(
     broker_id: UUID,
-    include_deleted: bool = Query(False, description="Include soft-deleted invoices in count"),
+    include_deleted: bool = Query(
+        False, description="Include soft-deleted invoices in count"
+    ),
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Get count of invoices for a specific broker"""
     service = InvoiceService(db)
     try:
-        count = service.get_invoice_count_by_broker(broker_id, current_user_id, include_deleted)
+        count = service.get_invoice_count_by_broker(
+            broker_id, current_user_id, include_deleted
+        )
         return {"broker_id": broker_id, "count": count}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -153,7 +173,7 @@ def get_invoice_by_id(
     invoice_id: UUID,
     include_deleted: bool = Query(False, description="Include soft-deleted invoices"),
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Get a specific invoice by ID"""
     service = InvoiceService(db)
@@ -168,13 +188,15 @@ def extract_json_field(
     invoice_id: UUID,
     json_path: str,
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Extract a specific field from an invoice's raw_content JSON"""
     service = InvoiceService(db)
     value = service.extract_json_field(invoice_id, current_user_id, json_path)
     if value is None:
-        raise HTTPException(status_code=404, detail="Invoice not found or JSON path not found")
+        raise HTTPException(
+            status_code=404, detail="Invoice not found or JSON path not found"
+        )
     return {"json_path": json_path, "value": value}
 
 
@@ -183,7 +205,7 @@ def update_invoice(
     invoice_id: UUID,
     update_data: InvoiceUpdateIn,
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Update an invoice"""
     service = InvoiceService(db)
@@ -202,7 +224,7 @@ def update_invoice(
 def delete_invoice(
     invoice_id: UUID,
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Soft delete an invoice"""
     service = InvoiceService(db)
@@ -216,7 +238,7 @@ def delete_invoice(
 def restore_invoice(
     invoice_id: UUID,
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Restore a soft-deleted invoice"""
     service = InvoiceService(db)
@@ -230,10 +252,10 @@ def restore_invoice(
 def permanently_delete_invoice(
     invoice_id: UUID,
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Permanently delete an invoice (hard delete) - WARNING: This cannot be undone"""
     service = InvoiceService(db)
     if not service.permanently_delete_invoice(invoice_id, current_user_id):
         raise HTTPException(status_code=404, detail="Invoice not found")
-    return {"message": "Invoice permanently deleted"} 
+    return {"message": "Invoice permanently deleted"}

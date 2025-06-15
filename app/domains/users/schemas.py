@@ -3,15 +3,18 @@ from typing import Optional
 from pydantic import BaseModel, EmailStr
 from uuid import UUID
 
+
 # Base schema with shared properties
 class UserBase(BaseModel):
     email: EmailStr
     full_name: Optional[str] = None
     is_active: bool = True
 
+
 # Schema for creating a user (what frontend sends)
 class UserIn(UserBase):
     password: str
+
 
 # Schema for updating a user (partial fields)
 class UserUpdateIn(BaseModel):
@@ -19,6 +22,7 @@ class UserUpdateIn(BaseModel):
     full_name: Optional[str] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
+
 
 # Schema for API responses (what users see)
 class User(UserBase):
@@ -29,6 +33,7 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+
 # Internal schema for database operations (includes hashed password)
 class UserInDB(UserBase):
     id: UUID
@@ -37,4 +42,4 @@ class UserInDB(UserBase):
     updated_at: datetime
 
     class Config:
-        from_attributes = True 
+        from_attributes = True

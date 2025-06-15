@@ -1,6 +1,7 @@
 import logging
 import sys
 
+
 def setup_logging() -> None:
     """Configure logging for the application."""
     # Set base logging level
@@ -13,6 +14,7 @@ def setup_logging() -> None:
         ],
     )
 
+
 def get_logger(name: str) -> logging.Logger:
     """Get a logger with the given name."""
-    return logging.getLogger(name) 
+    return logging.getLogger(name)

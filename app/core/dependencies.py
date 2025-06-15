@@ -3,4 +3,4 @@ from uuid import UUID
 
 
 def get_current_user_id() -> UUID:
-    return DEV_USER_ID 
+    return DEV_USER_ID

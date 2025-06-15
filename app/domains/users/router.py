@@ -13,10 +13,7 @@ router = APIRouter()
 
 
 @router.post("/", response_model=User, status_code=status.HTTP_201_CREATED)
-def create_user(
-    user_in: UserIn,
-    db: Session = Depends(get_db_session)
-):
+def create_user(user_in: UserIn, db: Session = Depends(get_db_session)):
     """Create a new user"""
     service = UserService(db)
     try:
@@ -39,7 +36,7 @@ def get_users(
 @router.get("/me", response_model=User)
 def get_current_user(
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Get current user profile"""
     service = UserService(db)
@@ -114,13 +111,13 @@ def get_user_by_id(
 def update_current_user(
     update_data: UserUpdateIn,
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Update current user profile"""
     service = UserService(db)
     try:
         # Convert Pydantic model to dict, excluding None values and password
-        update_dict = update_data.model_dump(exclude_none=True, exclude={'password'})
+        update_dict = update_data.model_dump(exclude_none=True, exclude={"password"})
         user = service.update_user(current_user_id, update_dict)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
@@ -140,7 +137,7 @@ def update_user_by_id(
     service = UserService(db)
     try:
         # Convert Pydantic model to dict, excluding None values and password
-        update_dict = update_data.model_dump(exclude_none=True, exclude={'password'})
+        update_dict = update_data.model_dump(exclude_none=True, exclude={"password"})
         user = service.update_user(user_id, update_dict)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
@@ -154,12 +151,14 @@ def change_password(
     current_password: str = Query(..., description="Current password"),
     new_password: str = Query(..., description="New password"),
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Change current user password"""
     service = UserService(db)
     try:
-        success = service.change_password(current_user_id, current_password, new_password)
+        success = service.change_password(
+            current_user_id, current_password, new_password
+        )
         if not success:
             raise HTTPException(status_code=400, detail="Current password is incorrect")
         return {"message": "Password changed successfully"}
@@ -187,15 +186,14 @@ def reset_user_password(
 def authenticate_user(
     email: str = Query(..., description="User email"),
     password: str = Query(..., description="User password"),
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
 ):
     """Authenticate user with email and password"""
     service = UserService(db)
     user = service.authenticate_user(email, password)
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
         )
     return {"message": "Authentication successful", "user_id": user.id}
 
@@ -203,7 +201,7 @@ def authenticate_user(
 @router.delete("/me")
 def deactivate_current_user(
     db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id)
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Deactivate current user account"""
     service = UserService(db)
@@ -251,4 +249,4 @@ def permanently_delete_user(
     service = UserService(db)
     if not service.delete_user(user_id):
         raise HTTPException(status_code=404, detail="User not found")
-    return {"message": "User permanently deleted"} 
+    return {"message": "User permanently deleted"}

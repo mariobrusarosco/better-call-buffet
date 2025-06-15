@@ -7,7 +7,7 @@ from app.core.logging_config import LoggingConfig
 from app.core.error_handlers import (
     validation_exception_handler,
     general_exception_handler,
-    http_exception_handler
+    http_exception_handler,
 )
 from app.api.v1 import api_router
 
@@ -39,9 +39,11 @@ app.add_middleware(
 # Include API routes
 app.include_router(api_router)
 
+
 @app.get("/")
 async def root():
     return {"message": "Better Call Buffet API!"}
+
 
 @app.get("/health")
 async def health_check():

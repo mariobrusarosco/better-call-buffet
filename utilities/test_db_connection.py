@@ -14,21 +14,21 @@ print(f"Connecting to database: better_call_buffet at ************.amazonaws.com
 try:
     # Connect to the database
     conn = psycopg2.connect(DATABASE_URL)
-    
+
     # Create a cursor
     cursor = conn.cursor()
-    
+
     # Execute a test query
     cursor.execute("SELECT version();")
-    
+
     # Fetch the result
     version = cursor.fetchone()
     print(f"Connection successful!")
     print(f"PostgreSQL version: {version[0]}")
-    
+
     # Close the connection
     cursor.close()
     conn.close()
-    
+
 except Exception as e:
-    print(f"Error connecting to the database: {e}") 
+    print(f"Error connecting to the database: {e}")

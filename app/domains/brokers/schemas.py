@@ -3,6 +3,7 @@ from uuid import UUID
 from typing import Optional
 from pydantic import BaseModel
 
+
 # Base schema with shared properties
 class BrokerBase(BaseModel):
     name: str
@@ -11,9 +12,11 @@ class BrokerBase(BaseModel):
     logo: str
     is_active: bool = True
 
+
 # Schema for creating a broker (what frontend sends)
 class BrokerIn(BrokerBase):
     pass
+
 
 # Schema for updating a broker (partial fields)
 class BrokerUpdateIn(BaseModel):
@@ -23,6 +26,7 @@ class BrokerUpdateIn(BaseModel):
     colors: Optional[list[str]] = None
     logo: Optional[str] = None
 
+
 # Schema for API responses (what users see)
 class Broker(BrokerBase):
     id: UUID
@@ -31,4 +35,4 @@ class Broker(BrokerBase):
     updated_at: datetime
 
     class Config:
-        from_attributes = True 
+        from_attributes = True
