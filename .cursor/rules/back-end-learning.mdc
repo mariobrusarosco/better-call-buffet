@@ -35,7 +35,7 @@ When implementing or discussing ANY backend concept, ALWAYS:
 - 🎓 **Provide detailed educational explanation**
 - 🔗 **Connect to related concepts** in the checklist
 - 📝 **Update learning notes** section
-
+- 📋 **Generate a commit message to the user** in the output 
 ---
 
 ### 🚨 TRIGGER CONCEPTS (Always Educate When These Appear)
