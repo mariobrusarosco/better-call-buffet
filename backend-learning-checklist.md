@@ -35,14 +35,14 @@
 
 ## 🌐 API Design & REST
 
-- [ ] **RESTful Principles** - Resource-based URL design
+- [x] **RESTful Principles** ✅ **(Completed: Resource-based URL design with /credit_cards/)**
 - [ ] **GraphQL Trade-offs** - When to use vs REST
 - [ ] **Pagination Strategies** - Cursor vs offset pagination
 - [ ] **Rate Limiting & Throttling** - API protection mechanisms
 - [ ] **API Versioning** - Backward compatibility strategies
 - [ ] **HATEOAS** - Hypermedia as the Engine of Application State
 - [ ] **Content Negotiation** - Multiple response formats
-- [ ] **HTTP Status Codes** - Proper usage and semantics
+- [x] **HTTP Status Codes** ✅ **(Completed: Proper usage and semantics)**
 - [ ] **API Documentation** - OpenAPI/Swagger best practices
 
 ---
@@ -155,12 +155,15 @@
 3. **CORS Configuration** - Basic cross-origin setup
 4. **Structured Logging** - Centralized logging configuration with separated concerns
 5. **Error Handler Organization** - Dedicated modules for error handling logic
+6. **RESTful API Design** - Resource-based endpoints with consistent response structure
+7. **Response Schema Design** - Structured data/meta pattern for API responses
 
 **Next Opportunities:**
 
 - Repository Pattern (when we add more complex queries)
 - Input Validation (expand Pydantic usage)
 - Health Checks (enhance current endpoint)
+- Pagination Strategies (when we have many credit cards)
 
 ---
 

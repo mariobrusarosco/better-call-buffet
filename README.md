@@ -10,6 +10,7 @@ A modern web application for financial management and analysis.
 ## Quick Setup
 
 ### Windows
+
 ```powershell
 # Run the setup script
 .\setup.ps1
@@ -22,6 +23,7 @@ uvicorn app.main:app --reload
 ```
 
 ### Linux/macOS
+
 ```bash
 # Make the setup script executable
 chmod +x setup.sh
@@ -41,21 +43,25 @@ uvicorn app.main:app --reload
 If you prefer to set up manually or the setup scripts don't work for you:
 
 1. Create a virtual environment:
+
    ```bash
    python -m venv .venv
    ```
 
 2. Activate the virtual environment:
+
    - Windows: `.\.venv\Scripts\Activate.ps1`
    - Linux/macOS: `source .venv/bin/activate`
 
 3. Install dependencies:
+
    ```bash
    pip install --upgrade pip
    pip install -r requirements.txt
    ```
 
 4. Install AWS CLI
+
 ```bash
 curl "https://awscli.amazonaws.com/AWSCLIV2.msi" -o "AWSCLIV2.msi"
 ```
@@ -73,11 +79,12 @@ aws configure
 ```
 
 5. Copy the environment template:
+
    ```bash
    cp .env.example .env
    ```
 
-5. Start the application:
+6. Start the application:
    ```bash
    uvicorn app.main:app --reload
    ```
@@ -114,6 +121,7 @@ better-call-buffet/
 ### Database Setup (RDS)
 
 1. Create security group for RDS:
+
 ```bash
 aws ec2 create-security-group \
     --group-name better-call-buffet-db-sg \
@@ -121,6 +129,7 @@ aws ec2 create-security-group \
 ```
 
 2. Allow PostgreSQL traffic (development only):
+
 ```bash
 aws ec2 authorize-security-group-ingress \
     --group-id YOUR_SECURITY_GROUP_ID \
@@ -130,6 +139,7 @@ aws ec2 authorize-security-group-ingress \
 ```
 
 3. Create RDS instance:
+
 ```bash
 aws rds create-db-instance \
     --db-instance-identifier better-call-buffet-db \
@@ -147,6 +157,7 @@ aws rds create-db-instance \
 ```
 
 4. Check RDS status:
+
 ```bash
 aws rds describe-db-instances \
     --db-instance-identifier better-call-buffet-db \
@@ -158,6 +169,7 @@ aws rds describe-db-instances \
 For production deployment, sensitive environment variables are stored in AWS Secrets Manager. Follow these steps to set up:
 
 1. Create the secret in AWS Secrets Manager:
+
 ```bash
 aws secretsmanager create-secret \
     --name better-call-buffet/production \
@@ -166,16 +178,19 @@ aws secretsmanager create-secret \
 ```
 
 2. Create IAM policy for accessing secrets:
+
 ```bash
 aws iam create-policy --policy-name better-call-buffet-secrets-policy --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"secretsmanager:GetSecretValue\"],\"Resource\":\"arn:aws:secretsmanager:us-east-1:905418297381:secret:better-call-buffet/production-yGOUNN\"}]}"
 ```
 
 3. Create IAM role for ECS tasks:
+
 ```bash
 aws iam create-role --role-name better-call-buffet-ecs-role --assume-role-policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ecs-tasks.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
 ```
 
 4. Attach the secrets policy to the ECS role:
+
 ```bash
 aws iam attach-role-policy --role-name better-call-buffet-ecs-role --policy-arn arn:aws:iam::905418297381:policy/better-call-buffet-secrets-policy
 ```
@@ -185,6 +200,7 @@ The application will automatically use AWS Secrets Manager when the `ENVIRONMENT
 ### Container Registry Setup (ECR)
 
 1. Create ECR repository:
+
 ```bash
 aws ecr create-repository \
     --repository-name better-call-buffet \
@@ -193,17 +209,20 @@ aws ecr create-repository \
 ```
 
 2. Get AWS account ID:
+
 ```bash
 aws sts get-caller-identity --query Account --output text
 # This will output your AWS account ID, for example: 905418297381
 ```
 
 3. Authenticate Docker with ECR:
+
 ```bash
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 905418297381.dkr.ecr.us-east-1.amazonaws.com
 ```
 
 4. Build and push Docker image:
+
 ```bash
 # Build the image
 docker build -t better-call-buffet .
@@ -216,10 +235,38 @@ docker push 905418297381.dkr.ecr.us-east-1.amazonaws.com/better-call-buffet:late
 ```
 
 Notes:
+
 - Replace `905418297381` with your actual AWS account ID
 - The repository supports image scanning on push for security
 - Images are encrypted at rest using AES-256
 - Authentication tokens are valid for 12 hours
+
+## Architecture
+
+```
+┌─────────────────────────────────────┐
+│  🌐 ROUTER LAYER (HTTP Concerns)     │
+│  - Request/Response formatting       │
+│  - HTTP status codes                 │
+│  - Pydantic validation               │
+│  - API versioning                    │
+└─────────────────────────────────────┘
+                   ↓
+┌─────────────────────────────────────┐
+│  💼 SERVICE LAYER (Business Logic)   │
+│  - Domain operations                 │
+│  - Business rules                    │
+│  - Data validation                   │
+│  - Returns domain models             │
+└─────────────────────────────────────┘
+                   ↓
+┌─────────────────────────────────────┐
+│  🗄️ DATA LAYER (Persistence)        │
+│  - Database queries                  │
+│  - SQLAlchemy models                 │
+│  - Transaction management            │
+└─────────────────────────────────────┘
+```
 
 ## License
 

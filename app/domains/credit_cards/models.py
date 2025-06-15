@@ -14,9 +14,11 @@ class CreditCard(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     name = Column(String, nullable=False, index=True)
     due_date = Column(DateTime, nullable=True, index=True)
-    balance = Column(Float, nullable=True, index=True)
+    credit_limit = Column(Float, nullable=True, index=True)
+    last_four_digits = Column(String, nullable=True, index=True)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
     is_deleted = Column(Boolean, default=False, nullable=False, index=True)
+    brand = Column(String, nullable=False, index=True)
 
     # Foreign Keys
     broker_id = Column(UUID(as_uuid=True), ForeignKey("brokers.id"), nullable=False, index=True)
