@@ -50,13 +50,6 @@ class CreditCardRepository:
             query = query.filter(CreditCard.card_brand.ilike(f"%{filters.card_brand}%"))
         if filters.name_contains:
             query = query.filter(CreditCard.name.ilike(f"%{filters.name_contains}%"))
-        # Numeric range filters
-        if filters.min_balance is not None:
-            query = query.filter(CreditCard.balance >= filters.min_balance)
-        if filters.max_balance is not None:
-            query = query.filter(CreditCard.balance <= filters.max_balance)
-        
-        # Date filters
         if filters.due_date_month:
             # Extract month from due_date and compare
             query = query.filter(extract('month', CreditCard.due_date) == filters.due_date_month)
@@ -66,7 +59,6 @@ class CreditCardRepository:
     def _apply_sorting(self, query, filters: CreditCardFilters):
         sort_fields = {
             "name": CreditCard.name,
-            "balance": CreditCard.balance,
             "due_date": CreditCard.due_date,
             "created_at": CreditCard.created_at
         }

@@ -23,11 +23,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/{account_id}", response_model=CreditCardListResponse)
-def get_credit_cards(
-    # 🎯 Professional API Design: Multiple query parameters
+def get_credit_cards_for_account(
+    account_id: UUID,
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     is_deleted: Optional[bool] = Query(False, description="Include deleted cards"),
-    account_id: Optional[UUID] = Query(None, description="Filter by account ID"),
     card_brand: Optional[str] = Query(None, description="Filter by card brand (partial match)"),
     name_contains: Optional[str] = Query(None, description="Filter by name (partial match)"),
     due_date_month: Optional[int] = Query(None, description="Filter by due date month (1-12)"),
@@ -39,11 +38,21 @@ def get_credit_cards(
     current_user_id: UUID = Depends(get_current_user_id)
 ):
     """
+    🎓 RESTful Resource Hierarchy (RECOMMENDED)
+    
+    This follows REST best practices by treating credit cards as a sub-resource of accounts.
+    
     Examples:
-    - GET /credit_cards/ → All cards
-    - GET /credit_cards/?is_active=true → Active cards only  
-    - GET /credit_cards/?card_brand=visa&min_balance=1000 → Visa cards with balance > 1000
-    - GET /credit_cards/?sort_by=balance&sort_order=desc → Sorted by balance descending
+    - GET /credit_cards/{account_id} → All cards for that account
+    - GET /credit_cards/{account_id}?is_active=true → Active cards only  
+    - GET /credit_cards/{account_id}?card_brand=visa → Visa cards for account
+    - GET /credit_cards/{account_id}?sort_by=balance&sort_order=desc → Sorted by balance
+    
+    Benefits:
+    - Clear resource ownership (cards belong to accounts)
+    - Better security (can't accidentally query wrong account)
+    - Better performance (always scoped to one account)
+    - Follows REST conventions
     """
     try:
         filters = CreditCardFilters(
