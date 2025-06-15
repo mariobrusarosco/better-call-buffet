@@ -22,9 +22,17 @@ Our CI/CD pipeline consists of 5 main stages:
 graph LR
     A[Code Push] --> B[Lint & Security]
     B --> C[Code Validation]
-    C --> D[Docker Build]
-    D --> E[Deploy Production]
-    E --> F[Cleanup]
+    C --> D[Docker Build & Test]
+    D --> E[Push to ECR]
+    E --> F[Deploy to App Runner]
+
+    subgraph "Docker Tags Created"
+        G[latest]
+        H[commit-sha]
+    end
+
+    E --> G
+    E --> H
 ```
 
 ### Stage 1: 🔍 Lint & Security Checks

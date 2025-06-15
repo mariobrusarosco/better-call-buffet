@@ -128,7 +128,7 @@ This project uses an automated CI/CD pipeline powered by GitHub Actions. The pip
 ### 📚 Documentation
 
 - **[CI/CD Pipeline Guide](docs/guides/cicd-pipeline-guide.md)** - Comprehensive guide to our deployment pipeline
-- **[ADR-005: CI/CD Implementation](docs/decisions/005-cicd-pipeline-implementation.md)** - Architecture decision record
+- **[ADR-005: Smart Branch-Based Docker Build Strategy](docs/decisions/005-smart-branch-based-docker-build-strategy.md)** - Cost-optimized CI/CD architecture
 
 ### 🚀 Quick Start for Contributors
 
@@ -301,6 +301,11 @@ Notes:
 │  - Transaction management            │
 └─────────────────────────────────────┘
 ```
+
+## 📚 Documentation
+
+- **[CI/CD Pipeline Guide](docs/guides/cicd-pipeline-guide.md)** - Comprehensive guide to our deployment pipeline
+- **[ADR-005: CI/CD Implementation](docs/decisions/005-cicd-pipeline-implementation.md)** - Architecture decision record
 
 ## License
 
