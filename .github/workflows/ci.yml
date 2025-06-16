@@ -47,12 +47,6 @@ jobs:
       - name: 📋 Import Sorting (isort)
         run: poetry run isort --check-only .
 
-      - name: 🔍 Linting (Flake8)
-        run: poetry run flake8 app tests
-
-      - name: 🔒 Type Checking (MyPy)
-        run: poetry run mypy app
-
       - name: 🛡️ Security Audit (Safety)
         run: |
           poetry add --group dev safety

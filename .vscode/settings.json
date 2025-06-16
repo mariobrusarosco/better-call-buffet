@@ -1,0 +1,48 @@
+{
+  "specstory.derivedRules.enabled": false,
+  // Python interpreter
+  "python.defaultInterpreterPath": "./.venv/Scripts/python.exe",
+  // OFFICIAL MICROSOFT CONFIG - Auto-format on save
+  "editor.formatOnSave": true,
+  // BLACK FORMATTER (Official Microsoft syntax)
+  "black-formatter.args": [
+    "--line-length",
+    "88"
+  ],
+  "black-formatter.importStrategy": "fromEnvironment",
+  // ISORT CONFIG (Official Microsoft syntax) 
+  "isort.args": [
+    "--profile=black"
+  ],
+  "isort.importStrategy": "fromEnvironment",
+  // PYTHON-SPECIFIC SETTINGS (This is the Microsoft way!)
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  // Visual guides
+  "editor.rulers": [
+    88
+  ],
+  // Auto-save
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000,
+  // Python analysis
+  "python.analysis.typeCheckingMode": "basic",
+  // MyPy integration
+  "python.linting.enabled": true,
+  "python.linting.mypyEnabled": true,
+  "python.linting.mypyArgs": [
+    "--ignore-missing-imports",
+    "--explicit-package-bases"
+  ],
+  // Type hints and auto-completion
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.autoSearchPaths": true,
+  "python.analysis.completeFunctionParens": true,
+  // Error highlighting
+  "python.analysis.diagnosticMode": "workspace"
+}
