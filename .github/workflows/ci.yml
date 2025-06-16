@@ -143,6 +143,7 @@ jobs:
         with:
           context: .
           push: false
+          load: true
           tags: |
             better-call-buffet:latest
             ${{ secrets.ECR_REGISTRY }}/better-call-buffet:latest
@@ -152,10 +153,17 @@ jobs:
 
       - name: 🧪 Test Docker Image
         run: |
+          echo "🔍 Available Docker images:"
+          docker images | grep better-call-buffet || echo "No better-call-buffet images found"
+          echo "🚀 Starting Docker container..."
           docker run --rm -d --name test-app -p 8000:8000 better-call-buffet:latest
-          sleep 10
+          echo "⏳ Waiting for app to start..."
+          sleep 15
+          echo "🏥 Testing health endpoint..."
           curl -f http://localhost:8000/health || exit 1
+          echo "🛑 Stopping container..."
           docker stop test-app
+          echo "✅ Docker test completed successfully!"
 
       - name: 🚀 Push to ECR
         run: |
@@ -182,15 +190,22 @@ jobs:
         with:
           context: .
           push: false
+          load: true
           tags: better-call-buffet:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: 🧪 Test Docker Image
         run: |
+          echo "🔍 Available Docker images:"
+          docker images | grep better-call-buffet || echo "No better-call-buffet images found"
+          echo "🚀 Starting Docker container..."
           docker run --rm -d --name test-app -p 8000:8000 better-call-buffet:test
-          sleep 10
+          echo "⏳ Waiting for app to start..."
+          sleep 15
+          echo "🏥 Testing health endpoint..."
           curl -f http://localhost:8000/health || exit 1
+          echo "🛑 Stopping container..."
           docker stop test-app
           echo "✅ Docker build and test successful (no push to ECR)"
 
