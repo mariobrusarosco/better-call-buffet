@@ -7034,9 +7034,84 @@ Let's fix this locally by running Black to format the code:
 
 ---
 
+```bash
+poetry run black .
+```
 
+```
+PS C:\Users\mario\coding\better-call-buffet> poetry run black .
+77 files left unchanged.
+PS C:\Users\mario\coding\better-call-buffet>
+```
 
 ---
+
+Interesting! Black says "77 files left unchanged" locally, but the CI says "12 files would be reformatted". This could be a difference between Windows and Linux environments.
+
+Let's verify that our formatting passes the check locally:
+
+---
+
+```bash
+poetry run black --check .
+```
+
+---
+
+_**User**_
+
+Run poetry add --group dev pip-audit
+  poetry add --group dev pip-audit
+  poetry run pip-audit
+  shell: /usr/bin/bash -e {0}
+  env:
+    PYTHON_VERSION: 3.11
+    POETRY_VERSION: 1.8.3
+    pythonLocation: /opt/hostedtoolcache/Python/3.11.13/x64
+    PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.13/x64/lib/pkgconfig
+    Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.13/x64
+    Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.13/x64
+    Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.13/x64
+    LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.13/x64/lib
+    VENV: .venv/bin/activate
+Using version ^2.9.0 for pip-audit
+
+The lock file might not be compatible with the current version of Poetry.
+Upgrade Poetry to ensure the lock file is read properly or, alternatively, regenerate the lock file with the `poetry lock` command.
+Updating dependencies
+Resolving dependencies...
+
+Package operations: 14 installs, 0 updates, 0 removals
+
+  - Installing boolean-py (5.0)
+  - Installing defusedxml (0.7.1)
+  - Installing license-expression (30.4.1)
+  - Installing msgpack (1.1.1)
+  - Installing packageurl-python (0.17.1)
+  - Installing py-serializable (2.0.0)
+  - Installing pyparsing (3.2.3)
+  - Installing sortedcontainers (2.4.0)
+  - Installing cachecontrol (0.14.3)
+  - Installing cyclonedx-python-lib (9.1.0)
+  - Installing pip-api (0.0.34)
+  - Installing pip-requirements-parser (32.0.1)
+  - Installing toml (0.10.2)
+  - Installing pip-audit (2.9.0)
+
+Writing lock file
+Found 2 known vulnerabilities in 1 package
+Name        Version ID             Fix Versions
+----------- ------- -------------- ------------
+python-jose 3.3.0   PYSEC-2024-232 3.4.0
+python-jose 3.3.0   PYSEC-2024-233 3.4.0
+Name               Skip Reason
+------------------ ---------------------------------------------------------------------------------
+better-call-buffet Dependency not found on PyPI and could not be audited: better-call-buffet (0.1.0)
+Error: Process completed with exit code 1.
+
+---
+
+_**Assistant**_
 
 
 
