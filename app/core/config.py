@@ -1,8 +1,7 @@
 import os
 from typing import List
 
-from pydantic import AnyHttpUrl
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Only import secrets in production to avoid boto3 requirement in development
 if os.getenv("ENVIRONMENT") == "production":
@@ -10,25 +9,21 @@ if os.getenv("ENVIRONMENT") == "production":
 
 
 class Settings(BaseSettings):
-    API_V1_PREFIX: str
-    PROJECT_NAME: str
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="ignore",  # Ignore extra environment variables
+    )
+
+    # CORS Configuration
     BACKEND_CORS_ORIGINS: List[str] = []
 
-    # Security
-    SECRET_KEY: str
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Database - provide test default for CI
+    DATABASE_URL: str = "sqlite:///./test.db"
 
-    # Database
-    DATABASE_URL: str
-
-    # Optional
+    # Environment
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
     def __init__(self, **kwargs):
         if os.getenv("ENVIRONMENT") == "production":
