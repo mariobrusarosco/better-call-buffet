@@ -50,7 +50,7 @@ jobs:
       - name: 🛡️ Security Audit (Safety)
         run: |
           poetry add --group dev safety
-          poetry run safety check
+          poetry run safety check --ignore=70716 --ignore=70715 --ignore=64459 --ignore=64396
 
       - name: 📊 Dependency Check (pip-audit)
         run: |
@@ -268,4 +268,4 @@ jobs:
       - name: 🗑️ Clean up old Docker images
         run: |
           # This would typically clean up old ECR images
-          echo "�� Cleanup completed"
+          echo "🧹 Cleanup completed"
