@@ -156,11 +156,35 @@ jobs:
           echo "🔍 Available Docker images:"
           docker images | grep better-call-buffet || echo "No better-call-buffet images found"
           echo "🚀 Starting Docker container..."
-          docker run --rm -d --name test-app -p 8000:8000 better-call-buffet:latest
-          echo "⏳ Waiting for app to start..."
-          sleep 15
-          echo "🏥 Testing health endpoint..."
-          curl -f http://localhost:8000/health || exit 1
+          CONTAINER_ID=$(docker run --rm -d --name test-app -p 8000:8000 better-call-buffet:latest)
+          echo "📋 Container ID: $CONTAINER_ID"
+
+          echo "⏳ Waiting for app to start with retry logic..."
+          HEALTH_CHECK_PASSED=false
+          for i in {1..12}; do
+            echo "🔄 Health check attempt $i/12..."
+            if curl -f --silent --max-time 5 http://localhost:8000/health > /dev/null 2>&1; then
+              echo "✅ Health check passed on attempt $i!"
+              HEALTH_CHECK_PASSED=true
+              break
+            else
+              echo "⏳ Attempt $i failed, waiting ${i}s before retry..."
+              sleep $i
+            fi
+          done
+
+          if [ "$HEALTH_CHECK_PASSED" = false ]; then
+            echo "❌ Health check failed after 12 attempts"
+            echo "🔍 Container logs:"
+            docker logs test-app
+            echo "🔍 Container status:"
+            docker ps -a | grep test-app
+            docker stop test-app
+            exit 1
+          fi
+
+          echo "🏥 Final health endpoint test..."
+          curl -f http://localhost:8000/health
           echo "🛑 Stopping container..."
           docker stop test-app
           echo "✅ Docker test completed successfully!"
@@ -200,11 +224,35 @@ jobs:
           echo "🔍 Available Docker images:"
           docker images | grep better-call-buffet || echo "No better-call-buffet images found"
           echo "🚀 Starting Docker container..."
-          docker run --rm -d --name test-app -p 8000:8000 better-call-buffet:test
-          echo "⏳ Waiting for app to start..."
-          sleep 15
-          echo "🏥 Testing health endpoint..."
-          curl -f http://localhost:8000/health || exit 1
+          CONTAINER_ID=$(docker run --rm -d --name test-app -p 8000:8000 better-call-buffet:test)
+          echo "📋 Container ID: $CONTAINER_ID"
+
+          echo "⏳ Waiting for app to start with retry logic..."
+          HEALTH_CHECK_PASSED=false
+          for i in {1..12}; do
+            echo "🔄 Health check attempt $i/12..."
+            if curl -f --silent --max-time 5 http://localhost:8000/health > /dev/null 2>&1; then
+              echo "✅ Health check passed on attempt $i!"
+              HEALTH_CHECK_PASSED=true
+              break
+            else
+              echo "⏳ Attempt $i failed, waiting ${i}s before retry..."
+              sleep $i
+            fi
+          done
+
+          if [ "$HEALTH_CHECK_PASSED" = false ]; then
+            echo "❌ Health check failed after 12 attempts"
+            echo "🔍 Container logs:"
+            docker logs test-app
+            echo "🔍 Container status:"
+            docker ps -a | grep test-app
+            docker stop test-app
+            exit 1
+          fi
+
+          echo "🏥 Final health endpoint test..."
+          curl -f http://localhost:8000/health
           echo "🛑 Stopping container..."
           docker stop test-app
           echo "✅ Docker build and test successful (no push to ECR)"
