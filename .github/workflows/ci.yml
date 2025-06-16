@@ -93,8 +93,8 @@ jobs:
           poetry run python -c "
           try:
               from app.main import app
-              from app.database import get_db
-              from app.core.config import get_settings
+              from app.db.connection_and_session import get_db_session
+              from app.core.config import settings
               print('✅ All core imports successful')
           except ImportError as e:
               print(f'❌ Import error: {e}')

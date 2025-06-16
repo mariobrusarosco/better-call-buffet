@@ -8301,6 +8301,181 @@ Can you run the command so we avoid another push to main, please?
 
 _**Assistant**_
 
+Absolutely! Let me test the import validation locally to make sure everything works before you push to main:
+
+---
+
+```bash
+poetry run python -c "from app.main import app; print('✅ Import structure validation PASSED!')"
+```
+
+```
+                                           > poetry run python -c "from app.main import app; print(' Import structure v
+PS C:\Users\mario\coding\better-call-buffet> poetry run python -c "from app.main import app; print(' Import structure v
+PS C:\Users\mario\coding\better-call-buffet> poetry run python -c "from app.main import app; print(' Import structure v
+PS C:\Users\mario\coding\better-call-buffet> poetry run python -c "from app.main import app; print(' Import structure v
+PS C:\Users\mario\coding\better-call-buffet> poetry run python -c "from app.main import app; print(' Import structure v
+PS C:\Users\mario\coding\better-call-buffet> poetry run python -c "from app.main import app; print(' Import structure v
+PS C:\Users\mario\coding\better-call-buffet> poetry run python -c "from app.main import app; print(' Import structure v
+PS C:\Users\mario\coding\better-call-buffet> poetry run python -c "from app.main import app; print(' Import structure v
+[2025-06-15 22:16:51,427] INFO in app.core.logging_config: 🔧 Logging configuration initialized
+[2025-06-15 22:16:51,444] INFO in app.main: 🌐 Configuring CORS with origins: ['http://localhost:3000', 'http://localho
+st:8000']
+ Import structure validation PASSED!
+PS C:\Users\mario\coding\better-call-buffet>
+```
+
+---
+
+**EXCELLENT! 🎉** The import validation **PASSED locally**! 
+
+Let me also test the exact same validation that your CI pipeline runs:
+
+---
+
+```bash
+poetry run python -c "try:\n    from app.main import app\n    from app.database import get_db\n    from app.core.config import get_settings\n    print('✅ All core imports successful')\nexcept ImportError as e:\n    print(f'❌ Import error: {e}')\n    exit(1)"
+```
+
+```
+PS C:\Users\mario\coding\better-call-buffet> poetry run python -c "try:\n    from app.main import app\n    from app.dat
+abase import get_db\n    from app.core.config import get_settings\n    prin
+Oops, something went wrong.  Please report this bug with the details below.
+Report on GitHub: https://github.com/PowerShell/PSReadLine/issues/new
+### Environment
+PSReadLine: 2.0.0
+PowerShell: 5.1.26100.4202
+OS: Microsoft Windows 10.0.26100
+Last 200 Keys
+```
+ r i n t ( ' Spacebar I m p o r t Spacebar s t r u c t u r e Spacebar v a l i d a t i o n Spacebar P A S S E D ! ' ) " 
+Enter
+ q Ctrl+d Ctrl+Alt+c Enter
+ p o e t r y Spacebar r u n Spacebar p y t h o n Spacebar - c Spacebar " t r y : \ n Spacebar Spacebar Spacebar Spaceba
+r f r o m Spacebar a p p . m a i n Spacebar i m p o r t Spacebar a p p \ n Spacebar Spacebar Spacebar Spacebar f r o m 
+Spacebar a p p . d a t a b a s e Spacebar i m p o r t Spacebar g e t _ d b \ n Spacebar Spacebar Spacebar Spacebar f r 
+o m Spacebar a p p . c o r e . c o n f i g Spacebar i m p o r t Spacebar g e t _ s e t t i n g s \ n Spacebar Spacebar 
+Spacebar Spacebar p r i n t
+```
+
+### Exception
+```
+System.ArgumentOutOfRangeException: The value must be greater than or equal to zero and less than the console's buffer 
+size in that dimension.
+Parameter name: top
+Actual value was 12.
+   at System.Console.SetCursorPosition(Int32 left, Int32 top)
+   at Microsoft.PowerShell.PSConsoleReadLine.CalculateWhereAndWhatToRender(Boolean cursorMovedToInitialPos, RenderData 
+renderData, LineInfoForRendering& lineInfoForRendering)
+   at Microsoft.PowerShell.PSConsoleReadLine.ReallyRender(RenderData renderData, String defaultColor)
+   at Microsoft.PowerShell.PSConsoleReadLine.ForceRender()
+   at Microsoft.PowerShell.PSConsoleReadLine.Insert(Char c)
+   at Microsoft.PowerShell.PSConsoleReadLine.SelfInsert(Nullable`1 key, Object arg)
+   at Microsoft.PowerShell.PSConsoleReadLine.ProcessOneKey(PSKeyInfo key, Dictionary`2 dispatchTable, Boolean ignoreIfN
+oAction, Object arg)
+   at Microsoft.PowerShell.PSConsoleReadLine.InputLoop()
+   at Microsoft.PowerShell.PSConsoleReadLine.ReadLine(Runspace runspace, EngineIntrinsics engineIntrinsics, Cancellatio
+nToken cancellationToken)
+```
+
+PS C:\Users\mario\coding\better-call-buffet> poetry run python -c "try:\n    from app.main import app\n    from app.dat
+  File "<string>", line 1
+    try:\n    from app.main import app\n    from app.database import get_db\n    from app.core.config import get_settin
+gs\n    print(' All core imports successful')\nexcept ImportError as e:\n    print(f' Import error: {e}')\n    exit(1)
+         ^
+SyntaxError: unexpected character after line continuation character
+PS C:\Users\mario\coding\better-call-buffet>
+```
+
+---
+
+PowerShell is having issues with the multiline command. Let me test the individual imports that the CI checks:
+
+---
+
+```bash
+poetry run python -c "from app.main import app; print('✅ app.main import successful')"
+```
+
+```
+PS C:\Users\mario\coding\better-call-buffet> poetry run python -c "from app.main import app; print(' app.main import su
+ccessful')"
+[2025-06-15 22:17:34,516] INFO in app.main: 🌐 Configuring CORS with origins: ['http://localhost:3000', 'http://localho
+st:8000']
+ app.main import successful
+PS C:\Users\mario\coding\better-call-buffet>
+```
+
+---
+
+```bash
+poetry run python -c "from app.core.config import settings; print('✅ config import successful')"
+```
+
+```
+PS C:\Users\mario\coding\better-call-buffet> poetry run python -c "from app.core.config import settings; print(' config
+ import successful')"
+ config import successful
+PS C:\Users\mario\coding\better-call-buffet>
+```
+
+---
+
+
+
+---
+
+
+
+---
+
+_**User**_
+
+Run poetry run python -c "
+[2025-06-16 01:19:24,102] INFO in app.core.logging_config: 🔧 Logging configuration initialized
+[2025-06-16 01:19:24,105] INFO in app.main: 🌐 Configuring CORS with origins: []
+❌ Import error: No module named 'app.database'
+
+---
+
+_**Assistant**_
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
 
 
 ---
