@@ -1,35 +1,104 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+# Credit Card Transaction
+class CreditCardTransaction(BaseModel):
+    id: str
+    date: str
+    description: str
+    amount: str
+    category: str
+
+
+# Credit Card Installment Option
+class CreditCardInstallmentOption(BaseModel):
+    months: int
+    total: str
+
+
+# Credit Card Next Due Info
+class CreditCardNextDueInfo(BaseModel):
+    amount: str
+    balance: str
+
+
+# Credit Card Raw Invoice
+class CreditCardRawInvoice(BaseModel):
+    total_due: str
+    due_date: str
+    period: str
+    min_payment: str
+    installment_options: List[CreditCardInstallmentOption]
+    transactions: List[CreditCardTransaction]
+    next_due_info: Optional[CreditCardNextDueInfo] = None
+
+
+class CreditCardRawTransactionIn(BaseModel):
+    date: str
+    description: str
+    amount: str
+    category: Optional[str] = None
+
+
+class CreditCardRawInvoiceIn(BaseModel):
+    total_due: str
+    due_date: str
+    period: str
+    min_payment: str
+    installment_options: List[CreditCardInstallmentOption]
+    transactions: List[CreditCardRawTransactionIn]
+    next_due_info: Optional[CreditCardNextDueInfo] = None
 
 
 # Base schema with shared properties
 class InvoiceBase(BaseModel):
     credit_card_id: UUID
-    broker_id: UUID
-    raw_content: Dict[str, Any]
+    raw_invoice: CreditCardRawInvoice
 
 
 # Schema for creating an invoice (what frontend sends)
-class InvoiceIn(InvoiceBase):
-    pass
+class InvoiceIn(BaseModel):
+    credit_card_id: UUID
+    raw_invoice: CreditCardRawInvoiceIn
 
 
 # Schema for updating an invoice (partial fields)
 class InvoiceUpdateIn(BaseModel):
     credit_card_id: Optional[UUID] = None
-    broker_id: Optional[UUID] = None
-    raw_content: Optional[Dict[str, Any]] = None
+    raw_invoice: Optional[CreditCardRawInvoice] = None
+    is_paid: Optional[bool] = None
 
 
 # Schema for API responses (what users see)
-class Invoice(InvoiceBase):
+class Invoice(BaseModel):
     id: UUID
+    credit_card_id: UUID
+    broker_id: UUID
+    raw_invoice: CreditCardRawInvoice
+    is_deleted: bool
+    is_paid: bool
     user_id: UUID
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+# Pagination metadata
+class PaginationMeta(BaseModel):
+    has_next: bool
+    has_previous: bool
+    page: int
+    per_page: int
+    total: int
+
+
+# Response with pagination
+class InvoiceListResponse(BaseModel):
+    data: List[Invoice]
+    meta: PaginationMeta

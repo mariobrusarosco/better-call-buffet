@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user_id
@@ -20,14 +20,26 @@ from app.domains.credit_cards.service import (
     AccountNotFoundError,
     CreditCardService,
 )
+from app.domains.invoices.schemas import Invoice, InvoiceIn
+from app.domains.invoices.service import InvoiceService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/{account_id}", response_model=CreditCardListResponse)
+@router.get("/{credit_card_id}", response_model=CreditCardResponse)
+def get_credit_card_by_id(
+    credit_card_id: UUID,
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    service = CreditCardService(db)
+    return service.get_credit_card_by_id(credit_card_id, current_user_id)
+
+
+@router.get("", response_model=CreditCardListResponse)
 def get_credit_cards_for_account(
-    account_id: UUID,
+    account_id: UUID = Query(..., description="Account ID"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     is_deleted: Optional[bool] = Query(False, description="Include deleted cards"),
     card_brand: Optional[str] = Query(
@@ -53,10 +65,10 @@ def get_credit_cards_for_account(
     This follows REST best practices by treating credit cards as a sub-resource of accounts.
 
     Examples:
-    - GET /credit_cards/{account_id} → All cards for that account
-    - GET /credit_cards/{account_id}?is_active=true → Active cards only
-    - GET /credit_cards/{account_id}?card_brand=visa → Visa cards for account
-    - GET /credit_cards/{account_id}?sort_by=balance&sort_order=desc → Sorted by balance
+    - GET /credit_cards → All cards for that account
+    - GET /credit_cards?is_active=true → Active cards only
+    - GET /credit_cards?card_brand=visa → Visa cards for account
+    - GET /credit_cards?sort_by=balance&sort_order=desc → Sorted by balance
 
     Benefits:
     - Clear resource ownership (cards belong to accounts)
@@ -118,4 +130,19 @@ def create_credit_card(
 
     except Exception as e:
         logger.error(f"❌ Unexpected error creating credit card: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/invoices", response_model=Invoice)
+def create_credit_card_invoice(
+    invoice_in: InvoiceIn,
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    try:
+        service = InvoiceService(db)
+        result = service.create_invoice(invoice_in, current_user_id)
+        return Invoice.model_validate(result)
+    except Exception as e:
+        logger.error(f"❌ Unexpected error creating credit card invoice: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

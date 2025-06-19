@@ -32,6 +32,7 @@ class CreditCardResponse(BaseModel):
     due_date: datetime
     is_active: bool = True
     is_deleted: bool = False
+    invoices: List[UUID] = []
 
 
 class CreditCardListMeta(BaseModel):

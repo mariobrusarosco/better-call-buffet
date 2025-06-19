@@ -63,15 +63,25 @@ class InvoiceRepository:
         return query.order_by(Invoice.created_at.desc()).all()
 
     def get_by_credit_card_and_user(
-        self, credit_card_id: UUID, user_id: UUID, include_deleted: bool = False
+        self,
+        credit_card_id: UUID,
+        user_id: UUID,
+        include_deleted: bool = False,
+        page: int = 1,
+        per_page: int = 10,
     ) -> List[Invoice]:
-        """Get all invoices for a specific credit card and user"""
+        """Get all invoices for a specific credit card and user with pagination"""
         query = self.db.query(Invoice).filter(
             Invoice.credit_card_id == credit_card_id, Invoice.user_id == user_id
         )
 
         if not include_deleted:
             query = query.filter(Invoice.is_deleted == False)
+
+        # Apply pagination if requested
+        if page and per_page:
+            offset = (page - 1) * per_page
+            query = query.offset(offset).limit(per_page)
 
         return query.order_by(Invoice.created_at.desc()).all()
 
@@ -97,11 +107,11 @@ class InvoiceRepository:
     def search_in_raw_content(
         self, user_id: UUID, search_term: str, include_deleted: bool = False
     ) -> List[Invoice]:
-        """Search invoices by content in raw_content JSON field"""
+        """Search invoices by content in raw_invoice JSON field"""
         # PostgreSQL JSON search using ->> operator for text search
         query = self.db.query(Invoice).filter(
             Invoice.user_id == user_id,
-            func.cast(Invoice.raw_content, func.TEXT).ilike(f"%{search_term}%"),
+            func.cast(Invoice.raw_invoice, func.TEXT).ilike(f"%{search_term}%"),
         )
 
         if not include_deleted:
@@ -114,10 +124,10 @@ class InvoiceRepository:
     ) -> List[Invoice]:
         """Get invoices where a specific JSON field matches a value"""
         # Example: json_path = "amount", value = 100.0
-        # This will find invoices where raw_content->>'amount' = '100.0'
+        # This will find invoices where raw_invoice->>'amount' = '100.0'
         query = self.db.query(Invoice).filter(
             Invoice.user_id == user_id,
-            Invoice.raw_content.op("->>")([json_path]) == str(value),
+            Invoice.raw_invoice.op("->>")([json_path]) == str(value),
         )
 
         if not include_deleted:
@@ -185,19 +195,15 @@ class InvoiceRepository:
             .all()
         )
 
-    def exists_for_credit_card_and_content(
-        self, credit_card_id: UUID, user_id: UUID, raw_content_hash: str
-    ) -> bool:
-        """Check if an invoice with similar content already exists to prevent duplicates"""
-        # This could be enhanced with actual content hashing
-        return (
-            self.db.query(Invoice)
-            .filter(
-                Invoice.credit_card_id == credit_card_id,
-                Invoice.user_id == user_id,
-                Invoice.is_deleted == False,
-                func.md5(func.cast(Invoice.raw_content, func.TEXT)) == raw_content_hash,
-            )
-            .first()
-            is not None
+    def count_by_credit_card(
+        self, credit_card_id: UUID, user_id: UUID, include_deleted: bool = False
+    ) -> int:
+        """Count invoices for a specific credit card and user"""
+        query = self.db.query(Invoice).filter(
+            Invoice.credit_card_id == credit_card_id, Invoice.user_id == user_id
         )
+
+        if not include_deleted:
+            query = query.filter(Invoice.is_deleted == False)
+
+        return query.count()

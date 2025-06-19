@@ -1,15 +1,28 @@
 import hashlib
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.domains.brokers.service import BrokersService
+from app.domains.credit_cards.service import CreditCardService
 from app.domains.invoices.models import Invoice
 from app.domains.invoices.repository import InvoiceRepository
 from app.domains.invoices.schemas import InvoiceIn
+
+
+class InvoiceCreditCardNotFoundError(Exception):
+    pass
+
+
+class InvoiceBrokerNotFoundError(Exception):
+    pass
+
+
+class InvoiceRawInvoiceEmptyError(Exception):
+    pass
 
 
 class InvoiceService:
@@ -21,42 +34,43 @@ class InvoiceService:
     def __init__(self, db: Session):
         self.repository = InvoiceRepository(db)
         self.broker_service = BrokersService(db)
+        self.credit_card_service = CreditCardService(db)
 
     def create_invoice(self, invoice_in: InvoiceIn, user_id: UUID) -> Invoice:
-        """
-        Create a new invoice with business logic validation.
-
-        Args:
-            invoice_in: Invoice creation data
-            user_id: ID of the user creating the invoice
-
-        Returns:
-            The created invoice
-
-        Raises:
-            ValueError: If validation fails or duplicate content detected
-        """
-        # Validate broker ownership
-        broker = self.broker_service.get_broker_by_id(invoice_in.broker_id, user_id)
-        if not broker:
-            raise ValueError("Broker not found or does not belong to user")
-
-        # Business logic: Validate raw_content is not empty
-        if not invoice_in.raw_content:
-            raise ValueError("Raw content cannot be empty")
-
-        # Business logic: Check for duplicate content (optional)
-        content_hash = self._generate_content_hash(invoice_in.raw_content)
-        if self.repository.exists_for_credit_card_and_content(
-            invoice_in.credit_card_id, user_id, content_hash
-        ):
-            raise ValueError(
-                "Invoice with similar content already exists for this credit card"
+        credit_card = self.credit_card_service.get_credit_card_by_id(
+            invoice_in.credit_card_id, user_id
+        )
+        if not credit_card:
+            raise InvoiceCreditCardNotFoundError(
+                f"Credit card {invoice_in.credit_card_id} not found or does not belong to user"
             )
+
+        # Validate broker ownership
+        broker = self.broker_service.get_broker_by_id(credit_card.broker_id, user_id)
+        if not broker:
+            raise InvoiceBrokerNotFoundError(
+                f"Broker {credit_card.broker_id} not found or does not belong to user"
+            )
+
+        if not invoice_in.raw_invoice:
+            raise InvoiceRawInvoiceEmptyError("Raw invoice data cannot be empty")
 
         # Prepare invoice data
         invoice_data = invoice_in.model_dump()
         invoice_data["user_id"] = user_id
+        invoice_data["broker_id"] = (
+            credit_card.broker_id
+        )  # Set broker_id from credit card
+
+        # Transform transactions to add missing id fields
+        if (
+            "raw_invoice" in invoice_data
+            and "transactions" in invoice_data["raw_invoice"]
+        ):
+            transactions = invoice_data["raw_invoice"]["transactions"]
+            for i, transaction in enumerate(transactions):
+                if "id" not in transaction:
+                    transaction["id"] = str(i + 1)  # Simple incremental ID
 
         return self.repository.create(invoice_data)
 
@@ -99,11 +113,34 @@ class InvoiceService:
         )
 
     def get_invoices_by_credit_card(
-        self, credit_card_id: UUID, user_id: UUID, include_deleted: bool = False
+        self,
+        credit_card_id: UUID,
+        user_id: UUID,
+        include_deleted: bool = False,
+        page: int = 1,
+        per_page: int = 10,
     ) -> List[Invoice]:
-        """Get all invoices for a specific credit card"""
+        """Get all invoices for a specific credit card with optional pagination
+
+        Args:
+            credit_card_id: ID of the credit card
+            user_id: ID of the user
+            include_deleted: Whether to include soft-deleted invoices
+            page: Page number for pagination (default: 1)
+            per_page: Items per page (default: 10)
+
+        Returns:
+            List of invoices for the credit card
+        """
+        # Validate credit card ownership
+        credit_card = self.credit_card_service.get_credit_card_by_id(
+            credit_card_id, user_id
+        )
+        if not credit_card:
+            raise ValueError("Credit card not found or does not belong to user")
+
         return self.repository.get_by_credit_card_and_user(
-            credit_card_id, user_id, include_deleted
+            credit_card_id, user_id, include_deleted, page, per_page
         )
 
     def search_invoices(
@@ -178,7 +215,7 @@ class InvoiceService:
         if not invoice:
             return None
 
-        # Business logic: Validate broker if being updated
+        # Business logic: Validate broker_id if being updated
         if "broker_id" in update_data:
             broker = self.broker_service.get_broker_by_id(
                 update_data["broker_id"], user_id
@@ -186,10 +223,18 @@ class InvoiceService:
             if not broker:
                 raise ValueError("Broker not found or does not belong to user")
 
-        # Business logic: Validate raw_content if being updated
-        if "raw_content" in update_data:
-            if not update_data["raw_content"]:
-                raise ValueError("Raw content cannot be empty")
+        # Business logic: Validate credit_card_id if being updated
+        if "credit_card_id" in update_data:
+            credit_card = self.credit_card_service.get_credit_card_by_id(
+                update_data["credit_card_id"], user_id
+            )
+            if not credit_card:
+                raise ValueError("Credit card not found or does not belong to user")
+
+        # Business logic: Validate raw_invoice if being updated
+        if "raw_invoice" in update_data:
+            if not update_data["raw_invoice"]:
+                raise ValueError("Raw invoice data cannot be empty")
 
         return self.repository.update(invoice, update_data)
 
@@ -258,12 +303,12 @@ class InvoiceService:
         self, invoice_id: UUID, user_id: UUID, json_path: str
     ) -> Any:
         """
-        Extract a specific field from an invoice's raw_content JSON.
+        Extract a specific field from an invoice's raw_invoice JSON.
 
         Args:
             invoice_id: ID of the invoice
             user_id: ID of the user
-            json_path: Path to the JSON field (e.g., "transaction.amount")
+            json_path: Path to the JSON field (e.g., "transactions.0.amount")
 
         Returns:
             The extracted value or None if not found
@@ -273,12 +318,20 @@ class InvoiceService:
             return None
 
         try:
-            # Handle nested paths like "transaction.amount"
-            value = invoice.raw_content
+            # Handle nested paths like "transactions.0.amount"
+            # Convert raw_invoice to dict if it's a Pydantic model
+            if hasattr(invoice.raw_invoice, "model_dump"):
+                value = invoice.raw_invoice.model_dump()
+            else:
+                value = invoice.raw_invoice
+
             for key in json_path.split("."):
+                # Handle array indices in the path
+                if key.isdigit():
+                    key = int(key)
                 value = value[key]
             return value
-        except (KeyError, TypeError):
+        except (KeyError, TypeError, IndexError):
             return None
 
     def _generate_content_hash(self, raw_content: Dict[str, Any]) -> str:
@@ -286,3 +339,31 @@ class InvoiceService:
         # Sort the JSON to ensure consistent hashing
         content_str = json.dumps(raw_content, sort_keys=True, separators=(",", ":"))
         return hashlib.md5(content_str.encode()).hexdigest()
+
+    def get_invoice_count_by_credit_card(
+        self, credit_card_id: UUID, user_id: UUID, include_deleted: bool = False
+    ) -> int:
+        """
+        Get count of invoices for a specific credit card.
+
+        Args:
+            credit_card_id: ID of the credit card
+            user_id: ID of the user
+            include_deleted: Whether to include soft-deleted invoices
+
+        Returns:
+            Count of invoices for the credit card
+
+        Raises:
+            ValueError: If credit card doesn't belong to user
+        """
+        # Validate credit card ownership
+        credit_card = self.credit_card_service.get_credit_card_by_id(
+            credit_card_id, user_id
+        )
+        if not credit_card:
+            raise ValueError("Credit card not found or does not belong to user")
+
+        return self.repository.count_by_credit_card(
+            credit_card_id, user_id, include_deleted
+        )

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.db.connection_and_session import Base
@@ -23,11 +23,12 @@ class Invoice(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     credit_card_id = Column(
-        UUID(as_uuid=True), nullable=False
-    )  # Future: ForeignKey to credit_cards table
+        UUID(as_uuid=True), ForeignKey("credit_cards.id"), nullable=False
+    )
     broker_id = Column(UUID(as_uuid=True), ForeignKey("brokers.id"), nullable=False)
-    raw_content = Column(JSON, nullable=False)
+    raw_invoice = Column(JSON, nullable=False)  # Stores the I_CreditCardRawInvoice data
     is_deleted = Column(Boolean, default=False, nullable=False)
+    is_paid = Column(Boolean, default=False, nullable=False)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

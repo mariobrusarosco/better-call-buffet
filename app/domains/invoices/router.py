@@ -2,14 +2,14 @@ from datetime import datetime
 from typing import Any, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
 from app.domains.invoices.models import Invoice
 from app.domains.invoices.schemas import Invoice as InvoiceSchema
-from app.domains.invoices.schemas import InvoiceIn, InvoiceUpdateIn
+from app.domains.invoices.schemas import InvoiceIn, InvoiceListResponse, InvoiceUpdateIn
 from app.domains.invoices.service import InvoiceService
 
 router = APIRouter()
@@ -22,6 +22,20 @@ def create_invoice(
     current_user_id: UUID = Depends(get_current_user_id),
 ):
     """Create a new invoice with business logic validation"""
+    service = InvoiceService(db)
+    try:
+        return service.create_invoice(invoice_in=invoice_in, user_id=current_user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/invoices", response_model=InvoiceSchema, status_code=201)
+def create_credit_card_invoice(
+    invoice_in: InvoiceIn,
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """Create a new credit card invoice"""
     service = InvoiceService(db)
     try:
         return service.create_invoice(invoice_in=invoice_in, user_id=current_user_id)
@@ -108,6 +122,45 @@ def get_invoices_by_credit_card(
     return service.get_invoices_by_credit_card(
         credit_card_id, current_user_id, include_deleted
     )
+
+
+@router.get(
+    "/credit-card/{credit_card_id}/invoices", response_model=InvoiceListResponse
+)
+def list_credit_card_invoices(
+    credit_card_id: UUID = Path(..., description="The ID of the credit card"),
+    page: int = Query(1, description="Page number", ge=1),
+    per_page: int = Query(10, description="Items per page", ge=1, le=100),
+    include_deleted: bool = Query(False, description="Include soft-deleted invoices"),
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """Get all invoices for a specific credit card with pagination"""
+    service = InvoiceService(db)
+    invoices = service.get_invoices_by_credit_card(
+        credit_card_id, current_user_id, include_deleted, page, per_page
+    )
+
+    # Get total count for pagination metadata
+    total_count = service.get_invoice_count_by_credit_card(
+        credit_card_id, current_user_id, include_deleted
+    )
+
+    # Calculate pagination metadata
+    total_pages = (total_count + per_page - 1) // per_page
+    has_next = page < total_pages
+    has_previous = page > 1
+
+    return {
+        "data": invoices,
+        "meta": {
+            "has_next": has_next,
+            "has_previous": has_previous,
+            "page": page,
+            "per_page": per_page,
+            "total": total_count,
+        },
+    }
 
 
 @router.get("/by-json-field")

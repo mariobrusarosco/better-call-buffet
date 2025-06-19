@@ -9,16 +9,19 @@ from app.domains.credit_cards.repository import CreditCardRepository
 from app.domains.credit_cards.schemas import CreditCardFilters, CreditCardIn
 
 
-# Custom business exceptions
 class AccountNotFoundError(Exception):
-    """Raised when account doesn't exist"""
-
     pass
 
 
 class AccountAccessDeniedError(Exception):
-    """Raised when user doesn't own the account"""
+    pass
 
+
+class CreditCardNotFoundError(Exception):
+    pass
+
+
+class CreditCardAccessDeniedError(Exception):
     pass
 
 
@@ -64,4 +67,10 @@ class CreditCardService:
         self.db.commit()
         self.db.refresh(credit_card)
 
+        return credit_card
+
+    def get_credit_card_by_id(self, credit_card_id: UUID, user_id: UUID) -> CreditCard:
+        credit_card = self.repository.get_by_id_and_user(credit_card_id, user_id)
+        if not credit_card:
+            raise CreditCardNotFoundError(f"Credit card {credit_card_id} not found")
         return credit_card

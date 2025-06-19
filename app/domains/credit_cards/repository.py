@@ -15,8 +15,10 @@ from uuid import UUID
 from sqlalchemy import asc, desc, extract
 from sqlalchemy.orm import Session
 
+from app.domains.accounts.models import Account
 from app.domains.credit_cards.models import CreditCard
 from app.domains.credit_cards.schemas import CreditCardFilters
+from app.domains.invoices.models import Invoice
 
 
 class CreditCardRepository:
@@ -91,12 +93,32 @@ class CreditCardRepository:
         self.db.refresh(credit_card)
         return credit_card
 
-    def delete_credit_card(self, credit_card: CreditCard) -> None:
-        """Delete credit card (hard delete)"""
-        self.db.delete(credit_card)
-        self.db.commit()
-
     def soft_delete_credit_card(self, credit_card: CreditCard) -> CreditCard:
         """Soft delete credit card (mark as deleted)"""
         credit_card.is_deleted = True
         return self.update_credit_card(credit_card)
+
+    def get_by_id_and_user(
+        self, credit_card_id: UUID, user_id: UUID
+    ) -> Optional[CreditCard]:
+        # Use a JOIN to get credit card with invoice IDs in one query
+        result = (
+            self.db.query(CreditCard, Invoice.id.label("invoice_id"))
+            .outerjoin(Invoice, CreditCard.id == Invoice.credit_card_id)
+            .filter(CreditCard.id == credit_card_id, CreditCard.user_id == user_id)
+            .all()
+        )
+
+        if not result:
+            return None
+
+        # Extract credit card and invoice IDs from the joined result
+        credit_card = result[0][0]  # First row, credit card object
+        invoice_ids = [
+            row[1] for row in result if row[1] is not None
+        ]  # Collect all invoice IDs
+
+        # Add invoice IDs to credit card object
+        credit_card.invoices = invoice_ids
+
+        return credit_card
