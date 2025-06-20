@@ -30,6 +30,18 @@ class CreditCardService:
         self.db = db
         self.repository = CreditCardRepository(db)
 
+    def get_user_unique_credit_card_with_filters(
+        self, user_id: UUID, filters: Optional[CreditCardFilters] = None
+    ) -> Optional[CreditCard]:
+        if filters is None:
+            filters = CreditCardFilters(
+                is_deleted=False
+            )  # Don't show deleted by default
+
+        return self.repository.get_user_unique_credit_card_with_filters(
+            user_id, filters
+        )
+
     def get_user_credit_cards_filtered(
         self, user_id: UUID, filters: Optional[CreditCardFilters] = None
     ) -> List[CreditCard]:
@@ -54,23 +66,18 @@ class CreditCardService:
                 f"Account {credit_card_data.account_id} not found"
             )
 
-        if account.user_id != user_id:
+        if str(account.user_id) != str(user_id):
             raise AccountAccessDeniedError(
                 f"User {user_id} does not own account {credit_card_data.account_id}"
             )
 
-        credit_card = CreditCard(**credit_card_data.model_dump())
-        credit_card.broker_id = account.broker_id
-        credit_card.user_id = user_id
+        # Create credit card with all required fields including derived ones
+        credit_card_dict = credit_card_data.model_dump()
+        credit_card_dict.update({"broker_id": account.broker_id, "user_id": user_id})
+        credit_card = CreditCard(**credit_card_dict)
 
         self.db.add(credit_card)
         self.db.commit()
         self.db.refresh(credit_card)
 
-        return credit_card
-
-    def get_credit_card_by_id(self, credit_card_id: UUID, user_id: UUID) -> CreditCard:
-        credit_card = self.repository.get_by_id_and_user(credit_card_id, user_id)
-        if not credit_card:
-            raise CreditCardNotFoundError(f"Credit card {credit_card_id} not found")
         return credit_card

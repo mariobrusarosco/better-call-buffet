@@ -50,6 +50,7 @@ class CreditCardListResponse(BaseModel):
 
 # Future: Enhanced filtering schemas
 class CreditCardFilters(BaseModel):
+    credit_card_id: Optional[UUID] = None
     is_active: Optional[bool] = None
     is_deleted: Optional[bool] = False  # Default: don't show deleted
     account_id: Optional[UUID] = None

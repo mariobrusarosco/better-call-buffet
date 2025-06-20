@@ -37,6 +37,14 @@ class CreditCardRepository:
 
         return query.all()
 
+    def get_user_unique_credit_card_with_filters(
+        self, user_id: UUID, filters: Optional[CreditCardFilters] = None
+    ) -> Optional[CreditCard]:
+        query = self.db.query(CreditCard).filter(CreditCard.user_id == user_id)
+        if filters:
+            query = self._apply_filters(query, filters)
+        return query.first()
+
     def _apply_filters(self, query, filters: CreditCardFilters):
         """🔧 Private method to build WHERE conditions dynamically"""
         # Boolean filters
@@ -47,9 +55,11 @@ class CreditCardRepository:
         # UUID filters
         if filters.account_id:
             query = query.filter(CreditCard.account_id == filters.account_id)
+        if filters.credit_card_id:
+            query = query.filter(CreditCard.id == filters.credit_card_id)
         # String filters
         if filters.card_brand:
-            query = query.filter(CreditCard.card_brand.ilike(f"%{filters.card_brand}%"))
+            query = query.filter(CreditCard.brand.ilike(f"%{filters.card_brand}%"))
         if filters.name_contains:
             query = query.filter(CreditCard.name.ilike(f"%{filters.name_contains}%"))
         if filters.due_date_month:
@@ -67,7 +77,7 @@ class CreditCardRepository:
             "created_at": CreditCard.created_at,
         }
 
-        field = sort_fields.get(filters.sort_by, CreditCard.name)
+        field = sort_fields.get(filters.sort_by or "name", CreditCard.name)
 
         if filters.sort_order == "desc":
             query = query.order_by(desc(field))
@@ -81,44 +91,4 @@ class CreditCardRepository:
         self.db.add(credit_card)
         self.db.commit()
         self.db.refresh(credit_card)
-        return credit_card
-
-    def get_by_id(self, credit_card_id: UUID) -> Optional[CreditCard]:
-        """Get credit card by ID"""
-        return self.db.query(CreditCard).filter(CreditCard.id == credit_card_id).first()
-
-    def update_credit_card(self, credit_card: CreditCard) -> CreditCard:
-        """Update existing credit card"""
-        self.db.commit()
-        self.db.refresh(credit_card)
-        return credit_card
-
-    def soft_delete_credit_card(self, credit_card: CreditCard) -> CreditCard:
-        """Soft delete credit card (mark as deleted)"""
-        credit_card.is_deleted = True
-        return self.update_credit_card(credit_card)
-
-    def get_by_id_and_user(
-        self, credit_card_id: UUID, user_id: UUID
-    ) -> Optional[CreditCard]:
-        # Use a JOIN to get credit card with invoice IDs in one query
-        result = (
-            self.db.query(CreditCard, Invoice.id.label("invoice_id"))
-            .outerjoin(Invoice, CreditCard.id == Invoice.credit_card_id)
-            .filter(CreditCard.id == credit_card_id, CreditCard.user_id == user_id)
-            .all()
-        )
-
-        if not result:
-            return None
-
-        # Extract credit card and invoice IDs from the joined result
-        credit_card = result[0][0]  # First row, credit card object
-        invoice_ids = [
-            row[1] for row in result if row[1] is not None
-        ]  # Collect all invoice IDs
-
-        # Add invoice IDs to credit card object
-        credit_card.invoices = invoice_ids
-
         return credit_card

@@ -33,13 +33,42 @@ def get_credit_card_by_id(
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id),
 ):
-    service = CreditCardService(db)
-    return service.get_credit_card_by_id(credit_card_id, current_user_id)
+    """
+    🎓 Single Credit Card Retrieval Using Filtering System
+
+    This demonstrates how to use the same filtering infrastructure
+    for single-item retrieval by filtering on credit_card_id.
+    """
+    try:
+        service = CreditCardService(db)
+        filters = CreditCardFilters(credit_card_id=credit_card_id)
+
+        # Use the same filtering method but expect a single result
+        credit_cards = service.get_user_unique_credit_card_with_filters(
+            current_user_id, filters
+        )
+
+        if not credit_cards:
+            raise HTTPException(
+                status_code=404, detail=f"Credit card {credit_card_id} not found"
+            )
+
+        # Return the first (and should be only) result
+        return CreditCardResponse.model_validate(credit_cards)
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 404)
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error retrieving credit card {credit_card_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving credit card")
 
 
 @router.get("", response_model=CreditCardListResponse)
-def get_credit_cards_for_account(
-    account_id: UUID = Query(..., description="Account ID"),
+def get_credit_cards_endpoint(
+    account_id: Optional[UUID] = Query(
+        None, description="Account ID (required for filtering)"
+    ),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     is_deleted: Optional[bool] = Query(False, description="Include deleted cards"),
     card_brand: Optional[str] = Query(
@@ -60,23 +89,31 @@ def get_credit_cards_for_account(
     current_user_id: UUID = Depends(get_current_user_id),
 ):
     """
-    🎓 RESTful Resource Hierarchy (RECOMMENDED)
+    🎓 Flexible Credit Card Filtering (REUSABLE STRATEGY)
 
-    This follows REST best practices by treating credit cards as a sub-resource of accounts.
+    This endpoint demonstrates the power of reusable filtering logic.
+    The same underlying method handles ALL filtering scenarios.
 
     Examples:
-    - GET /credit_cards → All cards for that account
-    - GET /credit_cards?is_active=true → Active cards only
-    - GET /credit_cards?card_brand=visa → Visa cards for account
-    - GET /credit_cards?sort_by=balance&sort_order=desc → Sorted by balance
+    - GET /credit_cards?account_id=uuid → Cards for specific account
+    - GET /credit_cards?account_id=uuid&is_active=true → Active cards only
+    - GET /credit_cards?account_id=uuid&card_brand=visa → Visa cards
+    - GET /credit_cards?account_id=uuid&sort_by=due_date&sort_order=desc → Sorted
 
     Benefits:
-    - Clear resource ownership (cards belong to accounts)
-    - Better security (can't accidentally query wrong account)
-    - Better performance (always scoped to one account)
-    - Follows REST conventions
+    - ✅ Single filtering method handles all scenarios
+    - ✅ Consistent security (user-level filtering always applied)
+    - ✅ Easy to extend (just add new filter parameters)
+    - ✅ Same performance optimizations everywhere
     """
     try:
+        # For now, require account_id (can be made optional later for "all cards" scenarios)
+        if not account_id:
+            raise HTTPException(
+                status_code=400,
+                detail="account_id is required for filtering credit cards",
+            )
+
         filters = CreditCardFilters(
             is_active=is_active,
             is_deleted=is_deleted,
@@ -130,19 +167,4 @@ def create_credit_card(
 
     except Exception as e:
         logger.error(f"❌ Unexpected error creating credit card: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
-@router.post("/invoices", response_model=Invoice)
-def create_credit_card_invoice(
-    invoice_in: InvoiceIn,
-    db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id),
-):
-    try:
-        service = InvoiceService(db)
-        result = service.create_invoice(invoice_in, current_user_id)
-        return Invoice.model_validate(result)
-    except Exception as e:
-        logger.error(f"❌ Unexpected error creating credit card invoice: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
