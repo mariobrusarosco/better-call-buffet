@@ -2901,11 +2901,160 @@ I found the issue! The startup script looks correct, but there might be an issue
 
 ---
 
+```diff
+  COPY . .
+  
+- # Create a startup script
+- RUN echo '#!/bin/bash\n\
+- set -e\n\
+- \n\
+- # Function to wait for database\n\
+- wait_for_db() {\n\
+-     echo "Waiting for database to be ready..."\n\
+-     until pg_isready -h "${DATABASE_HOST:-localhost}" -p "${DATABASE_PORT:-5432}" -U "${DATABASE_USER:-postgres}" 2>/dev/null; do\n\
+-         echo "Database is not ready yet. Waiting..."\n\
+-         sleep 2\n\
+-     done\n\
+-     echo "Database is ready!"\n\
+- }\n\
+- \n\
+- # Check if we should run migrations (only in production/when database is available)\n\
+- if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then\n\
+-     wait_for_db\n\
+-     echo "Running database migrations..."\n\
+-     poetry run alembic upgrade head\n\
+-     echo "Migrations completed!"\n\
+- fi\n\
+- \n\
+- # Start the application\n\
+- echo "Starting FastAPI application..."\n\
+- exec poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000' > /app/start.sh
++ # Create a simple startup script
++ COPY <<EOF /app/start.sh
++ #!/bin/bash
++ set -e
++ 
++ echo "🚀 Starting Better Call Buffet API..."
++ 
++ # Check if we should run migrations (only in production/when database is available)
++ if [ "\${RUN_MIGRATIONS:-false}" = "true" ]; then
++     echo "🔄 Running database migrations..."
++     poetry run alembic upgrade head
++     echo "✅ Migrations completed!"
++ fi
++ 
++ # Start the application
++ echo "🌟 Starting FastAPI application..."
++ exec poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
++ EOF
+  
+  # Make the startup script executable
+```
+
+---
+
+Perfect! Now let's commit this fix and trigger a new deployment:
+
+---
+
+```bash
+bash -c "git add Dockerfile pyproject.toml poetry.lock"
+```
+
+---
+
+_**User**_
+
+Run echo "🚀 Testing container startup without database dependency..."
+🚀 Testing container startup without database dependency...
+⏳ Waiting for application to start...
+⏳ Attempt 1 failed, waiting 5s...
+⏳ Attempt 2 failed, waiting 5s...
+⏳ Attempt 3 failed, waiting 5s...
+⏳ Attempt 4 failed, waiting 5s...
+⏳ Attempt 5 failed, waiting 5s...
+⏳ Attempt 6 failed, waiting 5s...
+❌ Health check failed
+🔍 Container logs:
+Creating virtualenv better-call-buffet-9TtSrW0h-py3.11 in /tmp/poetry_cache/virtualenvs
+Command not found: uvicorn
+🚀 Starting Better Call Buffet API...
+🌟 Starting FastAPI application...
+
+
+Again
+
+---
+
+_**Assistant**_
+
 
 
 ---
 
+## 🔧 **I See the Issue! Let me Fix It Right Now**
 
+The problem is that my `COPY <<EOF` syntax might not be working in all Docker versions. Let me use a simpler, bulletproof approach:
+
+---
+
+```diff
+- 
++ #!/bin/bash
++ set -e
++ 
++ echo "🚀 Starting Better Call Buffet API..."
++ 
++ # Check if we should run migrations (only in production/when database is available)
++ if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
++     echo "🔄 Running database migrations..."
++     poetry run alembic upgrade head
++     echo "✅ Migrations completed!"
++ fi
++ 
++ # Start the application
++ echo "🌟 Starting FastAPI application..."
++ exec poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 
+```
+
+---
+
+Now let me update the Dockerfile to use this file properly:
+
+---
+
+```diff
+  COPY . .
+  
+- # Create a simple startup script
+- COPY <<EOF /app/start.sh
+- #!/bin/bash
+- set -e
+- 
+- echo "🚀 Starting Better Call Buffet API..."
+- 
+- # Check if we should run migrations (only in production/when database is available)
+- if [ "\${RUN_MIGRATIONS:-false}" = "true" ]; then
+-     echo "🔄 Running database migrations..."
+-     poetry run alembic upgrade head
+-     echo "✅ Migrations completed!"
+- fi
+- 
+- # Start the application
+- echo "🌟 Starting FastAPI application..."
+- exec poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
+- EOF
+- 
+- # Make the startup script executable
++ # Copy and setup startup script
++ COPY start.sh /app/start.sh
+  RUN chmod +x /app/start.sh
+  
+```
+
+---
+
+Actually, let me debug this further. The issue might be that Poetry isn't finding uvicorn in the virtual environment. Let me try a different approach - installing uvicorn globally as a backup:
 
 ---
 

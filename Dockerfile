@@ -18,8 +18,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-RUN pip install poetry
+# Install Poetry and uvicorn globally as fallback
+RUN pip install poetry uvicorn
 
 # Copy poetry files
 COPY pyproject.toml poetry.lock ./
@@ -27,29 +27,15 @@ COPY pyproject.toml poetry.lock ./
 # Install dependencies (--no-root prevents installing the project as a package)
 RUN poetry install --only=main --no-root && rm -rf $POETRY_CACHE_DIR
 
+# Debug: Check where uvicorn is installed
+RUN poetry run which uvicorn || echo "uvicorn not found in poetry env"
+RUN which uvicorn || echo "uvicorn not found globally"
+
 # Copy application code
 COPY . .
 
-# Create a simple startup script
-COPY <<EOF /app/start.sh
-#!/bin/bash
-set -e
-
-echo "🚀 Starting Better Call Buffet API..."
-
-# Check if we should run migrations (only in production/when database is available)
-if [ "\${RUN_MIGRATIONS:-false}" = "true" ]; then
-    echo "🔄 Running database migrations..."
-    poetry run alembic upgrade head
-    echo "✅ Migrations completed!"
-fi
-
-# Start the application
-echo "🌟 Starting FastAPI application..."
-exec poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
-EOF
-
-# Make the startup script executable
+# Copy and setup startup script
+COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
 # Expose port (App Runner expects port 8000)
