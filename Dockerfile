@@ -18,8 +18,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry and uvicorn globally as fallback
-RUN pip install poetry uvicorn
+# Install Poetry
+RUN pip install poetry
 
 # Copy poetry files
 COPY pyproject.toml poetry.lock ./
@@ -27,9 +27,8 @@ COPY pyproject.toml poetry.lock ./
 # Install dependencies (--no-root prevents installing the project as a package)
 RUN poetry install --only=main --no-root && rm -rf $POETRY_CACHE_DIR
 
-# Debug: Check where uvicorn is installed
-RUN poetry run which uvicorn || echo "uvicorn not found in poetry env"
-RUN which uvicorn || echo "uvicorn not found globally"
+# Add Poetry virtual environment to PATH - This is the PROPER fix!
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy application code
 COPY . .
