@@ -8,7 +8,7 @@ build:
       - echo "🗄️ Database migrations will run on startup"
 run:
   runtime-version: latest
-  command: sh -c "poetry run alembic upgrade head && poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000"
+  command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
   network:
     port: 8000
     env:
