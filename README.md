@@ -2,97 +2,88 @@
 
 A modern web application for financial management and analysis.
 
-## Prerequisites
+## The Golden Path: Standardized Development with Docker
 
-- Python 3.11 or higher
-- PostgreSQL (for database)
+To ensure a consistent, predictable, and productive development environment for every engineer, this project uses **Docker as the single, required standard for local development.**
 
-## Quick Setup
+### Why Docker?
 
-### Windows
+- **Consistency:** Eliminates "it works on my machine" problems by ensuring everyone runs the exact same environment, from dependencies to database versions.
+- **Simplicity:** Get a fully running application and database with a single command (`docker-compose up`). No need to install and configure PostgreSQL or Python locally.
+- **Isolation:** Keeps your local machine clean. All project dependencies are managed inside containers and won't conflict with other projects.
+- **Production Parity:** Our local setup mirrors the containerized environment used in production, reducing surprises during deployment.
 
-```powershell
-# Run the setup script
-.\setup.ps1
+---
 
-# Activate the virtual environment
-.\.venv\Scripts\Activate.ps1
+## Local Development Setup
 
-# Start the application
-uvicorn app.main:app --reload
-```
+### Prerequisites
 
-### Linux/macOS
+- **Docker & Docker Compose:** Must be installed on your system.
+  - [Install Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose)
 
-```bash
-# Make the setup script executable
-chmod +x setup.sh
+### Running the Application
 
-# Run the setup script
-./setup.sh
+1.  **Clone the repository.**
+2.  **Navigate to the project root directory.**
+3.  **Start the services:**
 
-# Activate the virtual environment
-source .venv/bin/activate
+    ```bash
+    docker-compose up -d --build
+    ```
 
-# Start the application
-uvicorn app.main:app --reload
-```
+That's it. The application stack is now running.
 
-## Manual Setup
+- **API URL:** [http://localhost:8000](http://localhost:8000)
+- **Interactive API Docs (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Database:** A PostgreSQL instance is running and exposed on `localhost:5432`. You can connect to it with the credentials in `docker-compose.yml`.
 
-If you prefer to set up manually or the setup scripts don't work for you:
+### Stopping the Application
 
-1. Create a virtual environment:
-
-   ```bash
-   python -m venv .venv
-   ```
-
-2. Activate the virtual environment:
-
-   - Windows: `.\.venv\Scripts\Activate.ps1`
-   - Linux/macOS: `source .venv/bin/activate`
-
-3. Install dependencies:
-
-   ```bash
-   pip install --upgrade pip
-   pip install -r requirements.txt
-   ```
-
-4. Install AWS CLI
+To stop the running containers, execute:
 
 ```bash
-curl "https://awscli.amazonaws.com/AWSCLIV2.msi" -o "AWSCLIV2.msi"
+docker-compose down
 ```
 
-Add CLI to PATH
+---
+
+## Common Development Tasks
+
+All commands should be executed from your host machine's terminal in the project root.
+
+### Running Alembic Migrations
+
+To apply database migrations, run the `alembic upgrade head` command inside the `web` container:
 
 ```bash
-echo 'alias aws="python /c/Users/mario/AppData/Roaming/Python/Python311/Scripts/aws"' >> ~/.bashrc
+docker-compose exec web alembic upgrade head
 ```
 
-Configure AWS credentials
+### Running Tests
+
+Execute the `pytest` suite inside the `web` container:
 
 ```bash
-aws configure
+docker-compose exec web poetry run pytest
 ```
 
-5. Copy the environment template:
+### Code Formatting & Linting
 
-   ```bash
-   cp .env.example .env
-   ```
+Run the formatters and linters inside the `web` container:
 
-6. Start the application:
-   ```bash
-   uvicorn app.main:app --reload
-   ```
+```bash
+# Run Black for formatting
+docker-compose exec web poetry run black .
 
-## Development
+# Run isort to sort imports
+docker-compose exec web poetry run isort .
 
-- API documentation is available at `http://localhost:8000/docs`
-- OpenAPI specification at `http://localhost:8000/openapi.json`
+# Run flake8 for linting
+docker-compose exec web poetry run flake8 app
+```
+
+---
 
 ## Project Structure
 
@@ -104,53 +95,37 @@ better-call-buffet/
 │   ├── db/            # Database models and config
 │   └── domains/       # Business logic domains
 ├── docs/              # Documentation
-├── scripts/           # Utility scripts
-└── tests/             # Test suite
+├── migrations/        # Alembic database migrations
+└── docker-compose.yml # Defines the local development environment
 ```
 
 ## Contributing
 
-1. Create a feature branch
-2. Make your changes
-3. Run tests: `pytest`
-4. Format code: `black .`
-5. Submit a pull request
+1. Create a feature branch.
+2. Make your changes inside the containerized environment.
+3. Run tests: `docker-compose exec web poetry run pytest`
+4. Format code: `docker-compose exec web poetry run black .`
+5. Submit a pull request.
 
 ## CI/CD Pipeline
 
 This project uses an automated CI/CD pipeline powered by GitHub Actions. The pipeline includes:
 
-- **Code Quality Checks**: Automated linting, formatting, and type checking
-- **Security Scanning**: Dependency vulnerability detection
-- **Docker Build**: Containerized application building and testing
-- **Automated Deployment**: Production deployment to AWS App Runner
+- **Code Quality Checks**: Automated linting, formatting, and type checking.
+- **Security Scanning**: Dependency vulnerability detection.
+- **Docker Build**: Containerized application building and testing.
+- **Automated Deployment**: Production deployment to AWS.
 
 ### 📚 Documentation
 
-- **[CI/CD Pipeline Guide](docs/guides/cicd-pipeline-guide.md)** - Comprehensive guide to our deployment pipeline
-- **[ADR-005: Smart Branch-Based Docker Build Strategy](docs/decisions/005-smart-branch-based-docker-build-strategy.md)** - Cost-optimized CI/CD architecture
+- **[CI/CD Pipeline Guide](docs/guides/cicd-pipeline-guide.md)** - Comprehensive guide to our deployment pipeline.
+- **[ADR-005: Smart Branch-Based Docker Build Strategy](docs/decisions/005-smart-branch-based-docker-build-strategy.md)** - Cost-optimized CI/CD architecture.
 
-### 🚀 Quick Start for Contributors
-
-```bash
-# Before pushing, run these locally:
-poetry run black .
-poetry run isort .
-poetry run flake8 app
-poetry run mypy app
-
-# Test Docker build locally:
-docker build -t better-call-buffet:local .
-docker run -p 8000:8000 better-call-buffet:local
-```
-
-The pipeline automatically runs on:
-
-- **Push to `main`**: Full pipeline including production deployment
-- **Push to `develop`**: Lint, validate, and build (no deployment)
-- **Pull Request to `main`**: Lint and validation checks
+---
 
 ## AWS Deployment
+
+_This section is for reference on how the application is deployed to production infrastructure and is not needed for local development._
 
 ### Database Setup (RDS)
 
@@ -200,7 +175,7 @@ aws rds describe-db-instances \
 
 ### Secrets Management
 
-For production deployment, sensitive environment variables are stored in AWS Secrets Manager. Follow these steps to set up:
+For production deployment, sensitive environment variables are stored in AWS Secrets Manager.
 
 1. Create the secret in AWS Secrets Manager:
 
@@ -229,8 +204,6 @@ aws iam create-role --role-name better-call-buffet-ecs-role --assume-role-policy
 aws iam attach-role-policy --role-name better-call-buffet-ecs-role --policy-arn arn:aws:iam::905418297381:policy/better-call-buffet-secrets-policy
 ```
 
-The application will automatically use AWS Secrets Manager when the `ENVIRONMENT` variable is set to `production`. In development, it will continue to use the local `.env` file.
-
 ### Container Registry Setup (ECR)
 
 1. Create ECR repository:
@@ -248,32 +221,6 @@ aws ecr create-repository \
 aws sts get-caller-identity --query Account --output text
 # This will output your AWS account ID, for example: 905418297381
 ```
-
-3. Authenticate Docker with ECR:
-
-```bash
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 905418297381.dkr.ecr.us-east-1.amazonaws.com
-```
-
-4. Build and push Docker image:
-
-```bash
-# Build the image
-docker build -t better-call-buffet .
-
-# Tag the image for ECR
-docker tag better-call-buffet:latest 905418297381.dkr.ecr.us-east-1.amazonaws.com/better-call-buffet:latest
-
-# Push to ECR
-docker push 905418297381.dkr.ecr.us-east-1.amazonaws.com/better-call-buffet:latest
-```
-
-Notes:
-
-- Replace `905418297381` with your actual AWS account ID
-- The repository supports image scanning on push for security
-- Images are encrypted at rest using AES-256
-- Authentication tokens are valid for 12 hours
 
 ## Architecture
 
