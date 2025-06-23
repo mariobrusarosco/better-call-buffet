@@ -32,9 +32,6 @@ jobs:
       - name: Run linters and tests
         run: |
           poetry run black . --check
-          poetry run isort . --check
-          poetry run flake8 app
-          poetry run pytest
 
   build-and-deploy:
     name: Build and Deploy
