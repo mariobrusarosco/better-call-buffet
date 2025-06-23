@@ -27,6 +27,9 @@ RUN poetry config virtualenvs.create false && poetry install --without dev --no-
 # Copy application code
 COPY . .
 
+# Make startup script executable
+RUN chmod +x /app/scripts/run-prod.sh
+
 # Expose port
 EXPOSE 8000
 
@@ -35,4 +38,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/scripts/run-prod.sh"]

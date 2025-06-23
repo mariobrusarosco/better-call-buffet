@@ -52,13 +52,40 @@ docker-compose down
 
 All commands should be executed from your host machine's terminal in the project root.
 
-### Running Alembic Migrations
+### Working with Database Migrations
 
-To apply database migrations, run the `alembic upgrade head` command inside the `web` container:
+As you develop new features, you will often need to modify the database schema. This is handled by `Alembic`. Here are the essential commands for your daily work.
+
+**Applying Migrations**
+
+To apply all outstanding migrations and bring the database up to the latest version, run:
 
 ```bash
 docker-compose exec web alembic upgrade head
 ```
+
+**Creating a New Migration**
+
+After you have changed your SQLAlchemy models (e.g., in `app/domains/.../models.py`), you need to generate a new migration script. Alembic can often detect these changes automatically.
+
+```bash
+docker-compose exec web alembic revision --autogenerate -m "A short, descriptive message about your changes"
+```
+
+- `--autogenerate`: Tells Alembic to compare your models to the current database state and generate the migration code.
+- `-m "..."`: Provides a message that will become part of the migration file name. Always use a descriptive message!
+
+After running this, a new migration file will appear in the `migrations/versions/` directory. You should always inspect this file to ensure it's correct before committing it.
+
+**Checking the Current Status**
+
+To see the current revision of your database, use:
+
+```bash
+docker-compose exec web alembic current
+```
+
+This is useful to confirm that your migrations have been applied correctly.
 
 ### Running Tests
 

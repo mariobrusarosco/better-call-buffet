@@ -48,4 +48,4 @@ async def root():
 @app.get("/health")
 async def health_check():
     logger.info("💚 Health check endpoint called")
-    return {"status": "healthy"}
+    return {"status": "healthy api"}
