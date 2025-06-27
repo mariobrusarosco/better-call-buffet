@@ -9,7 +9,7 @@ def get_aws_secrets(secret_name: str) -> Dict[str, str]:
     Retrieve secrets from AWS Secrets Manager
     """
     session = boto3.session.Session()
-    client = session.client(service_name="secretsmanager", region_name="us-east-1")
+    client = session.client(service_name="secretsmanager", region_name="us-east-2")
 
     try:
         get_secret_value_response = client.get_secret_value(SecretId=secret_name)
