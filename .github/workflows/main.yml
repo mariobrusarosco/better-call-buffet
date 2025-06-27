@@ -67,6 +67,20 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
+      - name: Run Database Migrations
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          echo "🔄 Running database migrations before deployment..."
+          docker run --rm \
+            -e ENVIRONMENT=production \
+            -e AWS_DEFAULT_REGION=${{ env.AWS_REGION }} \
+            -e AWS_ACCESS_KEY_ID \
+            -e AWS_SECRET_ACCESS_KEY \
+            -e AWS_SESSION_TOKEN \
+            $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            /app/scripts/run-migrations.sh
+
       - name: Deploy to App Runner
         run: |
           aws apprunner start-deployment --service-arn arn:aws:apprunner:${{ env.AWS_REGION }}:${{ env.AWS_ACCOUNT_ID }}:service/better-call-buffet-prod-prod

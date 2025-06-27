@@ -6,7 +6,7 @@ build:
       - echo "Using pre-built Docker image"
 run:
   runtime-version: latest
-  command: python -m uvicorn main:app --host 0.0.0.0 --port 8000
+  command: /app/scripts/run-prod.sh
   network:
     port: 8000
     env: PORT

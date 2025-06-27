@@ -27,8 +27,9 @@ RUN poetry config virtualenvs.create false && poetry install --without dev --no-
 # Copy application code
 COPY . .
 
-# Make startup script executable
+# Make scripts executable
 RUN chmod +x /app/scripts/run-prod.sh
+RUN chmod +x /app/scripts/run-migrations.sh
 
 # Expose port
 EXPOSE 8000
