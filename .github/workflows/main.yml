@@ -72,32 +72,44 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           echo "🔄 Running database migrations before deployment..."
+
+                    # Get DATABASE_URL from AWS Secrets Manager
+          DATABASE_URL=$(aws secretsmanager get-secret-value \
+            --secret-id better-call-buffet/production \
+            --region us-east-2 \
+            --query 'SecretString' \
+            --output text | jq -r '.DATABASE_URL')
+
           docker run --rm \
             -e ENVIRONMENT=production \
-            -e AWS_DEFAULT_REGION=${{ env.AWS_REGION }} \
-            -e AWS_ACCESS_KEY_ID \
-            -e AWS_SECRET_ACCESS_KEY \
-            -e AWS_SESSION_TOKEN \
+            -e AWS_DEFAULT_REGION=us-east-2 \
+            -e DATABASE_URL="$DATABASE_URL" \
             $ECR_REGISTRY/$ECR_REPOSITORY:latest \
             /app/scripts/run-migrations.sh
 
       - name: Deploy to App Runner
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          aws apprunner start-deployment --service-arn arn:aws:apprunner:${{ env.AWS_REGION }}:${{ env.AWS_ACCOUNT_ID }}:service/better-call-buffet-prod-prod
+          echo "🚀 Deploying to App Runner..."
 
+          # Update the App Runner service with the new image
           aws apprunner update-service \
             --service-arn arn:aws:apprunner:us-east-2:895583929848:service/better-call-buffet-prod/e7b15d55a36a45d98c4cb3be9f38a582 \
-            --source-configuration '{
-              "ImageRepository": {
-                "ImageIdentifier": "895583929848.dkr.ecr.us-east-2.amazonaws.com/better-call-buffet:latest",
-                "ImageConfiguration": {
-                  "Port": "8000",
-                  "RuntimeEnvironmentVariables": {
-                    "ENVIRONMENT": "production"
+            --source-configuration "{
+              \"ImageRepository\": {
+                \"ImageIdentifier\": \"$ECR_REGISTRY/$ECR_REPOSITORY:latest\",
+                \"ImageConfiguration\": {
+                  \"Port\": \"8000\",
+                  \"RuntimeEnvironmentVariables\": {
+                    \"ENVIRONMENT\": \"production\"
                   }
                 },
-                "ImageRepositoryType": "ECR"
+                \"ImageRepositoryType\": \"ECR\"
               },
-              "AutoDeploymentsEnabled": false
-            }' \
-            --region us-east-2
+              \"AutoDeploymentsEnabled\": false
+            }" \
+            --region ${{ env.AWS_REGION }}
+            
+          echo "✅ Deployment initiated successfully"
