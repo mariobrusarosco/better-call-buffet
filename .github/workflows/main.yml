@@ -69,4 +69,21 @@ jobs:
 
       - name: Deploy to App Runner
         run: |
-          aws apprunner start-deployment --service-arn arn:aws:apprunner:${{ env.AWS_REGION }}:${{ env.AWS_ACCOUNT_ID }}:service/better-call-buffet
+          aws apprunner start-deployment --service-arn arn:aws:apprunner:${{ env.AWS_REGION }}:${{ env.AWS_ACCOUNT_ID }}:service/better-call-buffet-prod-prod
+
+          aws apprunner update-service \
+            --service-arn arn:aws:apprunner:us-east-2:895583929848:service/better-call-buffet-prod/e7b15d55a36a45d98c4cb3be9f38a582 \
+            --source-configuration '{
+              "ImageRepository": {
+                "ImageIdentifier": "895583929848.dkr.ecr.us-east-2.amazonaws.com/better-call-buffet:latest",
+                "ImageConfiguration": {
+                  "Port": "8000",
+                  "RuntimeEnvironmentVariables": {
+                    "ENVIRONMENT": "production"
+                  }
+                },
+                "ImageRepositoryType": "ECR"
+              },
+              "AutoDeploymentsEnabled": false
+            }' \
+            --region us-east-2
