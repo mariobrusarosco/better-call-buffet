@@ -202,7 +202,6 @@ git push origin feature/new-financial-feature
 # Before pushing, run these locally:
 poetry run black .
 poetry run isort .
-poetry run flake8 app
 poetry run mypy app
 
 # Test Docker build locally:
