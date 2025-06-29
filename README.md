@@ -15,6 +15,41 @@ To ensure a consistent, predictable, and productive development environment for 
 
 ---
 
+## 🚀 **Serverless Architecture & Enterprise Infrastructure**
+
+### **🎓 Understanding Your Production Setup**
+
+Your Better Call Buffet application runs on **enterprise-grade serverless infrastructure** with automatic load balancing, auto-scaling, and zero-downtime deployments - all without managing any servers!
+
+**📚 [Complete App Runner Serverless Architecture Guide](docs/guides/app-runner-serverless-architecture-guide.md)**
+
+**What you get automatically:**
+
+- ✅ **Auto-scaling containers** (1 to 1000+ users handled seamlessly)
+- ✅ **Intelligent load balancing** (requests distributed optimally)
+- ✅ **Zero-downtime deployments** (users never see outages)
+- ✅ **Enterprise-grade reliability** (automatic failover and recovery)
+- ✅ **Cost optimization** (pay only when users access your app)
+
+**Current monthly cost:** ~$3-5 (well under budget, scales with usage)
+
+### **🏗️ Production Architecture**
+
+```mermaid
+graph LR
+    A[GitHub Push] --> B[CI/CD Pipeline]
+    B --> C[AWS App Runner]
+    C --> D[Auto-Scaling Containers]
+    D --> E[Load Balancer]
+    E --> F[Your FastAPI App]
+    F --> G[RDS PostgreSQL]
+    H[Parameter Store] --> F
+```
+
+**Companies using similar architecture:** Netflix, Airbnb, Uber, Stripe
+
+---
+
 ## Local Development Setup
 
 ### Prerequisites
@@ -142,6 +177,7 @@ This project uses an automated CI/CD pipeline powered by GitHub Actions. The pip
 
 - **[CI/CD Pipeline Guide](docs/guides/cicd-pipeline-guide.md)** - Comprehensive guide to our deployment pipeline.
 - **[ADR-005: Smart Branch-Based Docker Build Strategy](docs/decisions/005-smart-branch-based-docker-build-strategy.md)** - Cost-optimized CI/CD architecture.
+- **[🚀 App Runner Serverless Architecture Guide](docs/guides/app-runner-serverless-architecture-guide.md)** - Deep dive into your enterprise infrastructure.
 
 ---
 
@@ -157,7 +193,7 @@ _This section is for reference on how the application is deployed to production 
 aws ec2 create-security-group \
     --group-name better-call-buffet-db-sg \
     --description "Security group for Better Call Buffet RDS"
-````
+```
 
 2. Allow PostgreSQL traffic (development only):
 
@@ -279,3 +315,4 @@ aws sts get-caller-identity --query Account --output text
 ## License
 
 [License details here]
+````
