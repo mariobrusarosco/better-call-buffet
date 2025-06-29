@@ -103,28 +103,23 @@ Run the formatters and linters inside the `web` container:
 # Run Black for formatting
 docker-compose exec web poetry run black .
 
-# Run isort to sort imports
-docker-compose exec web poetry run isort .
-
-# Run flake8 for linting
-docker-compose exec web poetry run flake8 app
-```
-
 ---
 
 ## Project Structure
 
 ```
+
 better-call-buffet/
 ├── app/
-│   ├── api/           # API endpoints
-│   ├── core/          # Core functionality
-│   ├── db/            # Database models and config
-│   └── domains/       # Business logic domains
-├── docs/              # Documentation
-├── migrations/        # Alembic database migrations
+│ ├── api/ # API endpoints
+│ ├── core/ # Core functionality
+│ ├── db/ # Database models and config
+│ └── domains/ # Business logic domains
+├── docs/ # Documentation
+├── migrations/ # Alembic database migrations
 └── docker-compose.yml # Defines the local development environment
-```
+
+````
 
 ## Contributing
 
@@ -162,7 +157,7 @@ _This section is for reference on how the application is deployed to production 
 aws ec2 create-security-group \
     --group-name better-call-buffet-db-sg \
     --description "Security group for Better Call Buffet RDS"
-```
+````
 
 2. Allow PostgreSQL traffic (development only):
 

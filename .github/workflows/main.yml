@@ -73,12 +73,13 @@ jobs:
         run: |
           echo "🔄 Running database migrations before deployment..."
 
-                    # Get DATABASE_URL from AWS Secrets Manager
-          DATABASE_URL=$(aws secretsmanager get-secret-value \
-            --secret-id better-call-buffet/production \
+          # Get DATABASE_URL from AWS Parameter Store (FREE tier service!)
+          DATABASE_URL=$(aws ssm get-parameter \
+            --name "/better-call-buffet/DATABASE_URL" \
             --region us-east-2 \
-            --query 'SecretString' \
-            --output text | jq -r '.DATABASE_URL')
+            --with-decryption \
+            --query 'Parameter.Value' \
+            --output text)
 
           docker run --rm \
             -e ENVIRONMENT=production \
