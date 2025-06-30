@@ -175,6 +175,57 @@ def create_credit_card(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.post("/{credit_card_id}/invoices", response_model=Invoice, status_code=201)
+def create_invoice(
+    invoice_in: InvoiceIn,
+    credit_card_id: UUID = Path(..., description="The ID of the credit card"),
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    🎓 Create a new invoice for a specific credit card (NESTED RESOURCE PATTERN)
+
+    This endpoint demonstrates RESTful nested resource design:
+    - POST /credit_cards/{id}/invoices creates an invoice FOR that credit card
+    - The credit_card_id comes from the URL path (not request body)
+    - Validates credit card ownership before creating invoice
+
+    Benefits:
+    - ✅ Clear resource hierarchy
+    - ✅ Intuitive URL structure
+    - ✅ Automatic credit card validation
+    - ✅ Consistent with GET /credit_cards/{id}/invoices
+    """
+    try:
+        service = InvoiceService(db)
+
+        # Override credit_card_id from path parameter
+        invoice_data = invoice_in.model_dump()
+        invoice_data["credit_card_id"] = credit_card_id
+
+        # Validate that path parameter matches body (if provided)
+        if invoice_in.credit_card_id != credit_card_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Credit card ID in path must match credit card ID in request body",
+            )
+
+        # Create invoice using the existing service
+        created_invoice = service.create_invoice(
+            invoice_in=InvoiceIn(**invoice_data), user_id=current_user_id
+        )
+
+        logger.info(f"✅ Invoice created successfully for credit card {credit_card_id}")
+        return Invoice.model_validate(created_invoice)
+
+    except ValueError as e:
+        logger.warning(f"❌ Validation error creating invoice: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"❌ Unexpected error creating invoice: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.get("/{credit_card_id}/invoices", response_model=InvoiceListResponse)
 def get_invoices(
     credit_card_id: UUID,
