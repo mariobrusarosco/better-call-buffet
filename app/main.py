@@ -14,11 +14,15 @@ from app.core.error_handlers import (
     http_exception_handler,
     validation_exception_handler,
 )
+from app.core.logging_config import setup_logging
 
 # Import model registration to register all models
 from app.db import model_registration
 
 app = FastAPI(title="Better Call Buffet API")
+
+# Setup structured logging
+setup_logging(environment=settings.ENVIRONMENT, log_level="INFO")
 
 # Register error handlers
 app.add_exception_handler(AppException, app_exception_handler)  # type: ignore

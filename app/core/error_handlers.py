@@ -21,7 +21,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 # Configure logger for this module
-logger = logging.getLogger(__name__)
+from app.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 # ============================================================================
