@@ -16,6 +16,7 @@ from app.domains.balance_points.models import BalancePoint
 from app.domains.brokers.models import Broker
 from app.domains.credit_cards.models import CreditCard
 from app.domains.invoices.models import Invoice
+from app.domains.transactions.models import Transaction
 from app.domains.users.models import User
 
 # this is the Alembic Config object, which provides

@@ -137,6 +137,11 @@ DOMAIN_EXCEPTION_MAP = {
     "InvoiceBrokerNotFoundError": (NotFoundError, "INVOICE_BROKER_NOT_FOUND"),
     "InvoiceRawInvoiceEmptyError": (ValidationError, "INVOICE_RAW_EMPTY"),
     # Add more domain exceptions as needed
+    # Transactions domain
+    "TransactionAccountAndCreditCardNotFoundError": (
+        NotFoundError,
+        "TRANSACTION_ACCOUNT_AND_CREDIT_CARD_NOT_FOUND",
+    ),
 }
 
 

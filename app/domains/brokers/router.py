@@ -12,10 +12,6 @@ from app.domains.brokers.service import BrokersService
 router = APIRouter()
 
 
-def test(x, y):
-    return x + y
-
-
 @router.get("/", response_model=List[Broker])
 def get_brokers(
     include_inactive: bool = Query(
