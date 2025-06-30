@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
 
+    # Logging Configuration
+    ENABLE_PERFORMANCE_LOGGING: bool = False
+
     def __init__(self, **kwargs):
         # Load secrets from AWS Parameter Store in production (FREE tier service!)
         if os.getenv("ENVIRONMENT") == "production":
@@ -31,7 +34,7 @@ class Settings(BaseSettings):
                 # Get secrets from AWS Parameter Store (replaces Secrets Manager for cost savings)
                 aws_secrets = get_aws_parameter_store_secrets("/better-call-buffet")
                 kwargs.update(aws_secrets)
-                
+
                 print("✅ Loaded secrets from AWS Parameter Store (Free Tier)")
             except ImportError as e:
                 print(f"Warning: Could not import boto3 for secrets management: {e}")

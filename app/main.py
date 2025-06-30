@@ -15,6 +15,10 @@ from app.core.error_handlers import (
     validation_exception_handler,
 )
 from app.core.logging_config import setup_logging
+from app.core.middleware import (
+    PerformanceMonitoringMiddleware,
+    RequestLoggingMiddleware,
+)
 
 # Import model registration to register all models
 from app.db import model_registration
@@ -31,6 +35,14 @@ app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore
 app.add_exception_handler(Exception, general_exception_handler)
 
 # Register logging middleware for per-request logging
+# Note: Performance logging can be controlled via ENABLE_PERFORMANCE_LOGGING environment variable
+app.add_middleware(
+    RequestLoggingMiddleware,
+    log_headers=True,
+    log_bodies=False,
+    enable_performance_logging=settings.ENABLE_PERFORMANCE_LOGGING,  # 🎛️ Controlled via environment
+)
+app.add_middleware(PerformanceMonitoringMiddleware, slow_request_threshold=1.0)
 
 # Configure CORS
 origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
