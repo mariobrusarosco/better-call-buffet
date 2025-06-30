@@ -20,7 +20,12 @@ from app.domains.credit_cards.service import (
     AccountNotFoundError,
     CreditCardService,
 )
-from app.domains.invoices.schemas import Invoice, InvoiceIn
+from app.domains.invoices.schemas import (
+    Invoice,
+    InvoiceIn,
+    InvoiceListResponse,
+    PaginationMeta,
+)
 from app.domains.invoices.service import InvoiceService
 
 logger = logging.getLogger(__name__)
@@ -168,3 +173,47 @@ def create_credit_card(
     except Exception as e:
         logger.error(f"❌ Unexpected error creating credit card: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/{credit_card_id}/invoices", response_model=InvoiceListResponse)
+def get_invoices(
+    credit_card_id: UUID,
+    page: int = Query(1, description="Page number", ge=1),
+    per_page: int = Query(10, description="Items per page", ge=1, le=100),
+    include_deleted: bool = Query(False, description="Include soft-deleted invoices"),
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """Get all invoices for a specific credit card with pagination"""
+    service = InvoiceService(db)
+
+    # Get paginated invoices
+    invoices = service.get_invoices_by_credit_card(
+        credit_card_id, current_user_id, include_deleted, page, per_page
+    )
+
+    # Get total count for pagination metadata (simple approach: get all without pagination)
+    all_invoices = service.get_invoices_by_credit_card(
+        credit_card_id,
+        current_user_id,
+        include_deleted,
+        1,
+        999999,  # Large number to get all
+    )
+    total_count = len(all_invoices)
+
+    # Calculate pagination metadata
+    total_pages = (total_count + per_page - 1) // per_page
+    has_next = page < total_pages
+    has_previous = page > 1
+
+    return InvoiceListResponse(
+        data=[Invoice.model_validate(invoice) for invoice in invoices],
+        meta=PaginationMeta(
+            has_next=has_next,
+            has_previous=has_previous,
+            page=page,
+            per_page=per_page,
+            total=total_count,
+        ),
+    )
