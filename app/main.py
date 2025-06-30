@@ -9,24 +9,20 @@ from app.core.error_handlers import (
     http_exception_handler,
     validation_exception_handler,
 )
-from app.core.logging_config import LoggingConfig
-
-# Configure logging first
-LoggingConfig.configure_logging()
-logger = LoggingConfig.get_logger(__name__)
-
 # Import model registration to register all models
 from app.db import model_registration
 
 app = FastAPI(title="Better Call Buffet API")
 
 # Register error handlers
-app.add_exception_handler(RequestValidationError, validation_exception_handler)
+
 app.add_exception_handler(Exception, general_exception_handler)
+
+# Register logging middleware for per-request logging
 
 # Configure CORS
 origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
-logger.info(f"🌐 Configuring CORS with origins: {origins}")
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,5 +43,4 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    logger.info("💚 Health check endpoint called")
     return {"status": "healthy api"}

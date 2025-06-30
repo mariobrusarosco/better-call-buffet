@@ -1,6 +1,67 @@
 # Better Call Buffet
 
-A modern web application for financial management and analysis.
+## 🚀 Developer Onboarding: The Golden Path for Local Development
+
+Welcome to the Better Call Buffet project! This section will guide you through the ideal developer experience (DX) for starting, developing, and stopping the API—leveraging Docker for consistency, hot reload, and productivity.
+
+### Why Docker?
+
+- **Consistency:** Everyone runs the same environment—no more "works on my machine."
+- **Simplicity:** One command starts everything (API + database).
+- **Isolation:** No need to install Python, Poetry, or Postgres locally.
+- **Production Parity:** Your local setup matches production, reducing surprises.
+
+---
+
+### 🏁 Prerequisites
+
+- **Docker & Docker Compose** must be installed.
+  - [Install Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Compose)
+
+---
+
+### ▶️ Quick Start Cheat Sheet
+
+| Action         | Command                                      | What Happens?                   |
+| -------------- | -------------------------------------------- | ------------------------------- |
+| Start API & DB | `docker-compose up`                          | Hot reload, logs, DB all in one |
+| Stop API & DB  | `Ctrl+C` or `docker-compose down`            | Clean shutdown                  |
+| Run migrations | `docker-compose exec web alembic ...`        | DB schema updated               |
+| Run tests      | `docker-compose exec web poetry run pytest`  | Tests run inside container      |
+| Format code    | `docker-compose exec web poetry run black .` | Code formatted inside container |
+
+---
+
+### 🌊 Visual Workflow Diagram
+
+```mermaid
+flowchart TD
+    A[Edit Code] -- Save --> B[Docker Volume Mount]
+    B -- Change Detected --> C[Uvicorn in Docker]
+    C -- Hot Reload --> D[API Restarts]
+    D -- Logs --> E[Docker Compose Terminal]
+    F[Frontend/HTTP Client] -- Request --> D
+    D -- Response/Error --> F
+```
+
+---
+
+### 🏆 Best Practices
+
+- **Always use Docker Compose** for local development.
+- **Never use `--reload` in production** (for security/performance).
+- **Check logs** in your terminal for errors and debugging.
+- **Use the provided commands** for migrations, testing, and formatting.
+
+---
+
+### 📚 Further Reading
+
+- [App Runner Serverless Architecture Guide](docs/guides/app-runner-serverless-architecture-guide.md)
+- [CI/CD Pipeline Guide](docs/guides/cicd-pipeline-guide.md)
+- [ADR-005: Smart Branch-Based Docker Build Strategy](docs/decisions/005-smart-branch-based-docker-strategy.md)
+
+---
 
 ## The Golden Path: Standardized Development with Docker
 
@@ -137,13 +198,13 @@ Run the formatters and linters inside the `web` container:
 ```bash
 # Run Black for formatting
 docker-compose exec web poetry run black .
+```
 
 ---
 
 ## Project Structure
 
 ```
-
 better-call-buffet/
 ├── app/
 │ ├── api/ # API endpoints
@@ -153,8 +214,7 @@ better-call-buffet/
 ├── docs/ # Documentation
 ├── migrations/ # Alembic database migrations
 └── docker-compose.yml # Defines the local development environment
-
-````
+```
 
 ## Contributing
 
@@ -315,4 +375,3 @@ aws sts get-caller-identity --query Account --output text
 ## License
 
 [License details here]
-````
