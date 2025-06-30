@@ -15,7 +15,7 @@ class Broker(Base):
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
     colors = Column(ARRAY(String), nullable=False)
-    logo = Column(String, nullable=False)
+    logo = Column(String, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(

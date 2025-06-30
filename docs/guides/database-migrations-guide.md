@@ -6,220 +6,305 @@ This guide explains how to work with database migrations in Better Call Buffet u
 
 ## Prerequisites
 
-- Python 3.8+
-- Poetry installed
-- Access to project's database
-- Environment variables configured (check `.env.example`)
+- Docker and Docker Compose installed
+- Project cloned and Docker containers running
+- Access to project's database through Docker containers
 
-## Initial Setup
+## Project Setup
 
-1. **Install Dependencies**
+Better Call Buffet uses Docker Compose to manage the database and application containers. All migration commands should be run inside the Docker containers to ensure proper environment configuration.
 
-   ```bash
-   # Alembic is already in our pyproject.toml
-   poetry install
-   ```
+### Starting the Application
 
-2. **Initialize Alembic** (if not done yet):
+1. **Start all services**:
 
    ```bash
-   poetry run alembic init migrations
+   docker-compose up -d
    ```
 
-3. **Configure Environment Variables**
-   Create or update your `.env` file with the database connection:
+2. **Verify containers are running**:
 
-   ```env
-   DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+   ```bash
+   docker-compose ps
    ```
 
-4. **Update migrations/env.py**
+   You should see containers similar to:
 
-   ```python
-   import sys
-   from pathlib import Path
-   sys.path.append(str(Path(__file__).resolve().parents[1]))
+   - `better-call-buffet-web-1` (FastAPI application)
+   - `better-call-buffet-db-1` (PostgreSQL database)
 
-   from app.db.connection_and_session import Base
-   from app.core.config import settings
-
-   # Import all models here
-   from app.domains.investments.model import Investment, InvestmentBalancePoint
-   from app.domains.accounts.models import Account
-
-   # Override sqlalchemy.url with environment variable
-   config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
-
-   target_metadata = Base.metadata
-   ```
-
-5. **Clear sqlalchemy.url in alembic.ini**
-   The URL will be set from environment variables, so in `alembic.ini` set:
-   ```ini
-   sqlalchemy.url =
+3. **Check container names**:
+   ```bash
+   docker ps
    ```
 
 ## Working with Migrations
 
 ### Creating a New Migration
 
-1. Make changes to your SQLAlchemy models
-2. Generate a migration:
+1. **Make changes to your SQLAlchemy models** in `app/domains/*/models.py`
+
+2. **Generate a migration using Docker**:
+
    ```bash
-   poetry run alembic revision --autogenerate -m "Description of your changes"
+   docker exec better-call-buffet-web-1 poetry run alembic revision --autogenerate -m "Description of your changes"
    ```
-3. The migration will be created in `migrations/versions/`
-4. Review the generated migration file to ensure it captures your intended changes
+
+3. **The migration will be created** in `migrations/versions/`
+
+4. **Review the generated migration file** to ensure it captures your intended changes
 
 ### Applying Migrations
 
-1. Apply all pending migrations:
+1. **Apply all pending migrations**:
 
    ```bash
-   poetry run alembic upgrade head
+   docker exec better-call-buffet-web-1 poetry run alembic upgrade head
    ```
 
-2. Apply specific number of migrations:
+2. **Apply specific number of migrations**:
 
    ```bash
-   poetry run alembic upgrade +1  # Apply next migration
+   docker exec better-call-buffet-web-1 poetry run alembic upgrade +1  # Apply next migration
    ```
 
-3. Rollback migrations:
+3. **Rollback migrations**:
    ```bash
-   poetry run alembic downgrade -1  # Rollback one migration
-   poetry run alembic downgrade base  # Rollback all migrations
+   docker exec better-call-buffet-web-1 poetry run alembic downgrade -1  # Rollback one migration
+   docker exec better-call-buffet-web-1 poetry run alembic downgrade base  # Rollback all migrations
+   ```
+
+### Checking Migration Status
+
+1. **Check current migration status**:
+
+   ```bash
+   docker exec better-call-buffet-web-1 poetry run alembic current
+   ```
+
+2. **See what migrations are available**:
+
+   ```bash
+   docker exec better-call-buffet-web-1 poetry run alembic heads
+   ```
+
+3. **View migration history**:
+   ```bash
+   docker exec better-call-buffet-web-1 poetry run alembic history
    ```
 
 ### After Git Pull - Applying New Migrations
 
 When you pull changes from the repository that include new migrations, follow these steps:
 
-1. **Check your current migration status**:
+1. **Ensure containers are running**:
 
    ```bash
-   poetry run alembic current
+   docker-compose up -d
    ```
 
-2. **See what migrations are available**:
+2. **Check your current migration status**:
 
    ```bash
-   poetry run alembic heads
+   docker exec better-call-buffet-web-1 poetry run alembic current
    ```
 
-3. **Apply all pending migrations**:
+3. **See what migrations are available**:
 
    ```bash
-   poetry run alembic upgrade head
+   docker exec better-call-buffet-web-1 poetry run alembic heads
    ```
 
-4. **Verify the migration was successful**:
+4. **Apply all pending migrations**:
+
    ```bash
-   poetry run alembic current
+   docker exec better-call-buffet-web-1 poetry run alembic upgrade head
    ```
-   This should show the same revision as `alembic heads`
+
+5. **Verify the migration was successful**:
+   ```bash
+   docker exec better-call-buffet-web-1 poetry run alembic current
+   ```
 
 **Quick Command**: If you just want to apply all pending migrations after a git pull:
 
 ```bash
-poetry run alembic upgrade head
+docker exec better-call-buffet-web-1 poetry run alembic upgrade head
 ```
 
-**Troubleshooting**: If you get errors during migration:
+## Environment Configuration
 
-- Check your database connection in `.env`
-- Ensure your database server is running
-- Verify you have the necessary permissions
-- Check the migration file for any issues
+The project uses Docker Compose with environment variables defined in `docker-compose.yml`. The database connection is automatically configured for the containerized environment:
 
-### Best Practices
+```yaml
+environment:
+  - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/better_call_buffet}
+```
 
-1. **Always Review Generated Migrations**
+**No manual environment setup required** when using Docker Compose - all environment variables are handled automatically.
+
+## Troubleshooting
+
+### Container Issues
+
+1. **Check if containers are running**:
+
+   ```bash
+   docker-compose ps
+   ```
+
+2. **If containers are not running, start them**:
+
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Check container logs**:
+
+   ```bash
+   docker-compose logs web
+   docker-compose logs db
+   ```
+
+4. **Rebuild containers if needed**:
+   ```bash
+   docker-compose down
+   docker-compose build
+   docker-compose up -d
+   ```
+
+### Migration Errors
+
+1. **Database connection issues**:
+
+   - Ensure `better-call-buffet-db-1` container is healthy
+   - Check database logs: `docker-compose logs db`
+   - Verify network connectivity between containers
+
+2. **Container name issues**:
+
+   - Use `docker ps` to get exact container names
+   - Container names may vary (e.g., `web-1`, `better-call-buffet-web-1`)
+
+3. **Permission issues**:
+   - Ensure Docker has proper permissions
+   - Try restarting Docker Desktop if on Windows/Mac
+
+### Alternative Container Names
+
+If `better-call-buffet-web-1` doesn't work, try these alternatives:
+
+```bash
+# Using docker-compose exec (if service is 'web')
+docker-compose exec web poetry run alembic upgrade head
+
+# Using shorter container name
+docker exec web-1 poetry run alembic upgrade head
+
+# Check actual container names
+docker ps --format "table {{.Names}}\t{{.Status}}"
+```
+
+## Best Practices
+
+1. **Always Use Docker Commands**
+
+   - Never run Alembic commands directly on host machine
+   - Always use `docker exec` to run inside containers
+   - Ensures consistent environment and database access
+
+2. **Review Generated Migrations**
 
    - Alembic's autogenerate is not perfect
    - Check for correct table names, column types, and constraints
    - Ensure foreign keys are properly configured
-   - Make sure all models are imported in `env.py`
+   - Make sure all models are imported in `migrations/env.py`
 
-2. **Test Migrations**
+3. **Test Migrations**
 
    - Test both upgrade and downgrade operations
    - Use a test database before applying to production
    - Verify data integrity after migration
 
-3. **Naming Conventions**
+4. **Naming Conventions**
 
    - Use descriptive names for migration files
    - Include the purpose of the migration in the message
-   - Example: "add_investment_balance_points_table"
+   - Example: "add_investment_balance_points_table", "make_broker_logo_nullable"
 
-4. **Version Control**
+5. **Version Control**
    - Always commit migration files to version control
    - Include both the migration script and any related model changes in the same commit
 
-## Common Issues and Solutions
+## Common Migration Scenarios
 
-### Migration Not Detecting Changes
+### Example 1: Making a Field Optional
 
-- Ensure your models are imported in `env.py`
-- Check that your model inherits from `Base`
-- Verify the model is properly defined with SQLAlchemy syntax
-- Make sure your database URL is correct in `.env`
+1. **Update the model**:
 
-### Failed Migrations
-
-1. Don't panic! Migrations are transactional
-2. Check the error message
-3. Common issues:
-   - Database connection issues (check `.env` settings)
-   - Missing model imports in `env.py`
-   - Conflicts with existing tables
-4. Rollback using `poetry run alembic downgrade -1`
-5. Fix the issue and regenerate the migration
-
-### Database URL Issues
-
-1. Check your `.env` file has the correct DATABASE_URL format:
+   ```python
+   # In app/domains/brokers/models.py
+   logo = Column(String, nullable=True)  # Changed from nullable=False
    ```
-   DATABASE_URL=postgresql://username:password@localhost:5432/dbname
+
+2. **Update Pydantic schemas**:
+
+   ```python
+   # In app/domains/brokers/schemas.py
+   logo: Optional[str] = None  # Changed from str
    ```
-2. Ensure the database exists and is accessible
-3. Test the connection using psql or another database client
-4. Check if the database user has the right permissions
 
-## Example: Adding a New Table
+3. **Generate migration**:
 
-1. Create your SQLAlchemy model:
+   ```bash
+   docker exec better-call-buffet-web-1 poetry run alembic revision --autogenerate -m "make_broker_logo_nullable"
+   ```
 
-```python
-class InvestmentBalancePoint(Base):
-    __tablename__ = "investment_balance_points"
-    id = Column(Integer, primary_key=True)
-    investment_id = Column(Integer, ForeignKey("investments.id"))
-    balance = Column(Float, nullable=False)
-```
+4. **Apply migration**:
+   ```bash
+   docker exec better-call-buffet-web-1 poetry run alembic upgrade head
+   ```
 
-2. Import the model in `migrations/env.py`:
+### Example 2: Adding a New Table
 
-```python
-from app.domains.investments.model import InvestmentBalancePoint
-```
+1. **Create your SQLAlchemy model**:
 
-3. Generate migration:
+   ```python
+   class NewTable(Base):
+       __tablename__ = "new_table"
+       id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+       name = Column(String, nullable=False)
+   ```
 
-```bash
-poetry run alembic revision --autogenerate -m "Add investment balance points table"
-```
+2. **Import the model in `migrations/env.py`**:
 
-4. Review and apply:
+   ```python
+   from app.domains.new_domain.models import NewTable
+   ```
 
-```bash
-poetry run alembic upgrade head
-```
+3. **Generate migration**:
+
+   ```bash
+   docker exec better-call-buffet-web-1 poetry run alembic revision --autogenerate -m "add_new_table"
+   ```
+
+4. **Review and apply**:
+   ```bash
+   docker exec better-call-buffet-web-1 poetry run alembic upgrade head
+   ```
+
+## Production Considerations
+
+For production deployments, consider:
+
+1. **Backup Database Before Migrations**
+2. **Run Migrations During Maintenance Windows**
+3. **Test Migrations on Staging Environment First**
+4. **Monitor Application Performance After Schema Changes**
 
 ## Need Help?
 
 - Check Alembic documentation: https://alembic.sqlalchemy.org/
 - Review existing migrations in `migrations/versions/`
+- Check Docker Compose logs: `docker-compose logs`
 - Consult with the team lead for complex schema changes
-- Check the project's `.env.example` for required environment variables

@@ -39,9 +39,7 @@ class BrokersService:
         if not broker_in.colors or len(broker_in.colors) == 0:
             raise ValueError("At least one color must be provided")
 
-        # Business logic: Validate logo URL (basic validation)
-        if not broker_in.logo or len(broker_in.logo.strip()) == 0:
-            raise ValueError("Logo URL is required")
+        # Logo validation removed - now optional
 
         # Prepare broker data
         broker_data = broker_in.model_dump()
@@ -109,10 +107,7 @@ class BrokersService:
             if not update_data["colors"] or len(update_data["colors"]) == 0:
                 raise ValueError("At least one color must be provided")
 
-        # Business logic: Validate logo if being updated
-        if "logo" in update_data:
-            if not update_data["logo"] or len(update_data["logo"].strip()) == 0:
-                raise ValueError("Logo URL cannot be empty")
+        # Logo validation removed - can be None or empty string
 
         return self.repository.update(broker, update_data)
 
@@ -203,3 +198,21 @@ class BrokersService:
             Broker if found, None otherwise
         """
         return self.repository.get_by_name_and_user(name, user_id)
+
+    def delete_broker(self, broker_id: UUID, user_id: UUID) -> bool:
+        """
+        Soft delete a broker (mark as inactive).
+
+        Args:
+            broker_id: ID of the broker to delete
+            user_id: ID of the user deleting the broker
+
+        Returns:
+            True if deleted successfully, False if broker not found
+        """
+        broker = self.repository.get_by_id_and_user(broker_id, user_id)
+        if not broker:
+            return False
+
+        self.repository.soft_delete(broker)
+        return True

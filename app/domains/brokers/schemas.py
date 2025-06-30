@@ -10,7 +10,7 @@ class BrokerBase(BaseModel):
     name: str
     description: Optional[str] = None
     colors: list[str]
-    logo: str
+    logo: Optional[str] = None
     is_active: bool = True
 
 
