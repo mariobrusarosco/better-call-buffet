@@ -80,7 +80,7 @@ class InvoiceService:
                     "date": transaction_date,
                     "amount": amount,
                     "description": description,
-                    "movement_type": "DEBIT",  # Credit card transactions are debits
+                    "movement_type": "expense",  # Credit card transactions are expenses
                     "category": raw_tx.get("category", "GENERAL"),  # Default category
                     "created_at": datetime.utcnow(),
                     "updated_at": datetime.utcnow(),
@@ -95,19 +95,18 @@ class InvoiceService:
         credit_card_id: UUID,
         broker_id: UUID,
         user_id: UUID,
-    ) -> List[UUID]:
+    ) -> None:
         try:
             # Step 1: Prepare transactions (Invoice domain responsibility)
             transaction_data_list = self._prepare_transactions_from_raw_invoice(
                 raw_transactions, credit_card_id, broker_id, user_id
             )
 
+            # Step 2: Create transactions (Transaction domain responsibility)
             if transaction_data_list:
-                return self.transaction_service.create_transactions_from_data(
+                self.transaction_service.create_transactions_from_data(
                     transaction_data_list, user_id
                 )
-
-            return []
 
         except Exception as e:
             raise InvoiceTransactionProcessingError(
@@ -145,20 +144,18 @@ class InvoiceService:
 
         # 🎓 BULK TRANSACTION PROCESSING
         # Process all transactions from the raw invoice in a single efficient operation
-        created_transaction_ids = []
         if invoice_data.get("raw_invoice") and invoice_data["raw_invoice"].get(
             "transactions"
         ):
             raw_transactions = invoice_data["raw_invoice"]["transactions"]
-            created_transaction_ids = self._create_invoice_transactions(
+
+            # Create all transactions in bulk
+            self._create_invoice_transactions(
                 raw_transactions,
                 UUID(str(credit_card.id)),  # Explicit UUID conversion for type checker
                 broker_id,
                 user_id,
             )
-
-            # Store transaction IDs in invoice for reference
-            invoice_data["transaction_ids"] = created_transaction_ids
 
         return self.repository.create(invoice_data)
 

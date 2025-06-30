@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 # Credit Card Transaction
 class CreditCardTransaction(BaseModel):
-    id: str
+    id: Optional[str] = None
     date: str
     description: str
     amount: str
