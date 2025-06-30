@@ -49,12 +49,14 @@
 
 ## 🚨 Error Handling & Resilience
 
-- [x] **Custom Exception Hierarchies** ✅ **(Completed: Business exceptions)**
-- [x] **Structured Logging** ✅ **(Completed: Centralized logging configuration)**
+- [ ] **Custom Exception Hierarchies** - Business exceptions _(In Progress: See error-handling-and-logging-integration-guide.md)_
+- [ ] **Structured Logging** - JSON logging with correlation IDs _(In Progress: See error-handling-and-logging-integration-guide.md)_
+- [ ] **Request/Response Middleware** - Automatic logging and tracing _(Planned)_
+- [ ] **Error Handler Standardization** - Consistent error responses _(Planned)_
 - [ ] **Circuit Breaker Pattern** - Preventing cascade failures
 - [ ] **Retry Mechanisms** - Exponential backoff strategies
 - [ ] **Graceful Degradation** - Partial functionality on failures
-- [ ] **Health Checks** - Application monitoring endpoints
+- [ ] **Health Checks** - Application monitoring endpoints _(Planned)_
 - [ ] **Dead Letter Queues** - Handling failed message processing
 
 ---

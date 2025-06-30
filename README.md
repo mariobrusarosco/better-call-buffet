@@ -235,6 +235,7 @@ This project uses an automated CI/CD pipeline powered by GitHub Actions. The pip
 
 ### 📚 Documentation
 
+- **[🎓 Error Handling & Structured Logging Integration Guide](docs/guides/error-handling-and-logging-integration-guide.md)** - Comprehensive plan for robust error handling and JSON logging.
 - **[CI/CD Pipeline Guide](docs/guides/cicd-pipeline-guide.md)** - Comprehensive guide to our deployment pipeline.
 - **[ADR-005: Smart Branch-Based Docker Build Strategy](docs/decisions/005-smart-branch-based-docker-build-strategy.md)** - Cost-optimized CI/CD architecture.
 - **[🚀 App Runner Serverless Architecture Guide](docs/guides/app-runner-serverless-architecture-guide.md)** - Deep dive into your enterprise infrastructure.
@@ -369,7 +370,13 @@ aws sts get-caller-identity --query Account --output text
 
 ## 📚 Documentation
 
+### Core Development Guides
+
+- **[🎓 Error Handling & Structured Logging Integration Guide](docs/guides/error-handling-and-logging-integration-guide.md)** - Comprehensive plan for robust error handling and JSON logging
 - **[CI/CD Pipeline Guide](docs/guides/cicd-pipeline-guide.md)** - Comprehensive guide to our deployment pipeline
+
+### Architecture Decision Records
+
 - **[ADR-005: CI/CD Implementation](docs/decisions/005-cicd-pipeline-implementation.md)** - Architecture decision record
 
 ## License
