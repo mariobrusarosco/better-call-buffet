@@ -73,6 +73,47 @@ class InvoiceUpdateIn(BaseModel):
     is_paid: Optional[bool] = None
 
 
+# 🎓 STRUCTURED FILTERING SCHEMA
+class InvoiceFilters(BaseModel):
+    """
+    Structured filter schema for invoice queries.
+
+    Benefits over individual parameters:
+    - ✅ Type safety through Pydantic validation
+    - ✅ Easy to extend without breaking existing code
+    - ✅ Self-documenting filter capabilities
+    - ✅ Consistent with other domain filtering patterns
+    - ✅ Reusable across multiple service methods
+    """
+
+    # Resource filters
+    credit_card_id: Optional[UUID] = None  # Filter by specific credit card
+    broker_id: Optional[UUID] = None  # Filter by specific broker
+
+    # Status filters
+    is_paid: Optional[bool] = None  # Filter by payment status
+    is_deleted: Optional[bool] = False  # Include deleted invoices (default: exclude)
+
+    # Date range filters (for created_at)
+    date_from: Optional[datetime] = None  # Created after this date
+    date_to: Optional[datetime] = None  # Created before this date
+
+    # Amount filters (from raw_invoice total_due)
+    amount_min: Optional[float] = None  # Minimum total due amount
+    amount_max: Optional[float] = None  # Maximum total due amount
+
+    # Period filter (from raw_invoice period)
+    period_contains: Optional[str] = None  # Partial match in period field
+
+    # Sorting options
+    sort_by: Optional[str] = "created_at"  # created_at, updated_at, is_paid
+    sort_order: Optional[str] = "desc"  # desc (newest first) or asc
+
+    # Pagination (embedded in filter for convenience)
+    page: int = 1
+    per_page: int = 10
+
+
 # Schema for API responses (what users see)
 class Invoice(BaseModel):
     id: UUID

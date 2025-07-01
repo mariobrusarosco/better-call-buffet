@@ -14,7 +14,13 @@ from app.domains.credit_cards.schemas import CreditCardFilters
 from app.domains.credit_cards.service import CreditCardService
 from app.domains.invoices.models import Invoice
 from app.domains.invoices.repository import InvoiceRepository
-from app.domains.invoices.schemas import InvoiceIn
+from app.domains.invoices.schemas import Invoice as InvoiceSchema
+from app.domains.invoices.schemas import (
+    InvoiceFilters,
+    InvoiceIn,
+    InvoiceListResponse,
+    PaginationMeta,
+)
 from app.domains.transactions.schemas import TransactionIn
 from app.domains.transactions.service import TransactionService
 
@@ -96,22 +102,29 @@ class InvoiceService:
         broker_id: UUID,
         user_id: UUID,
     ) -> None:
-        try:
-            # Step 1: Prepare transactions (Invoice domain responsibility)
-            transaction_data_list = self._prepare_transactions_from_raw_invoice(
-                raw_transactions, credit_card_id, broker_id, user_id
-            )
+        """
+        🎓 BULK TRANSACTION CREATION
 
-            # Step 2: Create transactions (Transaction domain responsibility)
-            if transaction_data_list:
-                self.transaction_service.create_transactions_from_data(
-                    transaction_data_list, user_id
-                )
+        This method demonstrates efficient bulk processing:
+        - Transforms raw invoice data to transaction format
+        - Uses bulk insert for performance
+        - Maintains data consistency between invoices and transactions
+        """
+        logger.info(
+            f"Processing {len(raw_transactions)} transactions for invoice creation"
+        )
 
-        except Exception as e:
-            raise InvoiceTransactionProcessingError(
-                f"Failed to create {len(raw_transactions)} transactions for invoice: {str(e)}"
+        # Prepare transaction data
+        transaction_data_list = self._prepare_transactions_from_raw_invoice(
+            raw_transactions, credit_card_id, broker_id, user_id
+        )
+
+        if transaction_data_list:
+            # Create transactions in bulk
+            transaction_ids = self.transaction_service.create_transactions_from_data(
+                transaction_data_list, user_id
             )
+            logger.info(f"✅ Created {len(transaction_ids)} transactions successfully")
 
     def create_invoice(self, invoice_in: InvoiceIn, user_id: UUID) -> Invoice:
         # Validate credit card ownership using the filtering pattern
@@ -159,16 +172,13 @@ class InvoiceService:
 
         return self.repository.create(invoice_data)
 
-    def get_invoice_by_id(
-        self, invoice_id: UUID, user_id: UUID, include_deleted: bool = False
-    ) -> Optional[Invoice]:
-        return self.repository.get_by_id_and_user(invoice_id, user_id, include_deleted)
+    def get_invoice_by_id(self, invoice_id: UUID, user_id: UUID) -> Optional[Invoice]:
+        """Get a specific invoice by ID"""
+        return self.repository.get_by_id(invoice_id, user_id)
 
-    def get_user_invoices(
-        self, user_id: UUID, include_deleted: bool = False
-    ) -> List[Invoice]:
-        """Get all invoices for a user"""
-        return self.repository.get_by_user(user_id, include_deleted)
+    def get_user_invoices(self, user_id: UUID) -> List[Invoice]:
+        """Get all invoices for a user - LEGACY METHOD"""
+        return self.repository.get_all_by_user(user_id)
 
     def get_invoices_by_broker(
         self, broker_id: UUID, user_id: UUID, include_deleted: bool = False
@@ -196,6 +206,187 @@ class InvoiceService:
             broker_id, user_id, include_deleted
         )
 
+    def get_invoices_with_filters(
+        self,
+        user_id: UUID,
+        filters: Optional[InvoiceFilters] = None,
+    ) -> InvoiceListResponse:
+        """
+        Get user invoices using structured filters.
+
+        Benefits:
+        - ✅ Consistent API across all invoice endpoints
+        - ✅ Type-safe filter validation
+        - ✅ Easy to add new filtering capabilities
+        - ✅ Self-documenting through schema
+        """
+        # Set default filters if none provided
+        if filters is None:
+            filters = InvoiceFilters()
+
+        # Validate pagination parameters
+        filters.page = max(1, filters.page)
+        filters.per_page = min(100, max(1, filters.per_page))
+
+        try:
+            invoices, total_count = self.repository.get_invoices_with_filters(
+                user_id=user_id,
+                filters=filters,
+            )
+
+            # Calculate pagination metadata
+            total_pages = (total_count + filters.per_page - 1) // filters.per_page
+            has_next = filters.page < total_pages
+            has_previous = filters.page > 1
+
+            # Convert to response schemas
+            invoice_responses = [
+                InvoiceSchema.model_validate(invoice) for invoice in invoices
+            ]
+
+            # Create metadata
+            meta = PaginationMeta(
+                total=total_count,
+                page=filters.page,
+                per_page=filters.per_page,
+                has_next=has_next,
+                has_previous=has_previous,
+            )
+
+            logger.info(
+                f"Retrieved {len(invoices)} invoices for user {user_id}, "
+                f"page {filters.page}/{total_pages}"
+            )
+
+            return InvoiceListResponse(data=invoice_responses, meta=meta)
+
+        except Exception as e:
+            logger.error(f"Error retrieving invoices for user {user_id}: {str(e)}")
+            raise
+
+    def get_credit_card_invoices_with_filters(
+        self,
+        credit_card_id: UUID,
+        user_id: UUID,
+        filters: Optional[InvoiceFilters] = None,
+    ) -> InvoiceListResponse:
+        """
+        Get credit card invoices using structured filters.
+        """
+        # Validate credit card ownership first
+        card_filters = CreditCardFilters(credit_card_id=credit_card_id)
+        credit_card = self.credit_card_service.get_user_unique_credit_card_with_filters(
+            user_id, card_filters
+        )
+        if not credit_card:
+            raise ValueError("Credit card not found or does not belong to user")
+
+        # Set default filters if none provided
+        if filters is None:
+            filters = InvoiceFilters()
+
+        # Ensure credit_card_id filter is set
+        filters.credit_card_id = credit_card_id
+
+        # Validate pagination parameters
+        filters.page = max(1, filters.page)
+        filters.per_page = min(100, max(1, filters.per_page))
+
+        try:
+            invoices, total_count = (
+                self.repository.get_credit_card_invoices_with_filters(
+                    credit_card_id=credit_card_id,
+                    user_id=user_id,
+                    filters=filters,
+                )
+            )
+
+            # Calculate pagination metadata
+            total_pages = (total_count + filters.per_page - 1) // filters.per_page
+            has_next = filters.page < total_pages
+            has_previous = filters.page > 1
+
+            # Convert to response schemas
+            invoice_responses = [invoice for invoice in invoices]
+
+            # Create metadata
+            meta = PaginationMeta(
+                total=total_count,
+                page=filters.page,
+                per_page=filters.per_page,
+                has_next=has_next,
+                has_previous=has_previous,
+            )
+
+            logger.info(
+                f"Retrieved {len(invoices)} invoices for credit card {credit_card_id}, "
+                f"page {filters.page}/{total_pages}"
+            )
+
+            return InvoiceListResponse(data=invoice_responses, meta=meta)
+
+        except Exception as e:
+            logger.error(
+                f"Error retrieving invoices for credit card {credit_card_id}: {str(e)}"
+            )
+            raise
+
+    def get_broker_invoices_with_filters(
+        self,
+        broker_id: UUID,
+        user_id: UUID,
+        filters: Optional[InvoiceFilters] = None,
+    ) -> InvoiceListResponse:
+        """
+        Get broker invoices using structured filters.
+        """
+        # Set default filters if none provided
+        if filters is None:
+            filters = InvoiceFilters()
+
+        # Ensure broker_id filter is set
+        filters.broker_id = broker_id
+
+        # Validate pagination parameters
+        filters.page = max(1, filters.page)
+        filters.per_page = min(100, max(1, filters.per_page))
+
+        try:
+            invoices, total_count = self.repository.get_broker_invoices_with_filters(
+                broker_id=broker_id,
+                user_id=user_id,
+                filters=filters,
+            )
+
+            # Calculate pagination metadata
+            total_pages = (total_count + filters.per_page - 1) // filters.per_page
+            has_next = filters.page < total_pages
+            has_previous = filters.page > 1
+
+            # Convert to response schemas
+            invoice_responses = [invoice for invoice in invoices]
+
+            # Create metadata
+            meta = PaginationMeta(
+                total=total_count,
+                page=filters.page,
+                per_page=filters.per_page,
+                has_next=has_next,
+                has_previous=has_previous,
+            )
+
+            logger.info(
+                f"Retrieved {len(invoices)} invoices for broker {broker_id}, "
+                f"page {filters.page}/{total_pages}"
+            )
+
+            return InvoiceListResponse(data=invoice_responses, meta=meta)
+
+        except Exception as e:
+            logger.error(f"Error retrieving invoices for broker {broker_id}: {str(e)}")
+            raise
+
+    # 🔄 LEGACY METHODS (for backward compatibility)
     def get_invoices_by_credit_card(
         self,
         credit_card_id: UUID,
@@ -204,18 +395,14 @@ class InvoiceService:
         page: int = 1,
         per_page: int = 10,
     ) -> List[Invoice]:
-
-        print(f"Getting invoices for credit card {credit_card_id}")
-
-        # Validate credit card ownership
-        filters = CreditCardFilters(credit_card_id=credit_card_id)
-        credit_card = self.credit_card_service.get_user_unique_credit_card_with_filters(
-            user_id, filters
+        """LEGACY METHOD - Use get_credit_card_invoices_with_filters instead."""
+        filters = InvoiceFilters(
+            credit_card_id=credit_card_id,
+            is_deleted=include_deleted,
+            page=page,
+            per_page=per_page,
         )
-
-        if not credit_card:
-            raise ValueError("Credit card not found or does not belong to user")
-
-        return self.repository.get_by_credit_card_and_user(
-            credit_card_id, user_id, include_deleted, page, per_page
+        response = self.get_credit_card_invoices_with_filters(
+            credit_card_id, user_id, filters
         )
+        return response.data

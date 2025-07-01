@@ -1,4 +1,5 @@
-from typing import Any, Dict, List
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -10,7 +11,13 @@ from app.domains.credit_cards.schemas import CreditCardFilters
 from app.domains.credit_cards.service import CreditCardService
 from app.domains.transactions.models import Transaction
 from app.domains.transactions.repository import TransactionRepository
-from app.domains.transactions.schemas import TransactionIn
+from app.domains.transactions.schemas import (
+    TransactionFilters,
+    TransactionIn,
+    TransactionListMeta,
+    TransactionListResponse,
+    TransactionResponse,
+)
 
 # Configure logger for this service
 logger = get_logger(__name__)
@@ -90,13 +97,124 @@ class TransactionService:
                     error_code="TRANSACTION_ACCOUNT_NOT_FOUND",
                 )
         except Exception as e:
-            logger.error(
-                "Transaction creation failed - account nor credit card not found",
-                extra={
-                    "user_id": str(user_id),
-                    "account_id": str(account_id),
-                    "credit_card_id": str(credit_card_id),
-                    "error_code": "ACCOUNT_AND_CREDIT_CARD_NOT_FOUND",
-                },
-            )
             raise e
+
+    def get_account_transactions_with_filters(
+        self,
+        account_id: UUID,
+        user_id: UUID,
+        filters: Optional[TransactionFilters] = None,
+    ) -> TransactionListResponse:
+        """
+        Get account transactions using structured filters.
+
+        Benefits:
+        - ✅ Consistent API across all transaction endpoints
+        - ✅ Type-safe filter validation
+        - ✅ Easy to add new filtering capabilities
+        - ✅ Self-documenting through schema
+        """
+        # Set default filters if none provided
+        if filters is None:
+            filters = TransactionFilters()
+
+        # Validate pagination parameters
+        filters.page = max(1, filters.page)
+        filters.per_page = min(100, max(1, filters.per_page))
+
+        try:
+            transactions, total_count = (
+                self.repository.get_account_transactions_with_filters(
+                    account_id=account_id,
+                    user_id=user_id,
+                    filters=filters,
+                )
+            )
+
+            # Calculate pagination metadata
+            total_pages = (total_count + filters.per_page - 1) // filters.per_page
+            has_next = filters.page < total_pages
+            has_previous = filters.page > 1
+
+            # Convert to response schemas
+            transaction_responses = [
+                TransactionResponse.from_orm(transaction)
+                for transaction in transactions
+            ]
+
+            # Create metadata
+            meta = TransactionListMeta(
+                total=total_count,
+                page=filters.page,
+                per_page=filters.per_page,
+                has_next=has_next,
+                has_previous=has_previous,
+            )
+            return TransactionListResponse(data=transaction_responses, meta=meta)
+
+        except Exception as e:
+            logger.error(
+                f"Error retrieving transactions for account {account_id}: {str(e)}"
+            )
+            raise
+
+    def get_credit_card_transactions_with_filters(
+        self,
+        credit_card_id: UUID,
+        user_id: UUID,
+        filters: Optional[TransactionFilters] = None,
+    ) -> TransactionListResponse:
+        """
+        Get credit card transactions using structured filters.
+
+        Same benefits as account transactions method.
+        """
+        # Set default filters if none provided
+        if filters is None:
+            filters = TransactionFilters()
+
+        # Validate pagination parameters
+        filters.page = max(1, filters.page)
+        filters.per_page = min(100, max(1, filters.per_page))
+
+        try:
+            transactions, total_count = (
+                self.repository.get_credit_card_transactions_with_filters(
+                    credit_card_id=credit_card_id,
+                    user_id=user_id,
+                    filters=filters,
+                )
+            )
+
+            # Calculate pagination metadata
+            total_pages = (total_count + filters.per_page - 1) // filters.per_page
+            has_next = filters.page < total_pages
+            has_previous = filters.page > 1
+
+            # Convert to response schemas
+            transaction_responses = [
+                TransactionResponse.from_orm(transaction)
+                for transaction in transactions
+            ]
+
+            # Create metadata
+            meta = TransactionListMeta(
+                total=total_count,
+                page=filters.page,
+                per_page=filters.per_page,
+                has_next=has_next,
+                has_previous=has_previous,
+            )
+
+            logger.info(
+                f"Retrieved {len(transactions)} transactions for credit card {credit_card_id}, "
+                f"page {filters.page}/{total_pages}"
+            )
+
+            return TransactionListResponse(data=transaction_responses, meta=meta)
+
+        except Exception as e:
+            logger.error(
+                f"Error retrieving transactions for credit card {credit_card_id}: {str(e)}"
+            )
+            raise

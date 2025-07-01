@@ -1,13 +1,16 @@
-from typing import List
+from datetime import datetime
+from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
 from app.domains.accounts.schemas import Account, AccountIn, AccountType
 from app.domains.accounts.service import AccountService
+from app.domains.transactions.schemas import TransactionFilters, TransactionListResponse
+from app.domains.transactions.service import TransactionService
 
 router = APIRouter()
 
@@ -125,6 +128,89 @@ def update_account_balance_endpoint(
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{account_id}/transactions", response_model=TransactionListResponse)
+def get_account_transactions_endpoint(
+    account_id: UUID,
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    per_page: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    date_from: Optional[datetime] = Query(
+        None, description="Filter transactions from this date"
+    ),
+    date_to: Optional[datetime] = Query(
+        None, description="Filter transactions to this date"
+    ),
+    movement_type: Optional[str] = Query(
+        None, description="Filter by movement type (income/expense)"
+    ),
+    category: Optional[str] = Query(
+        None, description="Filter by category (partial match)"
+    ),
+    description_contains: Optional[str] = Query(
+        None, description="Filter by description (partial match)"
+    ),
+    amount_min: Optional[float] = Query(None, description="Filter by minimum amount"),
+    amount_max: Optional[float] = Query(None, description="Filter by maximum amount"),
+    is_paid: Optional[bool] = Query(None, description="Filter by payment status"),
+    sort_by: Optional[str] = Query(
+        "date", description="Sort field: date, amount, created_at, category"
+    ),
+    sort_order: Optional[str] = Query(
+        "desc", description="Sort order: desc (newest first) or asc"
+    ),
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    🎓 Get paginated transactions for a specific account (STRUCTURED FILTERING PATTERN)
+
+    This endpoint now uses the improved structured filtering approach:
+    - Uses TransactionFilters internally for type safety and consistency
+    - Maintains backward compatibility with existing API clients
+    - Supports enhanced filtering capabilities like amount ranges and description search
+    - Follows the same filtering pattern as credit card transactions
+
+    Benefits:
+    - ✅ Type-safe filter validation through Pydantic
+    - ✅ Easy to extend with new filter options
+    - ✅ Consistent filtering behavior across all transaction endpoints
+    - ✅ Self-documenting filter capabilities
+    - ✅ Enhanced filtering options (amount ranges, description search, payment status)
+    """
+    # First verify the account exists and belongs to the user
+    account_service = AccountService(db)
+    account = account_service.get_account_by_id(
+        account_id=account_id, user_id=current_user_id
+    )
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    try:
+        transaction_filters = TransactionFilters(
+            page=page,
+            per_page=per_page,
+            date_from=date_from,
+            date_to=date_to,
+            movement_type=movement_type,
+            category=category,
+            description_contains=description_contains,
+            amount_min=amount_min,
+            amount_max=amount_max,
+            is_paid=is_paid,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+        transaction_service = TransactionService(db)
+        return transaction_service.get_account_transactions_with_filters(
+            account_id=account_id,
+            user_id=current_user_id,
+            filters=transaction_filters,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving transactions: {str(e)}"
+        )
 
 
 @router.delete("/{account_id}")
