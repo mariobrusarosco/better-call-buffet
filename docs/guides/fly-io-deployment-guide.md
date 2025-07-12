@@ -1,4 +1,4 @@
-# 🚀 Fly.io Deployment Guide - The Modern, Risk-Aware Path
+# 🚀 Fly.io Deployment Guide
 
 ## 🎓 Educational Overview
 
@@ -6,48 +6,28 @@
 
 A complete, end-to-end deployment of our FastAPI application and PostgreSQL database to **Fly.io**. This guide outlines a modern, container-based deployment strategy that is fast, repeatable, and scalable.
 
-### Why This Matters (The Trade-Off):
+### Why Fly.io?
 
-You've made a great choice. While it requires a credit card, Fly.io offers a superior developer experience and a more modern, transferable skillset compared to more restrictive free platforms.
+Fly.io offers a superior developer experience with:
+- Simple container-based deployments
+- Integrated PostgreSQL database
+- Generous free tier
+- Global edge network
+- GitHub Actions integration
 
-- **Risk**: **Low, but not zero.** A credit card is on file. We will manage this by staying within the generous free tier.
-- **Reward**: **High.** You will learn a professional-grade deployment workflow using containers, a powerful CLI, and a platform built for developers who ship code.
-
-### Architecture on Fly.io:
-
-Our application will run on two core Fly.io components:
-
-1.  **Fly Apps (Machines):** Our FastAPI application will be deployed as a "Fly App," which runs our Docker container on one or more "Fly Machines" (lightweight Firecracker VMs).
-2.  **Fly Postgres:** Fly.io provides a managed Postgres service that we will provision and connect to our application.
+### Architecture:
 
 ```mermaid
 graph TD
-    A[User Request] --> B{Fly.io Global Proxy<br/>(Anycast Network)}
-    B --> C[Fly Machine<br/>🐳 Your FastAPI Container]
-
-    subgraph "Your Fly.io App: better-call-buffet"
-        C
-    end
-
-    subgraph "Fly Postgres Cluster"
-        D[PostgreSQL Database<br/>(Persistent Volume)]
-    end
-
-    C <--> D
-
-    E[GitHub Actions<br/>(CI/CD)] --> C
+    A[User Request] --> B{Fly.io Global Network}
+    B --> C[Fly Machine<br/>🐳 FastAPI Container]
+    C --> D[(Fly Postgres)]
+    E[GitHub Actions] -->|Deploys| C
 ```
-
-**Free Tier Allowance (What we will use):**
-
-- Up to 3 shared-cpu-1x 256MB VMs
-- 3GB of persistent volume storage (for our database)
-- 160GB of outbound data transfer
-- 1 free Postgres cluster (up to 1GB storage)
 
 ---
 
-## 📋 Step-by-Step Deployment Plan
+## 📋 Deployment Instructions
 
 ### Step 1: Install `flyctl` (The Fly CLI)
 
@@ -86,10 +66,8 @@ Follow the prompts:
 - **App Name:** `better-call-buffet` (or accept the generated one)
 - **Choose an organization:** Select your personal organization.
 - **Choose a region:** Select a region close to you (e.g., `sao paulo (gru)`).
-- **Setup a Postgresql database now?** Yes.
-  - Select a configuration (e.g., "Development - 1GB").
-- **Setup a Redis database now?** No.
-- **Deploy now?** No. We want to configure secrets first.
+    - Setup a Postgresql database? Yes (select "Development - 1GB")
+    - Deploy now? No (we'll configure secrets first)
 
 This will create a `fly.toml` file. This file is your "Infrastructure as Code" for Fly.io.
 
@@ -164,60 +142,24 @@ You should now have a fully functional application and database running on Fly.i
 
 ---
 
-## 🤖 CI/CD with GitHub Actions
+## 🤖 CI/CD Automation
 
-Now let's automate this process.
-
-### Step 1: Get a Fly.io API Token
-
-Create a long-lived API token that GitHub Actions can use to authenticate.
-
+1. Get Fly API token:
 ```bash
 fly auth token
 ```
 
-Copy the generated token.
+2. Add token to GitHub Secrets (Settings > Secrets > Actions):
+   - Name: `FLY_API_TOKEN`
+   - Value: [your token]
 
-### Step 2: Add Token to GitHub Secrets
-
-1.  In your GitHub repository, go to **Settings > Secrets and variables > Actions**.
-2.  Click **New repository secret**.
-3.  Name the secret `FLY_API_TOKEN`.
-4.  Paste the token you copied.
-
-### Step 3: Create the GitHub Actions Workflow
-
-Create a new file at `.github/workflows/fly-deploy.yml`:
-
-```yaml
-name: Fly.io Deployment
-
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  deploy:
-    name: Deploy app
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Fly.io
-        uses: superfly/fly-pr-actions/setup-fly@master
-
-      - name: Deploy to Fly.io
-        run: flyctl deploy --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-```
+3. The workflow file is already created at `.github/workflows/fly-deploy.yml`
 
 Now, every push to the `main` branch will automatically test, build, and deploy your application to Fly.io.
 
 ---
 
-## 💰 Cost Management & Monitoring
+## 💰 Cost Management
 
 - **Dashboard:** View your usage and resource allocation on your Fly.io dashboard: `fly dashboard`.
 - **Scaling:** Your app is running on one machine by default. To stay within the free tier, you can scale the machine count. To stop the app and all charges, you can scale to zero:
