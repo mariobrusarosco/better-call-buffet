@@ -24,6 +24,34 @@ class TransactionRepository:
             self.db.rollback()
             raise e
 
+    def bulk_create(self, transactions_data: List[dict]) -> List[UUID]:
+        """
+        Bulk insert transactions with repository pattern consistency.
+        
+        Benefits:
+        - ✅ Maintains repository abstraction layer
+        - ✅ High performance bulk insert via SQLAlchemy
+        - ✅ Single database round-trip
+        - ✅ Consistent error handling with rollback
+        - ✅ Returns list of created transaction IDs
+        
+        Args:
+            transactions_data: List of dictionaries containing transaction data
+            
+        Returns:
+            List of UUIDs for the created transactions
+            
+        Raises:
+            Exception: If bulk insert fails, rolls back transaction
+        """
+        try:
+            self.db.bulk_insert_mappings(Transaction, transactions_data)
+            self.db.commit()
+            return [tx_data["id"] for tx_data in transactions_data]
+        except Exception as e:
+            self.db.rollback()
+            raise e
+
     def get_account_transactions_with_filters(
         self,
         account_id: UUID,

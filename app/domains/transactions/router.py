@@ -5,7 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
-from app.domains.transactions.schemas import TransactionIn, TransactionResponse
+from app.domains.transactions.schemas import (
+    TransactionBulkRequest,
+    TransactionBulkResponse,
+    TransactionIn,
+    TransactionResponse,
+)
 from app.domains.transactions.service import TransactionService
 
 router = APIRouter()
@@ -25,3 +30,19 @@ def create_transaction_endpoint(
     )
 
     return service.create_transaction(transaction, user_id)
+
+
+@router.post("/bulk", response_model=TransactionBulkResponse)
+def create_transactions_bulk_endpoint(
+    bulk_request: TransactionBulkRequest,
+    db: Session = Depends(get_db_session),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    Create multiple transactions in a single request.
+    
+    Returns detailed success/failure status for each transaction.
+    Validates account/credit card ownership and XOR constraints.
+    """
+    service = TransactionService(db)
+    return service.create_transactions_bulk_with_validation(bulk_request, user_id)

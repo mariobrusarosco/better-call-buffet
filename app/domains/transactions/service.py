@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -12,11 +13,14 @@ from app.domains.credit_cards.service import CreditCardService
 from app.domains.transactions.models import Transaction
 from app.domains.transactions.repository import TransactionRepository
 from app.domains.transactions.schemas import (
+    TransactionBulkRequest,
+    TransactionBulkResponse,
     TransactionFilters,
     TransactionIn,
     TransactionListMeta,
     TransactionListResponse,
     TransactionResponse,
+    TransactionResult,
 )
 
 # Configure logger for this service
@@ -50,6 +54,129 @@ class TransactionService:
             return []
 
         return self.create_transactions_bulk(transaction_data_list)
+
+    def create_transactions_bulk_with_validation(
+        self, bulk_request: TransactionBulkRequest, user_id: UUID
+    ) -> TransactionBulkResponse:
+        """
+        Create multiple transactions with individual validation and detailed error reporting.
+        
+        Returns success/failure status for each transaction individually.
+        """
+        # Validate XOR constraints upfront
+        try:
+            bulk_request.validate_all_constraints()
+        except ValueError as e:
+            logger.error(f"Bulk transaction validation failed: {str(e)}")
+            raise ValidationError(
+                message=str(e),
+                error_code="BULK_VALIDATION_FAILED"
+            )
+
+        results = []
+        successful_transactions = []
+        
+        for i, transaction_data in enumerate(bulk_request.transactions):
+            try:
+                # Validate account/credit card ownership
+                self._validate_transaction_ownership(transaction_data, user_id)
+                
+                # Prepare transaction data for database
+                tx_dict = transaction_data.model_dump()
+                tx_dict["user_id"] = user_id
+                tx_dict["id"] = uuid.uuid4()  # Generate ID for bulk insert
+                
+                successful_transactions.append(tx_dict)
+                
+                results.append(TransactionResult(
+                    success=True,
+                    transaction_id=tx_dict["id"],
+                    original_data=transaction_data
+                ))
+                
+                logger.debug(f"Transaction {i} validated successfully")
+                
+            except Exception as e:
+                error_message = str(e)
+                error_code = getattr(e, 'error_code', 'VALIDATION_ERROR')
+                
+                results.append(TransactionResult(
+                    success=False,
+                    error_message=error_message,
+                    error_code=error_code,
+                    original_data=transaction_data
+                ))
+                
+                logger.warning(
+                    f"Transaction {i} validation failed",
+                    extra={
+                        "user_id": str(user_id),
+                        "error": error_message,
+                        "error_code": error_code,
+                        "transaction_index": i
+                    }
+                )
+
+        # Bulk insert successful transactions using repository
+        if successful_transactions:
+            try:
+                created_ids = self.repository.bulk_create(successful_transactions)
+                
+                logger.info(
+                    f"Bulk transaction insert completed",
+                    extra={
+                        "user_id": str(user_id),
+                        "total_submitted": len(bulk_request.transactions),
+                        "successful": len(successful_transactions),
+                        "failed": len(bulk_request.transactions) - len(successful_transactions),
+                        "created_transaction_ids": [str(id) for id in created_ids]
+                    }
+                )
+                
+            except Exception as e:
+                logger.error(f"Bulk insert failed: {str(e)}")
+                
+                # Mark all successful validations as failed due to database error
+                for result in results:
+                    if result.success:
+                        result.success = False
+                        result.transaction_id = None
+                        result.error_message = "Database insert failed"
+                        result.error_code = "DATABASE_ERROR"
+                
+                successful_transactions = []
+
+        # Calculate summary statistics
+        total_successful = len(successful_transactions)
+        total_failed = len(bulk_request.transactions) - total_successful
+        
+        return TransactionBulkResponse(
+            total_submitted=len(bulk_request.transactions),
+            total_successful=total_successful,
+            total_failed=total_failed,
+            results=results
+        )
+
+    def _validate_transaction_ownership(self, transaction_data, user_id: UUID) -> None:
+        """Validate that user owns the account or credit card specified in transaction"""
+        if transaction_data.account_id:
+            try:
+                self.account_service.get_account_by_id(transaction_data.account_id, user_id)
+            except NotFoundError:
+                raise ValidationError(
+                    message=f"Account {transaction_data.account_id} not found or not accessible",
+                    error_code="ACCOUNT_NOT_FOUND"
+                )
+        
+        if transaction_data.credit_card_id:
+            try:
+                filters = CreditCardFilters(credit_card_id=transaction_data.credit_card_id)
+                self.credit_card_service.get_user_unique_credit_card_with_filters(user_id, filters)
+            except NotFoundError:
+                raise ValidationError(
+                    message=f"Credit card {transaction_data.credit_card_id} not found or not accessible",
+                    error_code="CREDIT_CARD_NOT_FOUND"
+                )
 
     def create_transaction(
         self, transaction: TransactionIn, user_id: UUID

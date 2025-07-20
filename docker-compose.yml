@@ -8,12 +8,13 @@ services:
       - PROJECT_NAME=${PROJECT_NAME:-Better Call Buffet}
       - API_V1_PREFIX=${API_V1_PREFIX:-/api/v1}
       - SECRET_KEY=${SECRET_KEY:-development-secret-key-change-in-production}
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-["http://localhost:3000","http://localhost:8000"]}
+      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-["http://localhost:3000","http://localhost:5173","http://localhost:8000"]}
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - .:/app
+      - ./logs:/app/logs
     command: poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
     healthcheck:

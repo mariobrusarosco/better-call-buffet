@@ -127,9 +127,15 @@ def setup_logging(environment: str = "development", log_level: str = "INFO") -> 
                 "formatter": "json" if environment == "production" else "standard",
                 "stream": sys.stdout,
                 "level": log_level.upper(),
+            },
+            "file": {
+                "class": "logging.FileHandler",
+                "filename": "/app/logs/app.log",
+                "formatter": "json",
+                "level": log_level.upper(),
             }
         },
-        "root": {"level": log_level.upper(), "handlers": ["console"]},
+        "root": {"level": log_level.upper(), "handlers": ["console", "file"]},
         "loggers": {
             # FastAPI and Uvicorn loggers
             "uvicorn": {"level": "INFO", "propagate": True},
