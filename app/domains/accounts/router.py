@@ -9,6 +9,8 @@ from app.core.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
 from app.domains.accounts.schemas import Account, AccountIn, AccountType
 from app.domains.accounts.service import AccountService
+from app.domains.statements.schemas import StatementIn, StatementResponse, StatementListResponse
+from app.domains.statements.service import StatementService
 from app.domains.transactions.schemas import TransactionFilters, TransactionListResponse
 from app.domains.transactions.service import TransactionService
 
@@ -225,3 +227,83 @@ def deactivate_account_endpoint(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     return {"message": "Account deactivated successfully"}
+
+
+@router.get("/{account_id}/statements", response_model=StatementListResponse)
+def get_account_statements_endpoint(
+    account_id: UUID,
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    per_page: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    is_processed: Optional[bool] = Query(None, description="Filter by processing status"),
+    is_deleted: Optional[bool] = Query(False, description="Include deleted statements"),
+    date_from: Optional[datetime] = Query(None, description="Filter from this date"),
+    date_to: Optional[datetime] = Query(None, description="Filter to this date"),
+    sort_by: Optional[str] = Query("created_at", description="Sort field"),
+    sort_order: Optional[str] = Query("desc", description="Sort order: desc or asc"),
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    Get paginated statements for a specific account.
+    
+    Can filter by processing status, date range, and more.
+    """
+    # First verify the account exists and belongs to the user
+    account_service = AccountService(db)
+    account = account_service.get_account_by_id(
+        account_id=account_id, user_id=current_user_id
+    )
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    try:
+        from app.domains.statements.schemas import StatementFilters
+        
+        filters = StatementFilters(
+            account_id=account_id,
+            is_processed=is_processed,
+            is_deleted=is_deleted,
+            date_from=date_from,
+            date_to=date_to,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            page=page,
+            per_page=per_page,
+        )
+
+        statement_service = StatementService(db)
+        return statement_service.get_account_statements_with_filters(
+            account_id=account_id,
+            user_id=current_user_id,
+            filters=filters,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving statements: {str(e)}"
+        )
+
+
+@router.post("/{account_id}/statements", response_model=StatementResponse, status_code=201)
+def create_account_statement_endpoint(
+    account_id: UUID,
+    statement_in: StatementIn,
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    Create a new statement for a specific account.
+    
+    Processes raw statement data including transactions, balances, and due dates.
+    The account_id from the URL path takes precedence over the one in the request body.
+    """
+    try:
+        # Override account_id from path parameter to ensure consistency
+        statement_in.account_id = account_id
+        
+        service = StatementService(db)
+        statement = service.create_statement(statement_in, current_user_id)
+        return StatementResponse.model_validate(statement)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error creating statement")

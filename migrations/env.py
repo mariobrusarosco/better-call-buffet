@@ -11,13 +11,9 @@ sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 
 from app.core.config import settings
 from app.db.connection_and_session import Base
-from app.domains.accounts.models import Account
-from app.domains.balance_points.models import BalancePoint
-from app.domains.brokers.models import Broker
-from app.domains.credit_cards.models import CreditCard
-from app.domains.invoices.models import Invoice
-from app.domains.transactions.models import Transaction
-from app.domains.users.models import User
+
+# Import all models automatically via model registration
+from app.db import model_registration  # This imports all models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
