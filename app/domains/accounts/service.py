@@ -1,11 +1,16 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
+from datetime import datetime
+import logging
 
 from sqlalchemy.orm import Session
+from sqlalchemy import func, and_
 
 from app.domains.accounts.models import Account
 from app.domains.accounts.repository import AccountRepository
 from app.domains.accounts.schemas import AccountIn, AccountType, AccountWithBroker
+
+logger = logging.getLogger(__name__)
 
 
 class AccountService:
