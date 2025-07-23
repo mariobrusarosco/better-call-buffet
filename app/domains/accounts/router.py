@@ -137,6 +137,10 @@ def get_account_transactions_endpoint(
     account_id: UUID,
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    include_credit_cards: bool = Query(
+        False, 
+        description="Include transactions from credit cards linked to this account"
+    ),
     date_from: Optional[datetime] = Query(
         None, description="Filter transactions from this date"
     ),
@@ -165,20 +169,20 @@ def get_account_transactions_endpoint(
     current_user_id: UUID = Depends(get_current_user_id),
 ):
     """
-    🎓 Get paginated transactions for a specific account (STRUCTURED FILTERING PATTERN)
+    🎓 Get paginated transactions for a specific account (ENHANCED WITH CREDIT CARDS)
 
-    This endpoint now uses the improved structured filtering approach:
+    This endpoint now supports including credit card transactions:
     - Uses TransactionFilters internally for type safety and consistency
-    - Maintains backward compatibility with existing API clients
-    - Supports enhanced filtering capabilities like amount ranges and description search
-    - Follows the same filtering pattern as credit card transactions
+    - Can include credit card transactions linked to this account
+    - Maintains backward compatibility (include_credit_cards defaults to False)
+    - Provides unified view of all financial activity for an account
 
     Benefits:
+    - ✅ Complete financial picture when include_credit_cards=True
     - ✅ Type-safe filter validation through Pydantic
-    - ✅ Easy to extend with new filter options
     - ✅ Consistent filtering behavior across all transaction endpoints
-    - ✅ Self-documenting filter capabilities
-    - ✅ Enhanced filtering options (amount ranges, description search, payment status)
+    - ✅ Backward compatible (existing API calls unchanged)
+    - ✅ Enhanced user experience with unified transaction view
     """
     # First verify the account exists and belongs to the user
     account_service = AccountService(db)
@@ -208,6 +212,7 @@ def get_account_transactions_endpoint(
             account_id=account_id,
             user_id=current_user_id,
             filters=transaction_filters,
+            include_credit_cards=include_credit_cards,
         )
     except Exception as e:
         raise HTTPException(

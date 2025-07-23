@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import and_, asc, desc
+from sqlalchemy import and_, asc, desc, or_
 from sqlalchemy.orm import Session
 
 from app.domains.transactions.models import Transaction
@@ -73,6 +73,61 @@ class TransactionRepository:
         )
 
         # Apply structured filters
+        if filters:
+            query = self._apply_filters(query, filters)
+            query = self._apply_sorting(query, filters)
+
+            total_count = query.count()
+            query = self._apply_pagination(query, filters)
+        else:
+            total_count = query.count()
+
+        return query.all(), total_count
+
+    def get_account_and_related_credit_card_transactions_with_filters(
+        self,
+        account_id: UUID,
+        user_id: UUID,
+        filters: Optional[TransactionFilters] = None,
+    ) -> Tuple[List[Transaction], int]:
+        """
+        🎓 ENHANCED: Get account transactions AND credit card transactions for cards linked to the account.
+        
+        This method provides a unified view of all financial activity related to an account:
+        - Direct account transactions (account_id = account_id)
+        - Credit card transactions where credit_card belongs to this account
+        
+        Benefits:
+        - ✅ Complete financial picture for account
+        - ✅ Unified transaction history
+        - ✅ Same filtering and pagination interface
+        - ✅ Better user experience
+        """
+        from app.domains.credit_cards.models import CreditCard
+        
+        # Base query for account transactions OR credit card transactions linked to this account
+        query = self.db.query(Transaction).filter(
+            and_(
+                Transaction.user_id == user_id,  # Always ensure user owns transactions
+                or_(
+                    # Direct account transactions
+                    Transaction.account_id == account_id,
+                    # Credit card transactions where the card belongs to this account
+                    Transaction.credit_card_id.in_(
+                        self.db.query(CreditCard.id)
+                        .filter(and_(
+                            CreditCard.account_id == account_id,
+                            CreditCard.user_id == user_id,
+                            CreditCard.is_active == True,
+                            CreditCard.is_deleted == False
+                        ))
+                        .subquery()
+                    )
+                )
+            )
+        )
+
+        # Apply structured filters (same as before)
         if filters:
             query = self._apply_filters(query, filters)
             query = self._apply_sorting(query, filters)
