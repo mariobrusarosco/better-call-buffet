@@ -106,6 +106,173 @@ graph LR
 
 **Companies using similar architecture:** Discord, Bluesky, Supabase
 
+### **🔄 Production Migration Process (CI/CD)**
+
+When you push code to the `main` branch, here's exactly what happens:
+
+```mermaid
+sequenceDiagram
+    participant Dev as 👨‍💻 Developer
+    participant GH as 📂 GitHub
+    participant GA as ⚡ GitHub Actions
+    participant FB as 🏗️ Fly Builder
+    participant FP as 🌍 Fly Platform
+    participant DB as 🗄️ Fly Postgres
+
+    Dev->>GH: git push origin main
+    GH->>GA: Trigger workflow
+    GA->>GA: Checkout code
+    GA->>GA: Setup flyctl CLI
+    
+    Note over GA,FB: Build & Deploy Phase
+    GA->>FB: flyctl deploy --remote-only
+    FB->>FB: Build Docker image
+    FB->>FB: Install dependencies
+    FB->>FB: Create optimized container
+    
+    Note over FB,FP: Migration & Release Phase
+    FB->>DB: Run: alembic upgrade head
+    Note right of DB: Database migrations<br/>run BEFORE deployment
+    DB-->>FB: ✅ Migrations successful
+    
+    FB->>FP: Deploy new container
+    FP->>FP: Health checks pass
+    FP->>FP: Zero-downtime rollout
+    
+    Note over FP: App is Live! 🎉
+    FP-->>Dev: Deployment complete
+```
+
+**🔒 Zero-Risk Deployment:**
+1. **Database migrations run first** - if they fail, deployment stops
+2. **Health checks** ensure your app starts correctly
+3. **Rolling deployment** - old version stays live until new one is ready
+4. **Automatic rollback** if anything goes wrong
+
+**⏱️ Timeline:** ~2-3 minutes from push to live
+
+### **🎯 Professional Deployment Flow**
+
+Your Better Call Buffet project now includes a complete professional deployment system with monitoring, health checks, and automated notifications.
+
+#### **🔄 Deployment Options**
+
+```mermaid
+graph TD
+    A[Code Changes] --> B{Deployment Method}
+    B -->|Automatic| C[Push to main branch]
+    B -->|Manual| D[./scripts/deploy-monitor.sh]
+    
+    C --> E[GitHub Actions]
+    D --> F[Local Deploy Script]
+    
+    E --> G[Fly.io Deployment]
+    F --> G
+    
+    G --> H[Migration Check]
+    H --> I[Database Migrations]
+    I --> J[Health Checks]
+    J --> K[Success Notifications]
+    
+    K --> L[🎉 Live Production App]
+```
+
+#### **📊 Deployment Monitoring Dashboard**
+
+```mermaid
+graph LR
+    subgraph "🏥 Health Monitoring"
+        A[Health Endpoint] --> B[/health]
+        B --> C[30 Attempts]
+        C --> D[10s Intervals]
+        D --> E[5min Timeout]
+    end
+    
+    subgraph "📈 Deployment Tracking"
+        F[Deploy Start] --> G[Migration Status]
+        G --> H[Build Progress]
+        H --> I[Health Validation]
+        I --> J[Success/Failure]
+    end
+    
+    subgraph "🔔 Notifications"
+        K[🚀 Deploy Started]
+        L[✅ Migration Success]
+        M[🏥 Health Check Pass]
+        N[🎉 Deploy Complete]
+        O[❌ Deploy Failed]
+    end
+```
+
+#### **🛠️ Manual Deployment Commands**
+
+| Command | Purpose | Output |
+|---------|---------|---------|
+| `./scripts/deploy-monitor.sh` | Full monitored deployment | Real-time status + health checks |
+| `fly deploy` | Basic deployment | Standard Fly.io output |
+| `fly logs` | View live logs | Streaming application logs |
+| `fly status` | Check app health | Machine status + health |
+| `fly ssh console` | Access production shell | Direct container access |
+
+#### **🔍 Production Monitoring Tools**
+
+```mermaid
+flowchart TD
+    A[Production App] --> B[Built-in Monitoring]
+    A --> C[Manual Tools]
+    
+    B --> D[📊 Fly.io Grafana]
+    B --> E[📈 Prometheus Metrics]
+    B --> F[📋 Live Logs]
+    
+    C --> G[fly logs]
+    C --> H[fly status]
+    C --> I[Health Endpoint]
+    
+    D --> J[Performance Metrics]
+    E --> K[Resource Usage]
+    F --> L[Error Tracking]
+```
+
+#### **🎯 Production URLs & Endpoints**
+
+- **🌐 Production App:** https://better-call-buffet.fly.dev
+- **🏥 Health Check:** https://better-call-buffet.fly.dev/health
+- **📖 API Docs:** https://better-call-buffet.fly.dev/docs
+- **📊 Fly Dashboard:** `fly dashboard`
+
+#### **🚨 Troubleshooting Guide**
+
+```mermaid
+flowchart TD
+    A[Deployment Failed?] --> B{Check Error Type}
+    
+    B -->|Migration Error| C[fly logs --app better-call-buffet]
+    B -->|Build Error| D[Check GitHub Actions]
+    B -->|Health Check Failed| E[curl https://better-call-buffet.fly.dev/health]
+    
+    C --> F[Review migration logs]
+    D --> G[Fix code issues]
+    E --> H[Check app startup]
+    
+    F --> I[Fix database schema]
+    G --> J[Push new commit]
+    H --> K[Check environment variables]
+    
+    I --> L[Redeploy]
+    J --> L
+    K --> L
+```
+
+**Common Issues & Solutions:**
+
+| Issue | Command to Check | Solution |
+|-------|------------------|----------|
+| Migration fails | `fly ssh console -C "alembic current"` | Review migration files |
+| App won't start | `fly logs` | Check startup logs |
+| Health check fails | `curl https://better-call-buffet.fly.dev/health` | Verify app is responding |
+| Build fails | Check GitHub Actions | Fix code/dependencies |
+
 ---
 
 ## Local Development Setup

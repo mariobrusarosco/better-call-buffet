@@ -1,0 +1,51 @@
+name: Deploy to Fly.io
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Fly.io CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        run: |
+          echo "🚀 Starting deployment to Fly.io..."
+          flyctl deploy --remote-only --verbose
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Health Check
+        run: |
+          echo "🏥 Running health check..."
+          for i in {1..30}; do
+            if curl -s -f "https://better-call-buffet-prod.fly.dev/health" > /dev/null; then
+              echo "✅ Health check passed!"
+              exit 0
+            fi
+            echo "Attempt $i/30 - waiting 10s..."
+            sleep 10
+          done
+          echo "❌ Health check failed after 5 minutes"
+          exit 1
+
+      - name: Notify on Success
+        if: success()
+        run: |
+          echo "🎉 Deployment successful!"
+          echo "📊 Deployment Summary:"
+          echo "- App URL: https://better-call-buffet-prod.fly.dev"
+          echo "- Health endpoint: https://better-call-buffet-prod.fly.dev/health"
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "🔧 Check logs with: flyctl logs -a better-call-buffet-prod"
