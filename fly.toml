@@ -10,7 +10,7 @@ primary_region = 'gru'
   dockerfile = 'Dockerfile'
 
 [deploy]
-  release_command = 'alembic stamp head'
+  release_command = './scripts/run-migrations.sh'
   strategy = 'rolling'
 
 [http_service]
