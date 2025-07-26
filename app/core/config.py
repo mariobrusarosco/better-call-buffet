@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Sentry Configuration (Error Logging)
     SENTRY_DSN: str = ""  # Set in production environment
 
+    # Development User ID (for mocking authentication)
+    MOCK_USER_ID: str = "550e8400-e29b-41d4-a716-446655440000"
+
     @property
     def is_production(self) -> bool:
         """Check if running in production environment."""

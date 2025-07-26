@@ -1,5 +1,8 @@
 """Users domain package."""
 
+from app.core.config import settings
+
 
 def get_current_user_id() -> str:
-    return "550e8400-e29b-41d4-a716-446655440000"
+    """Get the current user ID for development/testing purposes."""
+    return settings.MOCK_USER_ID
