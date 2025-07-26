@@ -49,7 +49,7 @@ def upgrade() -> None:
     )
     op.create_index('ix_brokers_id', 'brokers', ['id'])
 
-    # Create accounts table (depends on users and brokers)
+    # Create accounts table (depends on users and brokers, but NOT transactions yet)
     op.create_table('accounts',
         sa.Column('id', sa.UUID(), nullable=False),
         sa.Column('name', sa.String(), nullable=False),
@@ -59,6 +59,7 @@ def upgrade() -> None:
         sa.Column('is_active', sa.Boolean(), nullable=False, default=True),
         sa.Column('balance', sa.DECIMAL(15, 2), nullable=False),
         sa.Column('available_balance', sa.DECIMAL(15, 2), nullable=False),
+        sa.Column('last_transaction_id', sa.UUID(), nullable=True),  # Added this column
         sa.Column('balance_updated_at', sa.DateTime(), nullable=False),
         sa.Column('broker_id', sa.UUID(), nullable=False),
         sa.Column('user_id', sa.UUID(), nullable=False),
@@ -120,6 +121,12 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id')
     )
     op.create_index('ix_transactions_id', 'transactions', ['id'])
+
+    # Now add the foreign key constraint for last_transaction_id (after transactions table exists)
+    op.create_foreign_key(
+        'fk_accounts_last_transaction_id', 'accounts', 'transactions',
+        ['last_transaction_id'], ['id']
+    )
 
     # Create statements table
     op.create_table('statements',
