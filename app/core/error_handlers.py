@@ -253,7 +253,15 @@ async def app_exception_handler(request: Request, exc: AppException) -> JSONResp
         details=exc.details,
     )
 
-    return JSONResponse(status_code=exc.status_code, content=response_data)
+    response = JSONResponse(status_code=exc.status_code, content=response_data)
+    
+    # Add CORS headers to prevent misleading CORS errors in browser
+    origin = request.headers.get("origin")
+    if origin:
+        response.headers["access-control-allow-origin"] = origin
+        response.headers["access-control-allow-credentials"] = "true"
+    
+    return response
 
 
 async def validation_exception_handler(
@@ -387,9 +395,17 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
         request_id=request_id,
     )
 
-    return JSONResponse(
+    response = JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=response_data
     )
+    
+    # Add CORS headers to prevent misleading CORS errors in browser
+    origin = request.headers.get("origin")
+    if origin:
+        response.headers["access-control-allow-origin"] = origin
+        response.headers["access-control-allow-credentials"] = "true"
+    
+    return response
 
 
 # ============================================================================
