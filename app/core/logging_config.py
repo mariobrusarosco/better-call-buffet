@@ -135,7 +135,10 @@ def setup_logging(environment: str = "development", log_level: str = "INFO") -> 
                 "level": log_level.upper(),
             }
         },
-        "root": {"level": log_level.upper(), "handlers": ["console", "file"]},
+        "root": {
+            "level": log_level.upper(), 
+            "handlers": ["console"] + (["file"] if environment == "development" else [])
+        },
         "loggers": {
             # FastAPI and Uvicorn loggers
             "uvicorn": {"level": "INFO", "propagate": True},

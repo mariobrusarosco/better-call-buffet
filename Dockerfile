@@ -27,6 +27,9 @@ RUN poetry config virtualenvs.create false && poetry install --without dev --no-
 # Copy application code
 COPY . .
 
+# Create logs directory for development use
+RUN mkdir -p /app/logs
+
 # Make scripts executable
 RUN chmod +x /app/scripts/run-prod.sh
 RUN chmod +x /app/scripts/run-migrations.sh
