@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # Logging Configuration
     ENABLE_PERFORMANCE_LOGGING: bool = False
 
+    # Sentry Configuration (Error Logging)
+    SENTRY_DSN: str = ""  # Set in production environment
+
     @property
     def is_production(self) -> bool:
         """Check if running in production environment."""

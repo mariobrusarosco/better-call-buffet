@@ -1,5 +1,6 @@
 import logging
 
+import sentry_sdk
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +23,20 @@ from app.core.middleware import (
 
 # Import model registration to register all models
 from app.db import model_registration
+
+# Initialize Sentry for error logging (production only)
+if settings.SENTRY_DSN and settings.is_production:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.ENVIRONMENT,
+        # Only capture errors - no performance monitoring
+        traces_sample_rate=0.0,
+        # Capture only errors and exceptions
+        send_default_pii=False,
+        attach_stacktrace=True,
+        # Set release version if you want to track deployments
+        # release="better-call-buffet@1.0.0",
+    )
 
 app = FastAPI(title="Better Call Buffet API")
 
@@ -70,3 +85,13 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy api"}
+
+
+@app.get("/sentry-test")
+async def sentry_test():
+    """Test endpoint to verify Sentry error logging (production only)."""
+    if not settings.is_production:
+        return {"message": "Sentry test only available in production"}
+    
+    # This will trigger a Sentry error report
+    raise Exception("Test error for Sentry logging verification")
