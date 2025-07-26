@@ -33,10 +33,6 @@ Each ADR follows this format:
 ## Decision Records Index
 
 - [DR-000: Decision Template](000-decision-template.md)
-- [DR-001: NAT Gateway Omission](001-nat-gateway-omission.md)
-- [DR-002: IAM Permissions Model](002-iam-permissions-model.md)
-- [DR-003: RDS Configuration Choices](003-rds-configuration-choices.md)
-- [DR-004: Elastic Beanstalk Deployment Strategy](004-elastic-beanstalk-deployment.md)
 - [DR-005: Logging Configuration](005-logging-configuration.md)
 - [DR-006: Database Seeding Strategy](006-database-seeding-strategy.md)
 

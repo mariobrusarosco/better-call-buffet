@@ -57,9 +57,7 @@ flowchart TD
 
 ### 📚 Further Reading
 
-- [App Runner Serverless Architecture Guide](docs/guides/app-runner-serverless-architecture-guide.md)
-- [CI/CD Pipeline Guide](docs/guides/cicd-pipeline-guide.md)
-- [ADR-005: Smart Branch-Based Docker Build Strategy](docs/decisions/005-smart-branch-based-docker-strategy.md)
+- [Fly.io Deployment Guide](docs/guides/fly-io-deployment-guide.md)
 
 ---
 
@@ -76,38 +74,37 @@ To ensure a consistent, predictable, and productive development environment for 
 
 ---
 
-## 🚀 **Serverless Architecture & Enterprise Infrastructure**
+## 🚀 **Serverless Architecture with Fly.io**
 
 ### **🎓 Understanding Your Production Setup**
 
-Your Better Call Buffet application runs on **enterprise-grade serverless infrastructure** with automatic load balancing, auto-scaling, and zero-downtime deployments - all without managing any servers!
+Your Better Call Buffet application runs on **Fly.io's distributed serverless platform** with automatic scaling, edge deployment, and zero-downtime deployments - all without managing any servers!
 
-**📚 [Complete App Runner Serverless Architecture Guide](docs/guides/app-runner-serverless-architecture-guide.md)**
+**📚 [Fly.io Deployment Guide](docs/guides/fly-io-deployment-guide.md)**
 
 **What you get automatically:**
 
-- ✅ **Auto-scaling containers** (1 to 1000+ users handled seamlessly)
-- ✅ **Intelligent load balancing** (requests distributed optimally)
-- ✅ **Zero-downtime deployments** (users never see outages)
-- ✅ **Enterprise-grade reliability** (automatic failover and recovery)
-- ✅ **Cost optimization** (pay only when users access your app)
+- ✅ **Global edge deployment** (apps run close to users worldwide)
+- ✅ **Automatic scaling** (scale to zero when not in use)
+- ✅ **Zero-downtime deployments** (rolling deployments with health checks)
+- ✅ **Built-in load balancing** (requests distributed intelligently)
+- ✅ **Cost optimization** (pay only for what you use)
 
-**Current monthly cost:** ~$3-5 (well under budget, scales with usage)
+**Current monthly cost:** ~$0-10 (scales with usage, generous free tier)
 
 ### **🏗️ Production Architecture**
 
 ```mermaid
 graph LR
     A[GitHub Push] --> B[CI/CD Pipeline]
-    B --> C[AWS App Runner]
-    C --> D[Auto-Scaling Containers]
-    D --> E[Load Balancer]
+    B --> C[Fly.io Platform]
+    C --> D[Global Edge Network]
+    D --> E[Auto-Scaling Machines]
     E --> F[Your FastAPI App]
-    F --> G[RDS PostgreSQL]
-    H[Parameter Store] --> F
+    F --> G[Fly Postgres]
 ```
 
-**Companies using similar architecture:** Netflix, Airbnb, Uber, Stripe
+**Companies using similar architecture:** Discord, Bluesky, Supabase
 
 ---
 
@@ -231,115 +228,13 @@ This project uses an automated CI/CD pipeline powered by GitHub Actions. The pip
 - **Code Quality Checks**: Automated linting, formatting, and type checking.
 - **Security Scanning**: Dependency vulnerability detection.
 - **Docker Build**: Containerized application building and testing.
-- **Automated Deployment**: Production deployment to AWS.
+- **Automated Deployment**: Production deployment to Fly.io.
 
 ### 📚 Documentation
 
-- **[🎓 Error Handling & Structured Logging Integration Guide](docs/guides/error-handling-and-logging-integration-guide.md)** - Comprehensive plan for robust error handling and JSON logging.
-- **[CI/CD Pipeline Guide](docs/guides/cicd-pipeline-guide.md)** - Comprehensive guide to our deployment pipeline.
-- **[ADR-005: Smart Branch-Based Docker Build Strategy](docs/decisions/005-smart-branch-based-docker-build-strategy.md)** - Cost-optimized CI/CD architecture.
-- **[🚀 App Runner Serverless Architecture Guide](docs/guides/app-runner-serverless-architecture-guide.md)** - Deep dive into your enterprise infrastructure.
+- **[Fly.io Deployment Guide](docs/guides/fly-io-deployment-guide.md)** - Complete guide to deploying on Fly.io.
 
 ---
-
-## AWS Deployment
-
-_This section is for reference on how the application is deployed to production infrastructure and is not needed for local development._
-
-### Database Setup (RDS)
-
-1. Create security group for RDS:
-
-```bash
-aws ec2 create-security-group \
-    --group-name better-call-buffet-db-sg \
-    --description "Security group for Better Call Buffet RDS"
-```
-
-2. Allow PostgreSQL traffic (development only):
-
-```bash
-aws ec2 authorize-security-group-ingress \
-    --group-id YOUR_SECURITY_GROUP_ID \
-    --protocol tcp \
-    --port 5432 \
-    --cidr 0.0.0.0/0
-```
-
-3. Create RDS instance:
-
-```bash
-aws rds create-db-instance \
-    --db-instance-identifier better-call-buffet-db \
-    --db-instance-class db.t3.micro \
-    --engine postgres \
-    --engine-version 15 \
-    --master-username bcb_admin \
-    --master-user-password YOUR_PASSWORD \
-    --allocated-storage 20 \
-    --vpc-security-group-ids YOUR_SECURITY_GROUP_ID \
-    --publicly-accessible \
-    --db-name better_call_buffet \
-    --no-multi-az \
-    --storage-type gp2
-```
-
-4. Check RDS status:
-
-```bash
-aws rds describe-db-instances \
-    --db-instance-identifier better-call-buffet-db \
-    --query 'DBInstances[0].{Status:DBInstanceStatus,Endpoint:Endpoint.Address}'
-```
-
-### Secrets Management
-
-For production deployment, sensitive environment variables are stored in AWS Secrets Manager.
-
-1. Create the secret in AWS Secrets Manager:
-
-```bash
-aws secretsmanager create-secret \
-    --name better-call-buffet/production \
-    --description "Production environment variables for Better Call Buffet" \
-    --secret-string '{"DATABASE_URL":"postgresql://user:pass@host:5432/db","SECRET_KEY":"your-secret-key","ENVIRONMENT":"production","BACKEND_CORS_ORIGINS":["https://yourdomain.com"]}'
-```
-
-2. Create IAM policy for accessing secrets:
-
-```bash
-aws iam create-policy --policy-name better-call-buffet-secrets-policy --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"secretsmanager:GetSecretValue\"],\"Resource\":\"arn:aws:secretsmanager:us-east-1:905418297381:secret:better-call-buffet/production-yGOUNN\"}]}"
-```
-
-3. Create IAM role for ECS tasks:
-
-```bash
-aws iam create-role --role-name better-call-buffet-ecs-role --assume-role-policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ecs-tasks.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
-```
-
-4. Attach the secrets policy to the ECS role:
-
-```bash
-aws iam attach-role-policy --role-name better-call-buffet-ecs-role --policy-arn arn:aws:iam::905418297381:policy/better-call-buffet-secrets-policy
-```
-
-### Container Registry Setup (ECR)
-
-1. Create ECR repository:
-
-```bash
-aws ecr create-repository \
-    --repository-name better-call-buffet \
-    --image-scanning-configuration scanOnPush=true \
-    --region us-east-1
-```
-
-2. Get AWS account ID:
-
-```bash
-aws sts get-caller-identity --query Account --output text
-# This will output your AWS account ID, for example: 905418297381
-```
 
 ## Architecture
 
@@ -372,12 +267,7 @@ aws sts get-caller-identity --query Account --output text
 
 ### Core Development Guides
 
-- **[🎓 Error Handling & Structured Logging Integration Guide](docs/guides/error-handling-and-logging-integration-guide.md)** - Comprehensive plan for robust error handling and JSON logging
-- **[CI/CD Pipeline Guide](docs/guides/cicd-pipeline-guide.md)** - Comprehensive guide to our deployment pipeline
-
-### Architecture Decision Records
-
-- **[ADR-005: CI/CD Implementation](docs/decisions/005-cicd-pipeline-implementation.md)** - Architecture decision record
+- **[Fly.io Deployment Guide](docs/guides/fly-io-deployment-guide.md)** - Complete guide to deploying on Fly.io
 
 ## License
 

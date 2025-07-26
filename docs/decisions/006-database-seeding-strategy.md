@@ -113,9 +113,7 @@ python scripts/seed_db.py
 
 ## Related Documents
 
-- [Database Migrations Guide](../guides/database-migrations-guide.md)
-- [Database Access Guide](../guides/database-access-with-dbeaver.md)
-- [RDS Configuration Choices](003-rds-configuration-choices.md)
+- Database Migrations: See CLAUDE.md for migration commands
 
 ## Notes
 
