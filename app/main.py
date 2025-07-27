@@ -38,7 +38,7 @@ if settings.SENTRY_DSN and settings.is_production:
         # release="better-call-buffet@1.0.0",
     )
 
-app = FastAPI(title="Better Call Buffet API")
+app = FastAPI(title="Better Call Buffet API", redirect_slashes=False)
 
 # Setup structured logging
 setup_logging(environment=settings.ENVIRONMENT, log_level="INFO")
