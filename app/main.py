@@ -4,6 +4,7 @@ import sentry_sdk
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1 import api_router
@@ -38,7 +39,7 @@ if settings.SENTRY_DSN and settings.is_production:
         # release="better-call-buffet@1.0.0",
     )
 
-app = FastAPI(title="Better Call Buffet API", redirect_slashes=False)
+app = FastAPI(title="Better Call Buffet API")
 
 # Setup structured logging
 setup_logging(environment=settings.ENVIRONMENT, log_level="INFO")
@@ -58,6 +59,12 @@ app.add_middleware(
     enable_performance_logging=settings.ENABLE_PERFORMANCE_LOGGING,  # 🎛️ Controlled via environment
 )
 app.add_middleware(PerformanceMonitoringMiddleware, slow_request_threshold=1.0)
+
+# Add trusted host middleware to enforce HTTPS redirects
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=["api-better-call-buffet.mariobrusarosco.com", "better-call-buffet-prod.fly.dev"]
+)
 
 # Configure CORS
 origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
