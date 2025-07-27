@@ -16,6 +16,7 @@ import traceback
 from typing import Any, Dict, Optional, Union
 from uuid import uuid4
 
+import sentry_sdk
 from fastapi import HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -244,6 +245,33 @@ async def app_exception_handler(request: Request, exc: AppException) -> JSONResp
         },
     )
 
+    # Send application errors to Sentry with context
+    with sentry_sdk.push_scope() as scope:
+        # Add tags for filtering in Sentry
+        scope.set_tag("error.code", exc.error_code)
+        scope.set_tag("error.status_code", str(exc.status_code))
+        scope.set_tag("request.method", request.method)
+        scope.set_tag("request.endpoint", str(request.url.path))
+        scope.set_tag("error.level", "warning")
+        
+        # Add detailed context
+        scope.set_context("app_error", {
+            "error_code": exc.error_code,
+            "message": exc.message,
+            "status_code": exc.status_code,
+            "details": exc.details,
+        })
+        
+        scope.set_context("request_info", {
+            "url": str(request.url),
+            "method": request.method,
+            "path": str(request.url.path),
+            "request_id": request_id,
+        })
+        
+        # Capture the exception
+        sentry_sdk.capture_exception(exc)
+
     # Create standardized response
     response_data = create_error_response(
         error_code=exc.error_code,
@@ -386,6 +414,33 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
         },
         exc_info=True,  # Include full stack trace in logs
     )
+
+    # Send detailed context to Sentry
+    with sentry_sdk.push_scope() as scope:
+        # Add tags for searchable metadata
+        scope.set_tag("error.type", exc.__class__.__name__)
+        scope.set_tag("request.method", request.method)
+        scope.set_tag("request.endpoint", str(request.url.path))
+        scope.set_tag("error.level", "critical")
+        
+        # Add structured context for detailed debugging
+        scope.set_context("request_details", {
+            "url": str(request.url),
+            "method": request.method,
+            "headers": dict(request.headers),
+            "path_params": getattr(request, "path_params", {}),
+            "query_params": dict(request.query_params),
+            "request_id": request_id,
+        })
+        
+        scope.set_context("error_details", {
+            "exception_type": exc.__class__.__name__,
+            "exception_message": str(exc),
+            "module": exc.__class__.__module__,
+        })
+        
+        # Capture the exception with all context
+        sentry_sdk.capture_exception(exc)
 
     # Return generic error to client (security consideration)
     response_data = create_error_response(
