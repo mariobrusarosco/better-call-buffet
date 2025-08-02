@@ -51,7 +51,9 @@
       "Bash(dig:*)",
       "WebFetch(domain:docs.anthropic.com)",
       "WebFetch(domain:docs.railway.com)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(poetry add:*)",
+      "Bash(poetry update:*)"
     ],
     "deny": []
   }

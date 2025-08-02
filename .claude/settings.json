@@ -20,7 +20,7 @@
     {
       "event": "PreToolUse",
       "script": ".claude/scripts/git-push-blocker.sh", 
-      "description": "Block git push commands - user prefers manual pushing",
+      "description": "Block git push and commit commands - user prefers manual git operations",
       "enabled": true,
       "match": {
         "tool": ["Bash"]
