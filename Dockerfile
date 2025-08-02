@@ -18,9 +18,8 @@ RUN pip install poetry==1.8.3
 
 # Configure Poetry: Don't create virtual env (we're in container)
 ENV POETRY_NO_INTERACTION=1 \
-    POETRY_VENV_IN_PROJECT=1 \
-    POETRY_CACHE_DIR=/tmp/poetry_cache \
-    PATH="/app/.venv/bin:$PATH"
+    POETRY_VENV_IN_PROJECT=0 \
+    POETRY_CACHE_DIR=/tmp/poetry_cache
 
 # Set work directory
 WORKDIR /app
