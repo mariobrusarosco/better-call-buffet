@@ -39,11 +39,6 @@ jobs:
           echo "🔍 Running dependency audit with pip-audit..."
           poetry run pip-audit
 
-      - name: Security Scanning - Safety (Offline)
-        run: |
-          echo "🔒 Running offline security scan with Safety..."
-          poetry run safety check --disable-optional-telemetry --output text || echo "⚠️ Safety scan completed with issues - check pip-audit results above"
-
       - name: Migration Validation
         run: |
           echo "🔄 Validating migrations..."
