@@ -21,6 +21,7 @@ class AccountRepository:
         """Get accounts by user ID and active status"""
         return (
             self.db.query(Account)
+            .options(joinedload(Account.broker))  # Eagerly load the broker relationship
             .filter(Account.user_id == user_id, Account.is_active == is_active)
             .all()
         )
@@ -49,6 +50,7 @@ class AccountRepository:
         """Get accounts by type and user ID, optionally filtered by active status"""
         return (
             self.db.query(Account)
+            .options(joinedload(Account.broker))  # Eagerly load the broker relationship
             .filter(
                 Account.user_id == user_id,
                 Account.type == account_type,
@@ -63,7 +65,14 @@ class AccountRepository:
         self.db.add(db_account)
         self.db.commit()
         self.db.refresh(db_account)
-        return db_account
+        
+        # Reload with broker relationship
+        return (
+            self.db.query(Account)
+            .options(joinedload(Account.broker))
+            .filter(Account.id == db_account.id)
+            .first()
+        )
 
     def update(self, account: Account, update_data: dict) -> Account:
         """Update an existing account"""

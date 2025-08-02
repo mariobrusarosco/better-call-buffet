@@ -64,7 +64,6 @@ class Account(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    # Relationships - temporarily removed to avoid circular import issues
-    # TODO: Add back relationships after ensuring all models are properly registered
-    # broker = relationship("Broker", foreign_keys=[broker_id])
-    # last_transaction = relationship("Transaction", foreign_keys=[last_transaction_id])
+    # Relationships
+    broker = relationship("Broker", foreign_keys=[broker_id])
+    # last_transaction = relationship("Transaction", foreign_keys=[last_transaction_id]) # Keep commented to avoid circular imports
