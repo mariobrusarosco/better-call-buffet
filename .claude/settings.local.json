@@ -68,7 +68,9 @@
       "WebFetch(domain:kevinhu.io)",
       "WebFetch(domain:stackoverflow.com)",
       "WebFetch(domain:depot.dev)",
-      "WebFetch(domain:pythonspeed.com)"
+      "WebFetch(domain:pythonspeed.com)",
+      "Bash(docker build:*)",
+      "Bash(docker run:*)"
     ],
     "deny": []
   }

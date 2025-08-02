@@ -22,19 +22,14 @@ fi
 
 # Run database migrations first
 echo "🔄 Running database migrations..."
-if command -v alembic > /dev/null 2>&1; then
-    echo "📊 Checking current migration status..."
-    alembic current || echo "⚠️  No current migration found (this is normal for first deployment)"
-    
-    echo "🔄 Applying migrations..."
-    alembic upgrade head
-    
-    echo "✅ Migrations completed successfully!"
-else
-    echo "❌ ERROR: Alembic not found, cannot run migrations"
-    exit 1
-fi
+echo "📊 Checking current migration status..."
+poetry run alembic current || echo "⚠️  No current migration found (this is normal for first deployment)"
+
+echo "🔄 Applying migrations..."
+poetry run alembic upgrade head
+
+echo "✅ Migrations completed successfully!"
 
 # Start the application with Hypercorn (Railway recommended)
 echo "🌐 Starting application with Hypercorn on port $PORT..."
-exec hypercorn app.main:app --bind "0.0.0.0:$PORT" --access-logfile - --error-logfile -
+exec poetry run hypercorn app.main:app --bind "0.0.0.0:$PORT" --access-logfile - --error-logfile -

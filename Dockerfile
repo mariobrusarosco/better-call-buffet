@@ -39,9 +39,9 @@ WORKDIR /app
 # Copy Poetry configuration files for dependency caching
 COPY poetry.lock pyproject.toml ./
 
-# Install dependencies
-# With package-mode=false, we don't need --no-root complexity
-RUN poetry install --only=main --no-interaction && \
+# Install dependencies without installing the root package
+# This prevents Poetry from trying to install the app as a package
+RUN poetry install --without dev --no-root --no-interaction && \
     rm -rf $POETRY_CACHE_DIR
 
 # Copy application code
