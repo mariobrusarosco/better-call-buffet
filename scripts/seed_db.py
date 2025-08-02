@@ -45,9 +45,8 @@ def init_db():
     print(f"Connecting to database...")
     engine = create_engine(DATABASE_URL)
 
-    # Create database tables
-    print("Creating database tables...")
-    Base.metadata.create_all(bind=engine)
+    # Skip creating tables - they're already created by migrations
+    print("Tables already created by migration...")
 
     # Create a session
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -59,11 +58,12 @@ def init_db():
 
         # Create a test user
         print("Creating test user...")
+        import uuid as uuid_module
         test_user = User(
             email="test@example.com",
             full_name="Test User",
             hashed_password="$2b$12$dummy.hashed.password.for.testing",
-            id=uuid.UUID(
+            id=uuid_module.UUID(
                 "550e8400-e29b-41d4-a716-446655440000"
             ),  # Fixed UUID for testing
         )
@@ -84,43 +84,78 @@ def init_db():
         db.commit()
         db.refresh(test_broker)
 
-        # Seed accounts
+        # Seed accounts using direct SQL to avoid foreign key validation issues
         print("Seeding accounts...")
-        accounts = [
-            Account(
-                name="Checking Account",
-                description="Primary checking account",
-                type=AccountType.CASH.value,
-                balance=5000.00,
-                user_id=test_user.id,
-                currency="BRL",
-            ),
-            Account(
-                name="Savings Account",
-                description="Emergency fund",
-                type=AccountType.SAVINGS.value,
-                balance=10000.00,
-                user_id=test_user.id,
-                currency="BRL",
-            ),
-            Account(
-                name="Credit Card",
-                description="Primary credit card",
-                type=AccountType.CREDIT.value,
-                balance=500.00,
-                user_id=test_user.id,
-                currency="BRL",
-            ),
-            Account(
-                name="Investment Account",
-                description="Investment portfolio",
-                type=AccountType.INVESTMENT.value,
-                balance=25000.00,
-                user_id=test_user.id,
-                currency="BRL",
-            ),
+        from datetime import datetime
+        
+        accounts_data = [
+            {
+                'id': str(uuid_module.uuid4()),
+                'name': 'Checking Account',
+                'description': 'Primary checking account',
+                'type': 'cash',
+                'balance': 5000.00,
+                'user_id': str(test_user.id),
+                'broker_id': str(test_broker.id),
+                'currency': 'BRL',
+                'balance_updated_at': datetime.utcnow(),
+                'created_at': datetime.utcnow(),
+                'updated_at': datetime.utcnow(),
+            },
+            {
+                'id': str(uuid_module.uuid4()),
+                'name': 'Savings Account',
+                'description': 'Emergency fund',
+                'type': 'savings',
+                'balance': 10000.00,
+                'user_id': str(test_user.id),
+                'broker_id': str(test_broker.id),
+                'currency': 'BRL',
+                'balance_updated_at': datetime.utcnow(),
+                'created_at': datetime.utcnow(),
+                'updated_at': datetime.utcnow(),
+            },
+            {
+                'id': str(uuid_module.uuid4()),
+                'name': 'Credit Account',
+                'description': 'Primary credit account',
+                'type': 'credit',
+                'balance': 500.00,
+                'user_id': str(test_user.id),
+                'broker_id': str(test_broker.id),
+                'currency': 'BRL',
+                'balance_updated_at': datetime.utcnow(),
+                'created_at': datetime.utcnow(),
+                'updated_at': datetime.utcnow(),
+            },
+            {
+                'id': str(uuid_module.uuid4()),
+                'name': 'Investment Account',
+                'description': 'Investment portfolio',
+                'type': 'investment',
+                'balance': 25000.00,
+                'user_id': str(test_user.id),
+                'broker_id': str(test_broker.id),
+                'currency': 'BRL',
+                'balance_updated_at': datetime.utcnow(),
+                'created_at': datetime.utcnow(),
+                'updated_at': datetime.utcnow(),
+            },
         ]
-        db.add_all(accounts)
+        
+        for account_data in accounts_data:
+            db.execute(text("""
+                INSERT INTO accounts (
+                    id, name, description, type, balance, available_balance,
+                    user_id, broker_id, currency, balance_updated_at, 
+                    is_active, created_at, updated_at
+                ) VALUES (
+                    :id, :name, :description, :type, :balance, :balance,
+                    :user_id, :broker_id, :currency, :balance_updated_at,
+                    true, :created_at, :updated_at
+                )
+            """), account_data)
+        
         db.commit()
 
         print("Database seeding complete!")
