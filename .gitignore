@@ -60,3 +60,5 @@ ENV/
 .tar.xz
 .tar.lzma
 .tar.wim
+
+screenshots/
