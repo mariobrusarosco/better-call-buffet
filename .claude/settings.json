@@ -18,6 +18,15 @@
       }
     },
     {
+      "event": "PreToolUse",
+      "script": ".claude/scripts/git-push-blocker.sh", 
+      "description": "Block git push commands - user prefers manual pushing",
+      "enabled": true,
+      "match": {
+        "tool": ["Bash"]
+      }
+    },
+    {
       "event": "UserPromptSubmit", 
       "script": ".claude/scripts/documentation-tracker.sh",
       "description": "Track documentation opportunities and remind about ADRs",
