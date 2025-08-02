@@ -53,7 +53,9 @@
       "WebFetch(domain:docs.railway.com)",
       "Bash(mv:*)",
       "Bash(poetry add:*)",
-      "Bash(poetry update:*)"
+      "Bash(poetry update:*)",
+      "Bash(poetry search:*)",
+      "Bash(poetry remove:*)"
     ],
     "deny": []
   }

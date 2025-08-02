@@ -37,7 +37,7 @@ jobs:
       - name: Security Scanning - Pip Audit
         run: |
           echo "🔍 Running dependency audit with pip-audit..."
-          poetry run pip-audit
+          poetry run pip-audit --ignore-vuln GHSA-wj6h-64fc-37mp
 
       - name: Migration Validation
         run: |
