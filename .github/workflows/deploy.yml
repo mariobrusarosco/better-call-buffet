@@ -2,16 +2,16 @@ name: CI/CD Pipeline for Railway
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   test:
     name: Security & Testing
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:15
@@ -26,14 +26,14 @@ jobs:
           --health-retries 10
         ports:
           - 5432:5432
-    
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install Poetry
         uses: snok/install-poetry@v1
@@ -69,11 +69,11 @@ jobs:
             sleep 2
           done
           echo "✅ PostgreSQL is ready!"
-          
+
           # Run migrations to set up database schema
           poetry run alembic upgrade head
           echo "✅ Database migrations applied successfully!"
-          
+
           # Validate that migrations are in sync (optional but good practice)
           poetry run alembic check || echo "⚠️ Migration check completed with warnings (this is often normal)"
         env:
