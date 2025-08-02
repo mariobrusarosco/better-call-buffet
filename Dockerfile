@@ -33,6 +33,9 @@ RUN poetry install --only=main && rm -rf $POETRY_CACHE_DIR
 # Copy application code
 COPY . .
 
+# Set execute permissions on shell scripts
+RUN chmod +x scripts/*.sh
+
 # Create non-root user for security
 RUN adduser --disabled-password --gecos "" appuser && \
     chown -R appuser:appuser /app
