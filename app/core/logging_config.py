@@ -14,6 +14,7 @@ Educational Focus:
 import json
 import logging
 import logging.config
+import os
 import sys
 import time
 from contextvars import ContextVar
@@ -137,7 +138,7 @@ def setup_logging(environment: str = "development", log_level: str = "INFO") -> 
         },
         "root": {
             "level": log_level.upper(), 
-            "handlers": ["console"] + (["file"] if environment == "development" else [])
+            "handlers": ["console"] + (["file"] if environment == "development" and os.path.exists("/app/logs") else [])
         },
         "loggers": {
             # FastAPI and Uvicorn loggers
