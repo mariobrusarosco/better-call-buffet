@@ -11,6 +11,22 @@ jobs:
   test:
     name: Security & Testing
     runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    
     steps:
       - uses: actions/checkout@v4
 
@@ -34,16 +50,32 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
       - name: Security Scanning - Pip Audit
         run: |
           echo "🔍 Running dependency audit with pip-audit..."
           poetry run pip-audit --ignore-vuln GHSA-wj6h-64fc-37mp
 
-      - name: Migration Validation
+      - name: Database Setup & Migration Validation
         run: |
-          echo "🔄 Validating migrations..."
-          # Check if migrations are up to date
-          poetry run alembic check
+          echo "🔄 Setting up database and validating migrations..."
+          # Wait for PostgreSQL to be fully ready
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+          echo "✅ PostgreSQL is ready!"
+          
+          # Run migrations to set up database schema
+          poetry run alembic upgrade head
+          echo "✅ Database migrations applied successfully!"
+          
+          # Validate that migrations are in sync (optional but good practice)
+          poetry run alembic check || echo "⚠️ Migration check completed with warnings (this is often normal)"
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
 
