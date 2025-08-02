@@ -187,6 +187,7 @@ This project emphasizes learning backend development concepts:
 - **Cost:** Usage-based billing with free tier available
 - **Server:** Hypercorn for production (Railway recommended)
 - **Deployment:** `railway up` or GitHub push to main branch
+- **CI/CD:** GitHub Actions + Railway integration with quality gates
 
 ## Common Patterns
 

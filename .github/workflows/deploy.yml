@@ -1,51 +1,118 @@
-name: Deploy to Fly.io
+name: CI/CD Pipeline for Railway
 
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  deploy:
-    name: Deploy app
+  test:
+    name: Security & Testing
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Fly.io CLI
-        uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
-      - name: Deploy to Fly.io
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Security Scanning - Safety
         run: |
-          echo "🚀 Starting deployment to Fly.io..."
-          flyctl deploy --remote-only --verbose
+          echo "🔒 Running security scan with Safety..."
+          poetry run safety check
+
+      - name: Security Scanning - Pip Audit
+        run: |
+          echo "🔍 Running dependency audit..."
+          poetry run pip-audit
+
+      - name: Migration Validation
+        run: |
+          echo "🔄 Validating migrations..."
+          # Check if migrations are up to date
+          poetry run alembic check
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+      - name: Run Tests
+        run: |
+          echo "🧪 Running test suite..."
+          poetry run pytest -v --tb=short
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+      - name: Test Results Summary
+        if: always()
+        run: |
+          echo "📊 Test Pipeline Summary:"
+          echo "- Security scanning completed"
+          echo "- Migration validation completed"
+          echo "- Test suite executed"
+
+  deploy:
+    name: Deploy to Railway
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: |
+          npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: |
+          echo "🚀 Starting deployment to Railway..."
+          railway up --service ${{ secrets.RAILWAY_SERVICE_ID }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
       - name: Health Check
         run: |
           echo "🏥 Running health check..."
-          for i in {1..30}; do
-            if curl -s -f "https://better-call-buffet-prod.fly.dev/health" > /dev/null; then
+          # Wait a bit for deployment to settle
+          sleep 30
+          for i in {1..20}; do
+            if curl -s -f "${{ secrets.RAILWAY_HEALTH_URL }}" > /dev/null; then
               echo "✅ Health check passed!"
               exit 0
             fi
-            echo "Attempt $i/30 - waiting 10s..."
-            sleep 10
+            echo "Attempt $i/20 - waiting 15s..."
+            sleep 15
           done
           echo "❌ Health check failed after 5 minutes"
           exit 1
 
-      - name: Notify on Success
+      - name: Deployment Success
         if: success()
         run: |
           echo "🎉 Deployment successful!"
           echo "📊 Deployment Summary:"
-          echo "- App URL: https://better-call-buffet-prod.fly.dev"
-          echo "- Health endpoint: https://better-call-buffet-prod.fly.dev/health"
+          echo "- Railway deployment completed"
+          echo "- Health check passed"
+          echo "- Application is live and healthy"
 
-      - name: Notify on Failure
+      - name: Deployment Failure
         if: failure()
         run: |
           echo "❌ Deployment failed!"
-          echo "🔧 Check logs with: flyctl logs -a better-call-buffet-prod"
+          echo "🔧 Check Railway dashboard and logs for details"
