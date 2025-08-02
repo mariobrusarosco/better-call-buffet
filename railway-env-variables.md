@@ -3,20 +3,25 @@
 ## Required Environment Variables
 
 ### Database
+
 - `DATABASE_URL` - PostgreSQL connection string (automatically provided by Railway PostgreSQL service)
 
 ### Security
+
 - `SECRET_KEY` - Application secret key for JWT tokens and encryption
 - `SENTRY_DSN` - Sentry error tracking DSN (optional but recommended for production)
 
 ### CORS
-- `BACKEND_CORS_ORIGINS` - JSON array of allowed CORS origins, e.g., `["https://yourdomain.com"]`
+
+- `BACKEND_CORS_ORIGINS` - JSON array of allowed CORS origins, e.g., `["https://yourdomain.com", ""]`
 
 ### Environment
+
 - `ENVIRONMENT` - Set to "production" for production deployment
 - `DEBUG` - Set to "false" for production
 
 ### Optional
+
 - `ENABLE_PERFORMANCE_LOGGING` - Set to "true" to enable detailed performance logs
 
 ## Railway-Specific Notes
