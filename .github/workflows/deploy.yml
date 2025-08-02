@@ -37,7 +37,7 @@ jobs:
       - name: Security Scanning - Safety
         run: |
           echo "🔒 Running security scan with Safety..."
-          poetry run safety check
+          poetry run safety scan
 
       - name: Security Scanning - Pip Audit
         run: |
