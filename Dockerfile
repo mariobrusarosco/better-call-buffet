@@ -34,9 +34,6 @@ RUN poetry install --only=main && rm -rf $POETRY_CACHE_DIR
 # Copy application code
 COPY . .
 
-# Set execute permissions on shell scripts
-RUN chmod +x scripts/*.sh
-
 # Create non-root user for security
 RUN adduser --disabled-password --gecos "" appuser && \
     chown -R appuser:appuser /app
@@ -49,5 +46,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run with hypercorn (production server as per CLAUDE.md)
-CMD ["poetry", "run", "hypercorn", "app.main:app", "--bind", "0.0.0.0:8000"]
+# Run migrations then start app
+CMD ["sh", "-c", "poetry run alembic upgrade head && poetry run hypercorn app.main:app --bind 0.0.0.0:$PORT"]
