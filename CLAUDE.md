@@ -172,7 +172,10 @@ This project emphasizes learning backend development concepts:
 1. Modify SQLAlchemy models in `app/domains/*/models.py`
 2. Generate migration: `alembic revision --autogenerate -m "Description"`
 3. Review generated migration file in `migrations/versions/`
-4. Apply migration: `alembic upgrade head`
+4. Test locally: `docker-compose exec web alembic upgrade head`
+5. Push to main branch (triggers two-stage deployment):
+   - **GitHub Actions**: Validates migrations (`alembic check`)
+   - **Railway**: Applies migrations (`alembic upgrade head`)
 
 **Model Registration:** All models automatically registered via `app/db/model_registration.py`
 

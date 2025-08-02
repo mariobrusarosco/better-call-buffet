@@ -80,11 +80,95 @@ The workflow is located at `.github/workflows/deploy.yml` and includes:
 
 ### Step 4: Database Migration Setup
 
-Migrations run automatically during Railway deployment. The process:
+Our project uses a **two-stage migration strategy** for maximum safety and reliability:
 
-1. Railway builds Docker image
-2. Runs `./scripts/run-migrations.sh` during build
-3. Starts application with `./scripts/run-prod.sh`
+#### 🎯 **Two-Stage Migration Strategy**
+
+**Stage 1: GitHub Actions (VALIDATION ONLY)**
+```yaml
+- name: Migration Validation
+  run: alembic check  # ✅ Validates migrations - NO database changes
+```
+- **Purpose**: Catch migration issues before deployment
+- **Action**: Validates that migrations are consistent with models
+- **Database Impact**: NONE - no actual database modifications
+
+**Stage 2: Railway (APPLICATION ONLY)**
+```bash
+# In run-prod.sh
+alembic upgrade head  # ✅ Actually applies migrations to production
+```
+- **Purpose**: Apply validated migrations to production database
+- **Action**: Runs actual database schema changes
+- **Database Impact**: REAL - modifies production database schema
+
+#### 🛡️ **Why This Approach is Safe**
+
+1. **No Duplicate Migrations**: Migrations are only applied once (in Railway)
+2. **Early Problem Detection**: GitHub Actions catches issues before touching production
+3. **Clean Separation**: Validation ≠ Application
+4. **Fail-Safe Deployment**: Only validated migrations reach production database
+5. **Rollback Safety**: If migrations fail, previous app version stays live
+
+#### 🔄 **Complete Migration Flow**
+
+```mermaid
+flowchart TD
+    A[Code Push] --> B[GitHub Actions]
+    B --> C{Migration Validation}
+    C -->|❌ Fail| D[Block Deployment]
+    C -->|✅ Pass| E[Trigger Railway]
+    E --> F[Railway Build]
+    F --> G[Apply Migrations]
+    G --> H{Migration Success?}
+    H -->|❌ Fail| I[Deployment Failed - Previous Version Stays Live]
+    H -->|✅ Pass| J[Start Application]
+    J --> K[🎉 Deployment Complete]
+```
+
+#### 🚨 **What Happens When Migrations Fail**
+
+**GitHub Actions Failure (Validation):**
+- ✅ **Deployment is BLOCKED** - Railway never triggered
+- ✅ **No database changes** - production remains untouched
+- ✅ **Fast feedback** - developers know immediately
+
+**Railway Failure (Application):**
+- ❌ **Railway deployment fails** - app never starts
+- ✅ **Previous version stays live** - no downtime
+- ✅ **No partial state** - either all migrations succeed or none apply
+
+#### 📊 **Migration Safety Checklist**
+
+Before pushing migration changes:
+
+```bash
+# 1. Test locally first
+docker-compose exec web alembic upgrade head
+docker-compose exec web alembic current
+
+# 2. Validate migration consistency  
+docker-compose exec web alembic check
+
+# 3. Test rollback if needed
+docker-compose exec web alembic downgrade -1
+docker-compose exec web alembic upgrade head
+```
+
+#### 🔧 **Troubleshooting Migration Issues**
+
+**Common Failures:**
+- **Database Connection**: Check `DATABASE_URL` environment variable
+- **Schema Conflicts**: Review migration files for conflicts
+- **Missing Imports**: Verify model imports in migration files
+- **Permission Issues**: Check database user permissions
+
+**Recovery Process:**
+1. Check Railway logs: `railway logs`
+2. Fix migration locally and test
+3. Commit fix and push (triggers new deployment)
+
+This dual-stage approach ensures that database migrations are both safe and reliable in production environments.
 
 ## 🔄 Deployment Flow
 
