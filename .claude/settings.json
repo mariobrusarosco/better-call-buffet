@@ -1,0 +1,86 @@
+{
+  "description": "Better Call Buffet - Educational Backend Development Configuration",
+  
+  "hooks": [
+    {
+      "event": "UserPromptSubmit",
+      "script": ".claude/scripts/educational-prompt-enhancer.sh",
+      "description": "Detect backend educational concepts and add learning context",
+      "enabled": true
+    },
+    {
+      "event": "PreToolUse",
+      "script": ".claude/scripts/code-standards-validator.sh",
+      "description": "Validate adherence to project coding standards",
+      "enabled": true,
+      "match": {
+        "tool": ["Write", "Edit", "MultiEdit", "Bash"]
+      }
+    },
+    {
+      "event": "UserPromptSubmit", 
+      "script": ".claude/scripts/documentation-tracker.sh",
+      "description": "Track documentation opportunities and remind about ADRs",
+      "enabled": true
+    }
+  ],
+  
+  "environment": {
+    "EDUCATIONAL_MODE": "true",
+    "PROJECT_TYPE": "fastapi_backend",
+    "DOCUMENTATION_STANDARD": "adr_focused"
+  },
+  
+  "permissions": {
+    "allowedTools": ["*"],
+    "blockedTools": [],
+    "allowedNetworkAccess": true
+  },
+  
+  "context": {
+    "systemPrompts": [
+      "This is an educational backend development project using FastAPI, PostgreSQL, and Domain-Driven Design.",
+      "When working with backend concepts, always provide comprehensive educational explanations.",
+      "Follow the project's documentation standards: ADRs for decisions, guides for processes, fix logs for issue resolution.",
+      "Use kebab-case for file naming and avoid git commands in automated scripts.",
+      "Emphasize the 'why' behind architectural decisions and connect implementations to broader backend patterns."
+    ],
+    
+    "codebaseContext": {
+      "architecture": "Domain-Driven Design with clean architecture layers",
+      "deployment": "Fly.io serverless with Docker",
+      "database": "PostgreSQL with SQLAlchemy ORM and Alembic migrations",
+      "testing": "pytest with Docker-based consistency",
+      "codeQuality": "black, isort, mypy, flake8 pipeline"
+    },
+    
+    "educationalTriggers": [
+      "Repository Pattern", "Dependency Injection", "CQRS", "Event-driven patterns",
+      "Layered architecture", "Factory patterns", "Strategy patterns",
+      "N+1 queries", "indexing", "connection pooling", "transactions",
+      "Caching strategies", "migrations", "query optimization", "sharding",
+      "REST principles", "pagination", "rate limiting", "versioning",
+      "Custom exceptions", "structured logging", "circuit breakers",
+      "Authentication vs authorization", "input validation", "CORS",
+      "Async processing", "caching strategies", "scaling approaches"
+    ]
+  },
+  
+  "workflows": {
+    "developmentCommands": {
+      "start": "docker-compose up",
+      "test": "docker-compose exec web poetry run pytest",
+      "format": "docker-compose exec web poetry run black .",
+      "typecheck": "docker-compose exec web poetry run mypy app",
+      "lint": "docker-compose exec web poetry run flake8",
+      "migrate": "docker-compose exec web alembic upgrade head"
+    },
+    
+    "requiredChecks": [
+      "Always run code quality tools before commits",
+      "Run tests via Docker container for consistency", 
+      "Use educational explanations for backend concepts",
+      "Follow documentation standards for decisions and fixes"
+    ]
+  }
+}

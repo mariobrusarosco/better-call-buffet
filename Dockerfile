@@ -27,14 +27,12 @@ RUN poetry config virtualenvs.create false && poetry install --without dev --no-
 # Copy application code
 COPY . .
 
-# Create logs directory for development use
-RUN mkdir -p /app/logs
 
 # Make scripts executable
 RUN chmod +x /app/scripts/run-prod.sh
 RUN chmod +x /app/scripts/run-migrations.sh
 
-# Expose port
+# Expose port (actual port set via $PORT env var)
 EXPOSE 8000
 
 # Health check

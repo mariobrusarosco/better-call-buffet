@@ -8,13 +8,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Database:** PostgreSQL with SQLAlchemy ORM
 **Dependency Management:** Poetry
 **Database Migrations:** Alembic
-**Deployment:** Docker + Fly.io (serverless architecture)
+**Deployment:** Docker + Railway (serverless)
 **Testing:** pytest
 **Code Quality:** black (formatting), isort, mypy (type checking), flake8 (linting)
+**Monitoring:** Sentry, structured logging with structlog
+**Production Server:** Hypercorn
 
 ## Essential Development Commands
 
-### Local Development (Docker-based)
+### Local Development (Docker-based - REQUIRED)
 ```bash
 # Start API and database with hot reload
 docker-compose up
@@ -24,6 +26,15 @@ docker-compose down
 
 # Run inside containers (exec commands)
 docker-compose exec web poetry run <command>
+
+# Run single test file
+docker-compose exec web poetry run pytest tests/specific_test.py
+
+# Run tests with verbose output
+docker-compose exec web poetry run pytest -v
+
+# Run tests for specific domain
+docker-compose exec web poetry run pytest tests/domains/accounts/
 ```
 
 ### Database Operations
@@ -39,14 +50,17 @@ docker-compose exec web alembic current
 
 # Alternative: Use migration script
 docker-compose exec web ./scripts/run-migrations.sh
+
+# Reset database (development only)
+docker-compose exec web psql $DATABASE_URL -f scripts/reset-database.sql
 ```
 
-### Code Quality & Testing
+### Code Quality & Testing (ALWAYS run before commits)
 ```bash
 # Format code
 docker-compose exec web poetry run black .
 
-# Run tests
+# Run all tests
 docker-compose exec web poetry run pytest
 
 # Type checking
@@ -63,13 +77,16 @@ docker-compose exec web poetry run safety check
 docker-compose exec web poetry run pip-audit
 ```
 
-### Production Scripts
+### Production & Deployment Scripts
 ```bash
-# Production startup (inside container)
+# Production startup (Railway)
 ./scripts/run-prod.sh
 
 # Migration with connection testing
 ./scripts/run-migrations.sh
+
+# Database seeding
+docker-compose exec web python scripts/seed_db.py
 ```
 
 ## Architecture Overview
@@ -113,17 +130,6 @@ app/
 - `alembic.ini` - Database migration settings
 - `app/core/config.py` - Application settings via Pydantic
 
-## Environment Variables
-
-**Required for local development:**
-- `DATABASE_URL` - PostgreSQL connection string
-- `SECRET_KEY` - Application secret key
-- `BACKEND_CORS_ORIGINS` - Allowed CORS origins (JSON array)
-
-**Optional:**
-- `ENVIRONMENT` - deployment environment (development/production)
-- `ENABLE_PERFORMANCE_LOGGING` - Enable detailed performance logs
-
 ## Error Handling & Logging
 
 **Structured logging** with JSON output configured in `app/core/logging_config.py`
@@ -139,14 +145,26 @@ app/
 **Test Structure:** Follow domain structure in tests/
 **Running Tests:** Always run via Docker container for consistency
 
-## Development Guidelines
+## Development Guidelines & Project Standards
 
-**From Cursor Rules:**
-1. **Documentation**: Create ADRs in `docs/decisions/` for architectural decisions
-2. **Fix Logging**: Document issue resolution in `docs/fixing-log/`
-3. **Phase Planning**: Use `docs/plans/` for project phases
-4. **File Naming**: Use kebab-case for file names
-5. **Educational Approach**: Provide comprehensive explanations for backend concepts
+### Documentation Standards
+1. **ADRs**: Create architectural decision records in `docs/decisions/` for key technology decisions
+2. **Fix Logging**: Document issue resolution in `docs/fixing-log/` when prompted with "LOG THE FIX"
+3. **Phase Planning**: Use `docs/plans/` for project phases with checklists
+4. **Developer Guides**: Create technology guides in `docs/guides/`
+
+### Code Standards
+1. **File Naming**: Use kebab-case for all file names
+2. **Import Types**: Use `import type { ... }` syntax for type-only imports
+3. **Git Commands**: Avoid running git commands in automated scripts
+4. **Terminal**: Use Git Bash instead of PowerShell when applicable
+
+### Educational Approach
+This project emphasizes learning backend development concepts:
+- Provide comprehensive explanations for architecture patterns
+- Connect implementation to broader backend best practices
+- Explain the "why" behind technical decisions
+- Include before/after examples for transformations
 
 ## Database Schema Management
 
@@ -160,10 +178,15 @@ app/
 
 ## Deployment
 
-**Local:** Docker Compose for consistent development environment
-**Production:** Fly.io with automatic scaling and zero-downtime deployments
-**Database:** Production PostgreSQL on managed service
-**Migrations:** Auto-run on deployment via `fly.toml` release command
+**Primary Platform:** Railway (Serverless)
+- **Local Development:** Docker Compose for consistent development environment
+- **Production:** Railway with automatic scaling and zero-downtime deployments
+- **Database:** Production PostgreSQL on managed service with auto-generated `DATABASE_URL`
+- **Migrations:** Auto-run on deployment via Railway build process
+- **Configuration:** `railway.toml` and environment variables
+- **Cost:** Usage-based billing with free tier available
+- **Server:** Hypercorn for production (Railway recommended)
+- **Deployment:** `railway up` or GitHub push to main branch
 
 ## Common Patterns
 
@@ -173,8 +196,48 @@ app/
 **Pydantic Models:** Separate request/response schemas from database models
 **Error Propagation:** Structured error handling with proper HTTP status codes
 
-## Health Checks
+## Health Checks & Monitoring
 
 - `/health` - Basic API health check
+- `/docs` - FastAPI interactive documentation
 - Docker health checks configured for both API and database
 - Database connection testing in migration scripts
+- Sentry integration for error tracking and performance monitoring
+- Structured logging with JSON output for production analysis
+
+## Important Concepts to Explain (Educational Triggers)
+
+When working with these concepts, provide detailed educational explanations:
+
+**Architecture Patterns:**
+- Repository Pattern, Dependency Injection, CQRS, Event-driven patterns
+- Layered architecture, Factory patterns, Strategy patterns
+
+**Database Concepts:**
+- N+1 queries, indexing, connection pooling, transactions
+- Caching strategies, migrations, query optimization
+
+**API Design:**
+- REST principles, pagination, rate limiting, versioning
+- HTTP status codes, content negotiation, API documentation
+
+**Error Handling & Observability:**
+- Custom exceptions, structured logging, circuit breakers
+- Health checks, graceful degradation, monitoring strategies
+
+**Security & Performance:**
+- Authentication vs authorization, input validation, CORS
+- Async processing, caching strategies, scaling approaches
+
+## Environment Configuration
+
+**Required Variables:**
+- `DATABASE_URL` - PostgreSQL connection string
+- `SECRET_KEY` - Application secret key
+- `BACKEND_CORS_ORIGINS` - Allowed CORS origins (JSON array)
+
+**Optional Variables:**
+- `ENVIRONMENT` - deployment environment (development/production)
+- `ENABLE_PERFORMANCE_LOGGING` - Enable detailed performance logs
+- `SENTRY_DSN` - Error tracking and performance monitoring
+- `PORT` - Server port (auto-set by deployment platforms)

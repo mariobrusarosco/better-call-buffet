@@ -32,8 +32,15 @@ def truncate_tables(db):
 
 
 def init_db():
-    # Use Docker database configuration
-    DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/better_call_buffet"
+    # Use app configuration
+    try:
+        from app.core.config import settings
+        DATABASE_URL = settings.DATABASE_URL
+        print(f"Using app configuration for database connection")
+    except ImportError:
+        # Fallback to Docker database configuration for local development
+        DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/better_call_buffet"
+        print(f"Using fallback Docker database configuration")
 
     print(f"Connecting to database...")
     engine = create_engine(DATABASE_URL)
