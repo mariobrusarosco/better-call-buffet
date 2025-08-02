@@ -126,7 +126,7 @@ app/
 - `pyproject.toml` - Poetry dependencies and tool configurations
 - `docker-compose.yml` - Local development environment
 - `Dockerfile` - Production container build
-- `fly.toml` - Fly.io deployment configuration  
+- `railway.toml` - Railway deployment configuration  
 - `alembic.ini` - Database migration settings
 - `app/core/config.py` - Application settings via Pydantic
 

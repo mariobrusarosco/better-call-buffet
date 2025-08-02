@@ -7,19 +7,18 @@ Complete guide for monitoring your production API and debugging issues.
 ### Immediate Issue Investigation
 ```bash
 # Check if app is running
-fly status --app better-call-buffet-prod
+railway status
 
 # Real-time logs (follow mode)
-fly logs --app better-call-buffet-prod -f
+railway logs
 
 # Search for errors in recent logs
-fly logs --app better-call-buffet-prod --search "error"
-fly logs --app better-call-buffet-prod --search "500"
-fly logs --app better-call-buffet-prod --search "exception"
+railway logs | grep -i "error"
+railway logs | grep -i "500"
+railway logs | grep -i "exception"
 
-# Check specific time window
-fly logs --app better-call-buffet-prod --since 1h
-fly logs --app better-call-buffet-prod --since 30m
+# Check service status
+railway service
 ```
 
 ### Health Check & Performance
@@ -36,8 +35,8 @@ curl https://api-better-call-buffet.mariobrusarosco.com/health
 
 ## 📈 Monitoring Dashboards
 
-### 1. Fly.io Grafana Dashboard
-- **URL:** https://fly.io/apps/better-call-buffet-prod/monitoring
+### 1. Railway Dashboard
+- **URL:** https://railway.app/dashboard
 - **Metrics Available:**
   - CPU usage
   - Memory consumption
@@ -45,25 +44,25 @@ curl https://api-better-call-buffet.mariobrusarosco.com/health
   - Response times
   - Error rates
 
-### 2. App Overview Dashboard
-- **URL:** https://fly.io/apps/better-call-buffet-prod
+### 2. Service Overview
+- **URL:** Railway project dashboard
 - **Features:**
-  - Machine status
+  - Service status
   - Recent deployments
-  - SSL certificates
-  - Secrets management
+  - Environment variables
+  - Build logs
 
 ## 🚨 Error Investigation Workflow
 
-### Step 1: Check App Status
+### Step 1: Check Service Status
 ```bash
-fly status --app better-call-buffet-prod
+railway status
 ```
 
 ### Step 2: Review Recent Logs
 ```bash
-# Look for errors in last 30 minutes
-fly logs --app better-call-buffet-prod --since 30m | grep -i "error\|exception\|traceback"
+# Look for errors in recent logs
+railway logs | grep -i "error\|exception\|traceback"
 ```
 
 ### Step 3: Test API Endpoints
@@ -77,15 +76,15 @@ curl -v https://api-better-call-buffet.mariobrusarosco.com/api/v1/your-endpoint
 
 ### Step 4: Check Environment Variables
 ```bash
-fly secrets list --app better-call-buffet-prod
+railway variables
 ```
 
 ### Step 5: Database Connection (if needed)
 ```bash
-# Connect to production environment
-fly ssh console --app better-call-buffet-prod
+# Connect to production environment via Railway CLI
+railway shell
 
-# Inside the container, test database
+# Inside the shell, test database
 python -c "
 from app.core.config import settings
 from sqlalchemy import create_engine, text
@@ -101,32 +100,32 @@ with engine.connect() as conn:
 ### Database Connection Issues
 ```bash
 # Check if DATABASE_URL is set
-fly secrets list --app better-call-buffet-prod | grep DATABASE_URL
+railway variables | grep DATABASE_URL
 
 # Test database connection
-fly ssh console --app better-call-buffet-prod -C "python -c 'from app.core.config import settings; print(settings.DATABASE_URL[:50])'"
+railway shell "python -c 'from app.core.config import settings; print(settings.DATABASE_URL[:50])'"
 ```
 
 ### CORS Issues
 ```bash
 # Check CORS configuration
-fly secrets list --app better-call-buffet-prod | grep CORS
+railway variables | grep CORS
 
 # Test CORS
 curl -H "Origin: https://yourfrontend.com" \
      -H "Access-Control-Request-Method: GET" \
      -H "Access-Control-Request-Headers: X-Requested-With" \
      -X OPTIONS \
-     https://api-better-call-buffet.mariobrusarosco.com/health
+     https://your-app.railway.app/health
 ```
 
 ### Migration Issues
 ```bash
 # Check current migration status
-fly ssh console --app better-call-buffet-prod -C "alembic current"
+railway shell "alembic current"
 
 # Run migrations manually (if needed)
-fly ssh console --app better-call-buffet-prod -C "alembic upgrade head"
+railway shell "alembic upgrade head"
 ```
 
 ## 📧 Setting Up Alerts (Optional)
@@ -153,34 +152,34 @@ fly deploy --app better-call-buffet-alerts
 ### Response Time Monitoring
 ```bash
 # Check response times
-time curl https://api-better-call-buffet.mariobrusarosco.com/health
+time curl https://your-app.railway.app/health
 
 # Continuous monitoring
 ./scripts/monitoring-alerts.sh watch
 ```
 
 ### Resource Usage
-- Monitor via Grafana: https://fly.io/apps/better-call-buffet-prod/monitoring
-- Check machine status: `fly status --app better-call-buffet-prod`
+- Monitor via Railway dashboard: https://railway.app/dashboard
+- Check service status: `railway status`
 
 ## 🚀 Scaling & Performance
 
 ### Auto-scaling Configuration
 Your app is configured for auto-scaling:
-- `min_machines_running = 0` (scales to zero when not in use)
-- `auto_start_machines = true` (starts automatically on requests)
-- `auto_stop_machines = 'stop'` (stops when idle)
+- Railway automatically handles scaling based on demand
+- Zero-downtime deployments
+- Automatic resource allocation
 
-### Manual Scaling
+### Resource Management
 ```bash
-# Scale up
-fly scale count 2 --app better-call-buffet-prod
+# Check service status
+railway status
 
-# Scale down
-fly scale count 1 --app better-call-buffet-prod
+# View service logs
+railway logs
 
-# Check current scale
-fly status --app better-call-buffet-prod
+# Check resource usage
+railway service
 ```
 
 ## 📱 Mobile Monitoring
@@ -189,16 +188,16 @@ fly status --app better-call-buffet-prod
 Create this alias in your `~/.bashrc` or `~/.zshrc`:
 
 ```bash
-alias bcb-health='curl -s https://api-better-call-buffet.mariobrusarosco.com/health && echo " ✅ API is healthy"'
-alias bcb-logs='fly logs --app better-call-buffet-prod -f'
-alias bcb-status='fly status --app better-call-buffet-prod'
+alias bcb-health='curl -s https://your-app.railway.app/health && echo " ✅ API is healthy"'
+alias bcb-logs='railway logs'
+alias bcb-status='railway status'
 ```
 
 ## 🎯 Summary
 
 **Your monitoring stack:**
-- ✅ **Real-time logs:** `fly logs -f`
-- ✅ **Grafana metrics:** Built-in dashboard
+- ✅ **Real-time logs:** `railway logs`
+- ✅ **Railway metrics:** Built-in dashboard
 - ✅ **Health monitoring:** Custom script
 - ✅ **Error alerting:** Monitoring script with notification hooks
 - ✅ **Performance tracking:** Response time monitoring
@@ -206,8 +205,8 @@ alias bcb-status='fly status --app better-call-buffet-prod'
 
 **When issues occur:**
 1. Run `./scripts/monitoring-alerts.sh all`
-2. Check `fly logs --app better-call-buffet-prod --since 30m`
-3. Review Grafana dashboard
+2. Check `railway logs`
+3. Review Railway dashboard
 4. Test API endpoints directly
 
 **Need help?** Check the error investigation workflow above! 🚀

@@ -70,7 +70,8 @@
       "WebFetch(domain:depot.dev)",
       "WebFetch(domain:pythonspeed.com)",
       "Bash(docker build:*)",
-      "Bash(docker run:*)"
+      "Bash(docker run:*)",
+      "Bash(bash:*)"
     ],
     "deny": []
   }

@@ -57,7 +57,7 @@ flowchart TD
 
 ### 📚 Further Reading
 
-- [Fly.io Deployment Guide](docs/guides/fly-io-deployment-guide.md)
+- [Railway Deployment Guide](RAILWAY_DEPLOYMENT_GUIDE.md)
 
 ---
 
@@ -74,37 +74,36 @@ To ensure a consistent, predictable, and productive development environment for 
 
 ---
 
-## 🚀 **Serverless Architecture with Fly.io**
+## 🚀 **Serverless Architecture with Railway**
 
 ### **🎓 Understanding Your Production Setup**
 
-Your Better Call Buffet application runs on **Fly.io's distributed serverless platform** with automatic scaling, edge deployment, and zero-downtime deployments - all without managing any servers!
+Your Better Call Buffet application runs on **Railway's serverless platform** with automatic scaling and zero-downtime deployments - all without managing any servers!
 
-**📚 [Fly.io Deployment Guide](docs/guides/fly-io-deployment-guide.md)**
+**📚 [Railway Deployment Guide](RAILWAY_DEPLOYMENT_GUIDE.md)**
 
 **What you get automatically:**
 
-- ✅ **Global edge deployment** (apps run close to users worldwide)
 - ✅ **Automatic scaling** (scale to zero when not in use)
 - ✅ **Zero-downtime deployments** (rolling deployments with health checks)
 - ✅ **Built-in load balancing** (requests distributed intelligently)
 - ✅ **Cost optimization** (pay only for what you use)
+- ✅ **Simple deployment** (GitHub integration)
 
-**Current monthly cost:** ~$0-10 (scales with usage, generous free tier)
+**Current monthly cost:** ~$0-5 (scales with usage, generous free tier)
 
 ### **🏗️ Production Architecture**
 
 ```mermaid
 graph LR
     A[GitHub Push] --> B[CI/CD Pipeline]
-    B --> C[Fly.io Platform]
-    C --> D[Global Edge Network]
-    D --> E[Auto-Scaling Machines]
-    E --> F[Your FastAPI App]
-    F --> G[Fly Postgres]
+    B --> C[Railway Platform]
+    C --> D[Auto-Scaling Services]
+    D --> E[Your FastAPI App]
+    E --> F[Railway Postgres]
 ```
 
-**Companies using similar architecture:** Discord, Bluesky, Supabase
+**Companies using similar architecture:** Many modern startups and scale-ups
 
 ### **🔄 Production Migration Process (CI/CD)**
 
@@ -115,32 +114,32 @@ sequenceDiagram
     participant Dev as 👨‍💻 Developer
     participant GH as 📂 GitHub
     participant GA as ⚡ GitHub Actions
-    participant FB as 🏗️ Fly Builder
-    participant FP as 🌍 Fly Platform
-    participant DB as 🗄️ Fly Postgres
+    participant RB as 🏗️ Railway Builder
+    participant RP as 🌍 Railway Platform
+    participant DB as 🗄️ Railway Postgres
 
     Dev->>GH: git push origin main
     GH->>GA: Trigger workflow
     GA->>GA: Checkout code
-    GA->>GA: Setup flyctl CLI
+    GA->>GA: Setup railway CLI
     
-    Note over GA,FB: Build & Deploy Phase
-    GA->>FB: flyctl deploy --remote-only
-    FB->>FB: Build Docker image
-    FB->>FB: Install dependencies
-    FB->>FB: Create optimized container
+    Note over GA,RB: Build & Deploy Phase
+    GA->>RB: railway up
+    RB->>RB: Build Docker image
+    RB->>RB: Install dependencies
+    RB->>RB: Create optimized container
     
-    Note over FB,FP: Migration & Release Phase
-    FB->>DB: Run: alembic upgrade head
+    Note over RB,RP: Migration & Release Phase
+    RB->>DB: Run: alembic upgrade head
     Note right of DB: Database migrations<br/>run BEFORE deployment
-    DB-->>FB: ✅ Migrations successful
+    DB-->>RB: ✅ Migrations successful
     
-    FB->>FP: Deploy new container
-    FP->>FP: Health checks pass
-    FP->>FP: Zero-downtime rollout
+    RB->>RP: Deploy new container
+    RP->>RP: Health checks pass
+    RP->>RP: Zero-downtime rollout
     
-    Note over FP: App is Live! 🎉
-    FP-->>Dev: Deployment complete
+    Note over RP: App is Live! 🎉
+    RP-->>Dev: Deployment complete
 ```
 
 **🔒 Zero-Risk Deployment:**
@@ -166,7 +165,7 @@ graph TD
     C --> E[GitHub Actions]
     D --> F[Local Deploy Script]
     
-    E --> G[Fly.io Deployment]
+    E --> G[Railway Deployment]
     F --> G
     
     G --> H[Migration Check]
@@ -209,10 +208,10 @@ graph LR
 | Command | Purpose | Output |
 |---------|---------|---------|
 | `./scripts/deploy-monitor.sh` | Full monitored deployment | Real-time status + health checks |
-| `fly deploy` | Basic deployment | Standard Fly.io output |
-| `fly logs` | View live logs | Streaming application logs |
-| `fly status` | Check app health | Machine status + health |
-| `fly ssh console` | Access production shell | Direct container access |
+| `railway up` | Basic deployment | Standard Railway output |
+| `railway logs` | View live logs | Streaming application logs |
+| `railway status` | Check app health | Service status + health |
+| `railway shell` | Access production shell | Direct container access |
 
 #### **🔍 Production Monitoring Tools**
 
@@ -236,10 +235,10 @@ flowchart TD
 
 #### **🎯 Production URLs & Endpoints**
 
-- **🌐 Production App:** https://better-call-buffet.fly.dev
-- **🏥 Health Check:** https://better-call-buffet.fly.dev/health
-- **📖 API Docs:** https://better-call-buffet.fly.dev/docs
-- **📊 Fly Dashboard:** `fly dashboard`
+- **🌐 Production App:** https://your-app.railway.app
+- **🏥 Health Check:** https://your-app.railway.app/health
+- **📖 API Docs:** https://your-app.railway.app/docs
+- **📊 Railway Dashboard:** https://railway.app/dashboard
 
 #### **🚨 Troubleshooting Guide**
 
@@ -249,7 +248,7 @@ flowchart TD
     
     B -->|Migration Error| C[fly logs --app better-call-buffet]
     B -->|Build Error| D[Check GitHub Actions]
-    B -->|Health Check Failed| E[curl https://better-call-buffet.fly.dev/health]
+    B -->|Health Check Failed| E[curl https://your-app.railway.app/health]
     
     C --> F[Review migration logs]
     D --> G[Fix code issues]
@@ -270,7 +269,7 @@ flowchart TD
 |-------|------------------|----------|
 | Migration fails | `fly ssh console -C "alembic current"` | Review migration files |
 | App won't start | `fly logs` | Check startup logs |
-| Health check fails | `curl https://better-call-buffet.fly.dev/health` | Verify app is responding |
+| Health check fails | `curl https://your-app.railway.app/health` | Verify app is responding |
 | Build fails | Check GitHub Actions | Fix code/dependencies |
 
 ---
@@ -395,11 +394,11 @@ This project uses an automated CI/CD pipeline powered by GitHub Actions. The pip
 - **Code Quality Checks**: Automated linting, formatting, and type checking.
 - **Security Scanning**: Dependency vulnerability detection.
 - **Docker Build**: Containerized application building and testing.
-- **Automated Deployment**: Production deployment to Fly.io.
+- **Automated Deployment**: Production deployment to Railway.
 
 ### 📚 Documentation
 
-- **[Fly.io Deployment Guide](docs/guides/fly-io-deployment-guide.md)** - Complete guide to deploying on Fly.io.
+- **[Railway Deployment Guide](RAILWAY_DEPLOYMENT_GUIDE.md)** - Complete guide to deploying on Railway.
 
 ---
 
@@ -434,7 +433,7 @@ This project uses an automated CI/CD pipeline powered by GitHub Actions. The pip
 
 ### Core Development Guides
 
-- **[Fly.io Deployment Guide](docs/guides/fly-io-deployment-guide.md)** - Complete guide to deploying on Fly.io
+- **[Railway Deployment Guide](RAILWAY_DEPLOYMENT_GUIDE.md)** - Complete guide to deploying on Railway
 
 ## License
 

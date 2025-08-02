@@ -61,7 +61,8 @@ def init_db():
         print("Creating test user...")
         test_user = User(
             email="test@example.com",
-            name="Test User",
+            full_name="Test User",
+            hashed_password="$2b$12$dummy.hashed.password.for.testing",
             id=uuid.UUID(
                 "550e8400-e29b-41d4-a716-446655440000"
             ),  # Fixed UUID for testing

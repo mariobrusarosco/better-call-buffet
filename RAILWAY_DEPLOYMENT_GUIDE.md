@@ -91,9 +91,9 @@ railway logs
 - Railway provides instant rollback functionality
 - Use the dashboard to rollback to previous deployments
 
-## Differences from Fly.io
+## Railway Benefits
 
-1. **Server**: Now using Hypercorn instead of Uvicorn (Railway recommended)
+1. **Server**: Using Hypercorn for production (Railway recommended)
 2. **Scaling**: Automatic resource management (no manual configuration needed)
 3. **Database**: Managed PostgreSQL service with automatic `DATABASE_URL`
 4. **Monitoring**: Built-in metrics and logging in Railway dashboard
