@@ -55,7 +55,8 @@
       "Bash(poetry add:*)",
       "Bash(poetry update:*)",
       "Bash(poetry search:*)",
-      "Bash(poetry remove:*)"
+      "Bash(poetry remove:*)",
+      "Bash(DATABASE_URL=\"postgresql://test:test@localhost:5432/testdb\" poetry run alembic check)"
     ],
     "deny": []
   }
