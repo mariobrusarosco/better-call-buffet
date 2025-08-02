@@ -22,11 +22,13 @@ RUN pip install poetry
 COPY poetry.lock pyproject.toml ./
 
 # Install dependencies
-RUN poetry config virtualenvs.create false && poetry install --without dev --no-interaction --no-ansi --no-root
+RUN poetry config virtualenvs.create false && poetry install --without dev --no-interaction --no-ansi
 
 # Copy application code
 COPY . .
 
+# Install the application package
+RUN poetry install --without dev --no-interaction --no-ansi
 
 # Make scripts executable
 RUN chmod +x /app/scripts/run-prod.sh

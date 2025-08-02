@@ -1,0 +1,24 @@
+# Railway ignore file
+.git
+.gitignore
+README.md
+docs/
+tests/
+screenshots/
+*.md
+.env
+.env.local
+.env.*.local
+logs/
+test.db
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.coverage
+.pytest_cache/
+.mypy_cache/
+.vscode/
+.idea/

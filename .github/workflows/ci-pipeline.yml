@@ -1,4 +1,4 @@
-name: CI/CD Pipeline for Railway
+name: CI Pipeline
 
 on:
   push:
@@ -86,11 +86,11 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
 
-      - name: Test Results Summary
-        if: always()
+      - name: CI Complete
         run: |
-          echo "📊 Test Pipeline Summary:"
-          echo "- Security scanning completed"
-          echo "- Migration validation completed"
-          echo "- Test suite executed"
+          echo "✅ CI Pipeline Complete - Ready for Railway deployment"
+          echo "📊 Pipeline Summary:"
+          echo "- Security scanning: PASSED"
+          echo "- Migration validation: PASSED" 
+          echo "- Test suite: PASSED"
 
