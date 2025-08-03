@@ -72,7 +72,8 @@
       "Bash(docker build:*)",
       "Bash(docker run:*)",
       "Bash(bash:*)",
-      "WebFetch(domain:berkkaraal.com)"
+      "WebFetch(domain:berkkaraal.com)",
+      "WebFetch(domain:railway.com)"
     ],
     "deny": []
   }

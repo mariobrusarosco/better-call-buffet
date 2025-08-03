@@ -16,19 +16,12 @@ RUN apt-get update && apt-get install -y \
 # Set work directory
 WORKDIR /app
 
-# Install Poetry
-RUN pip install poetry==1.8.3
-
-# Configure Poetry: Don't create virtual env (we're in container)
-ENV POETRY_NO_INTERACTION=1 \
-    POETRY_VENV_IN_PROJECT=0 \
-    POETRY_CACHE_DIR=/tmp/poetry_cache
-
-# Copy Poetry files
+# Generate requirements.txt from Poetry and install with pip
 COPY pyproject.toml poetry.lock ./
-
-# Install dependencies
-RUN poetry install --only=main && rm -rf $POETRY_CACHE_DIR
+RUN pip install poetry==1.8.5 && \
+    poetry export -f requirements.txt --output requirements.txt --without-hashes --only=main && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip uninstall -y poetry
 
 # Copy application code
 COPY . .
@@ -46,4 +39,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run migrations then start app
-CMD ["sh", "-c", "cd /app && poetry run alembic upgrade head && poetry run hypercorn app.main:app --bind 0.0.0.0:$PORT"]
+CMD ["bash", "-c", "alembic upgrade head && hypercorn app.main:app --bind 0.0.0.0:$PORT"]
