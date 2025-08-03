@@ -74,7 +74,8 @@
       "Bash(bash:*)",
       "WebFetch(domain:berkkaraal.com)",
       "WebFetch(domain:railway.com)",
-      "WebFetch(domain:better-call-buffet-prod-production-db41.up.railway.app)"
+      "WebFetch(domain:better-call-buffet-prod-production-db41.up.railway.app)",
+      "Bash(poetry:*)"
     ],
     "deny": []
   }
