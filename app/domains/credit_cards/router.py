@@ -154,7 +154,7 @@ def get_credit_cards_endpoint(
         raise HTTPException(status_code=500, detail="Error retrieving credit cards")
 
 
-@router.post("/", response_model=CreditCardResponse, status_code=201)
+@router.post("", response_model=CreditCardResponse, status_code=201)
 def create_credit_card(
     credit_card_in: CreditCardIn,
     db: Session = Depends(get_db_session),

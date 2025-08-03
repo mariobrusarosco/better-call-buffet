@@ -18,7 +18,7 @@ from app.domains.statements.service import StatementService
 router = APIRouter()
 
 
-@router.post("/", response_model=StatementResponse, status_code=201)
+@router.post("", response_model=StatementResponse, status_code=201)
 def create_statement_endpoint(
     statement_in: StatementIn,
     db: Session = Depends(get_db_session),
@@ -40,7 +40,7 @@ def create_statement_endpoint(
         raise HTTPException(status_code=500, detail="Error creating statement")
 
 
-@router.get("/", response_model=StatementListResponse)
+@router.get("", response_model=StatementListResponse)
 def get_statements_endpoint(
     account_id: Optional[UUID] = Query(None, description="Filter by account ID"),
     is_processed: Optional[bool] = Query(None, description="Filter by processing status"),

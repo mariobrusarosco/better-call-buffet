@@ -17,7 +17,7 @@ from app.domains.transactions.service import TransactionService
 router = APIRouter()
 
 
-@router.get("/", response_model=List[Account])
+@router.get("", response_model=List[Account])
 def get_all_accounts_endpoint(
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id),
@@ -81,7 +81,7 @@ def get_accounts_by_type_endpoint(
     return service.get_accounts_by_type(current_user_id, account_type)
 
 
-@router.post("/", response_model=Account)
+@router.post("", response_model=Account)
 def create_account_endpoint(
     account_in: AccountIn,
     db: Session = Depends(get_db_session),

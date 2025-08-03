@@ -17,7 +17,7 @@ from app.domains.balance_points.service import BalancePointService
 router = APIRouter()
 
 
-@router.post("/", response_model=BalancePoint)
+@router.post("", response_model=BalancePoint)
 def create_balance_point(
     balance_point_in: BalancePointIn,
     db: Session = Depends(get_db_session),

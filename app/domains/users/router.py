@@ -12,7 +12,7 @@ from app.domains.users.service import UserService
 router = APIRouter()
 
 
-@router.post("/", response_model=User, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=User, status_code=status.HTTP_201_CREATED)
 def create_user(user_in: UserIn, db: Session = Depends(get_db_session)):
     """Create a new user"""
     service = UserService(db)
@@ -22,7 +22,7 @@ def create_user(user_in: UserIn, db: Session = Depends(get_db_session)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/", response_model=List[User])
+@router.get("", response_model=List[User])
 def get_users(
     include_inactive: bool = Query(False, description="Include inactive users"),
     db: Session = Depends(get_db_session),

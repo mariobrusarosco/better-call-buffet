@@ -16,7 +16,7 @@ from app.domains.transactions.service import TransactionService
 router = APIRouter()
 
 
-@router.post("/", response_model=TransactionResponse)
+@router.post("", response_model=TransactionResponse)
 def create_transaction_endpoint(
     transaction: TransactionIn,
     db: Session = Depends(get_db_session),

@@ -12,7 +12,7 @@ from app.domains.brokers.service import BrokersService
 router = APIRouter()
 
 
-@router.get("/", response_model=List[Broker])
+@router.get("", response_model=List[Broker])
 def get_brokers(
     include_inactive: bool = Query(
         False, description="Include inactive brokers in results"
@@ -81,7 +81,7 @@ def get_broker_count(
     return {"count": count}
 
 
-@router.post("/", response_model=Broker)
+@router.post("", response_model=Broker)
 def create_broker(
     broker_in: BrokerIn,
     db: Session = Depends(get_db_session),
