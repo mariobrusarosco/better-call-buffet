@@ -71,7 +71,8 @@
       "WebFetch(domain:pythonspeed.com)",
       "Bash(docker build:*)",
       "Bash(docker run:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "WebFetch(domain:berkkaraal.com)"
     ],
     "deny": []
   }

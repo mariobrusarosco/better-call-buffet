@@ -13,16 +13,16 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
+# Set work directory
+WORKDIR /app
+
 # Install Poetry
 RUN pip install poetry==1.8.3
 
-# Configure Poetry: Create virtual env in project for proper dependency management
+# Configure Poetry: Don't create virtual env (we're in container)
 ENV POETRY_NO_INTERACTION=1 \
-    POETRY_VENV_IN_PROJECT=1 \
+    POETRY_VENV_IN_PROJECT=0 \
     POETRY_CACHE_DIR=/tmp/poetry_cache
-
-# Set work directory
-WORKDIR /app
 
 # Copy Poetry files
 COPY pyproject.toml poetry.lock ./
@@ -45,5 +45,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Activate virtual environment and run migrations then start app
-CMD ["sh", "-c", "source .venv/bin/activate && alembic upgrade head && hypercorn app.main:app --bind 0.0.0.0:$PORT"]
+# Run migrations then start app
+CMD ["sh", "-c", "cd /app && poetry run alembic upgrade head && poetry run hypercorn app.main:app --bind 0.0.0.0:$PORT"]
