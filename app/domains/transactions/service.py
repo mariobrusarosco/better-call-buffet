@@ -231,6 +231,7 @@ class TransactionService:
         account_id: UUID,
         user_id: UUID,
         filters: Optional[TransactionFilters] = None,
+        include_credit_cards: bool = False,
     ) -> TransactionListResponse:
         """
         Get account transactions using structured filters.
@@ -250,13 +251,22 @@ class TransactionService:
         filters.per_page = min(100, max(1, filters.per_page))
 
         try:
-            transactions, total_count = (
-                self.repository.get_account_transactions_with_filters(
-                    account_id=account_id,
-                    user_id=user_id,
-                    filters=filters,
+            if include_credit_cards:
+                transactions, total_count = (
+                    self.repository.get_account_and_related_credit_card_transactions_with_filters(
+                        account_id=account_id,
+                        user_id=user_id,
+                        filters=filters,
+                    )
                 )
-            )
+            else:
+                transactions, total_count = (
+                    self.repository.get_account_transactions_with_filters(
+                        account_id=account_id,
+                        user_id=user_id,
+                        filters=filters,
+                    )
+                )
 
             # Calculate pagination metadata
             total_pages = (total_count + filters.per_page - 1) // filters.per_page
