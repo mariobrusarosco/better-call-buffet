@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, String
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.db.connection_and_session import Base
@@ -29,6 +29,12 @@ class Invoice(Base):
     raw_invoice = Column(JSON, nullable=False)  # Stores the I_CreditCardRawInvoice data
     is_deleted = Column(Boolean, default=False, nullable=False)
     is_paid = Column(Boolean, default=False, nullable=False)
+    
+    # Legacy fields from original schema
+    period_start = Column(DateTime, nullable=True)
+    period_end = Column(DateTime, nullable=True)
+    due_date = Column(DateTime, nullable=True)
+    total_amount = Column(Float, nullable=True)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
