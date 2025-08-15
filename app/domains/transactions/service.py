@@ -355,3 +355,67 @@ class TransactionService:
                 f"Error retrieving transactions for credit card {credit_card_id}: {str(e)}"
             )
             raise
+
+    def get_user_transactions_with_filters(
+        self,
+        user_id: UUID,
+        filters: Optional[TransactionFilters] = None,
+    ) -> TransactionListResponse:
+        """
+        Get all user transactions (from accounts and credit cards) using structured filters.
+
+        Benefits:
+        - ✅ Single endpoint for all user transactions 
+        - ✅ Consistent API across all transaction endpoints
+        - ✅ Type-safe filter validation
+        - ✅ Easy to add new filtering capabilities
+        - ✅ Self-documenting through schema
+        """
+        # Set default filters if none provided
+        if filters is None:
+            filters = TransactionFilters()
+
+        # Validate pagination parameters
+        filters.page = max(1, filters.page)
+        filters.per_page = min(100, max(1, filters.per_page))
+
+        try:
+            transactions, total_count = (
+                self.repository.get_user_transactions_with_filters(
+                    user_id=user_id,
+                    filters=filters,
+                )
+            )
+
+            # Calculate pagination metadata
+            total_pages = (total_count + filters.per_page - 1) // filters.per_page
+            has_next = filters.page < total_pages
+            has_previous = filters.page > 1
+
+            # Convert to response schemas
+            transaction_responses = [
+                TransactionResponse.from_orm(transaction)
+                for transaction in transactions
+            ]
+
+            # Create metadata
+            meta = TransactionListMeta(
+                total=total_count,
+                page=filters.page,
+                per_page=filters.per_page,
+                has_next=has_next,
+                has_previous=has_previous,
+            )
+
+            logger.info(
+                f"Retrieved {len(transactions)} transactions for user {user_id}, "
+                f"page {filters.page}/{total_pages}"
+            )
+
+            return TransactionListResponse(data=transaction_responses, meta=meta)
+
+        except Exception as e:
+            logger.error(
+                f"Error retrieving transactions for user {user_id}: {str(e)}"
+            )
+            raise

@@ -3,11 +3,12 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, UploadFile
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user_id
+from app.core.dependencies import get_current_user_id, get_ai_client
 from app.db.connection_and_session import get_db_session
+from app.core.ai import AIClient
 from app.domains.credit_cards.models import CreditCard
 from app.domains.credit_cards.schemas import (
     CreditCardFilters,
@@ -185,6 +186,7 @@ def create_invoice(
     credit_card_id: UUID = Path(..., description="The ID of the credit card"),
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id),
+    ai_client: AIClient = Depends(get_ai_client),
 ):
     """
     🎓 Create a new invoice for a specific credit card (NESTED RESOURCE PATTERN)
@@ -201,7 +203,7 @@ def create_invoice(
     - ✅ Consistent with GET /credit_cards/{id}/invoices
     """
     try:
-        service = InvoiceService(db)
+        service = InvoiceService(db, ai_client)
 
         # Override credit_card_id from path parameter
         invoice_data = invoice_in.model_dump()
@@ -228,6 +230,78 @@ def create_invoice(
     except Exception as e:
         logger.error(f"❌ Unexpected error creating invoice: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/{credit_card_id}/invoices/parse-pdf", response_model=Invoice, status_code=201)
+async def parse_credit_card_invoice_pdf_endpoint(
+    file: UploadFile = File(...),
+    credit_card_id: UUID = Path(..., description="The ID of the credit card"),
+    db: Session = Depends(get_db_session),
+    user_id: UUID = Depends(get_current_user_id),
+    ai_client: AIClient = Depends(get_ai_client),
+):
+    """
+    🎯 Parse credit card invoice PDF - NO TIMEOUT LIMITS!
+    
+    This endpoint replaces the Netlify function that was timing out after 10 seconds.
+    
+    Benefits:
+    - ✅ No serverless timeout constraints (can run as long as needed)
+    - ✅ Direct database access (no API round-trips) 
+    - ✅ More CPU/memory available on Railway
+    - ✅ Consistent error handling with backend architecture
+    - ✅ Better logging and monitoring
+    
+    Process:
+    1. Validate PDF file and credit card ownership
+    2. Extract text from PDF using pdf parsing libraries
+    3. Process with OpenAI GPT for structured data extraction
+    4. Create invoice record directly in database
+    5. Return complete invoice response
+    """
+    try:
+        # Validate file type
+        if not file.filename or not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="File must be a PDF")
+        
+        if not file.content_type or file.content_type != 'application/pdf':
+            raise HTTPException(status_code=400, detail="Invalid file type")
+        
+        # Validate credit card ownership
+        credit_card_service = CreditCardService(db)
+        try:
+            card_filters = CreditCardFilters(credit_card_id=credit_card_id)
+            credit_card = credit_card_service.get_user_unique_credit_card_with_filters(
+                user_id, card_filters
+            )
+            if not credit_card:
+                raise HTTPException(status_code=404, detail="Credit card not found")
+        except Exception:
+            raise HTTPException(status_code=404, detail="Credit card not found")
+        
+        # Read PDF file
+        pdf_content = await file.read()
+        
+        # Process PDF and create invoice
+        invoice_service = InvoiceService(db, ai_client)
+        invoice = await invoice_service.parse_pdf_and_create_invoice(
+            pdf_content=pdf_content,
+            filename=file.filename,
+            credit_card_id=credit_card_id,
+            user_id=user_id,
+        )
+        
+        logger.info(f"✅ Invoice PDF parsed successfully for credit card {credit_card_id}")
+        return Invoice.model_validate(invoice)
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except Exception as e:
+        logger.error(f"❌ PDF parsing failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"PDF parsing failed: {str(e)}"
+        )
 
 
 @router.get("/{credit_card_id}/invoices", response_model=InvoiceListResponse)

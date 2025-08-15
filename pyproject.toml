@@ -25,6 +25,9 @@ urllib3 = "^2.5.0"
 python-json-logger = "^3.3.0"
 structlog = "^25.4.0"
 sentry-sdk = {extras = ["fastapi"], version = "^2.0.0"}
+# AI Dependencies
+openai = "^1.0.0"
+httpx = "^0.25.0"  # For Ollama HTTP client
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"

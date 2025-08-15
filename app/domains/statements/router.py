@@ -2,11 +2,13 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user_id
+from app.core.dependencies import get_current_user_id, get_ai_client
+from app.core.logging_config import get_logger
 from app.db.connection_and_session import get_db_session
+from app.core.ai import AIClient
 from app.domains.statements.schemas import (
     StatementFilters,
     StatementIn,
@@ -107,3 +109,78 @@ def get_statement_by_id_endpoint(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error retrieving statement")
+
+
+@router.post("/parse-pdf", response_model=StatementResponse, status_code=201)
+async def parse_pdf_statement_endpoint(
+    file: UploadFile = File(...),
+    account_id: UUID = Form(...),
+    db: Session = Depends(get_db_session),
+    user_id: UUID = Depends(get_current_user_id),
+    ai_client: AIClient = Depends(get_ai_client),
+):
+    """
+    🎯 Parse credit card PDF statement - NO TIMEOUT LIMITS!
+    
+    This endpoint replaces the Netlify function that was timing out after 10 seconds.
+    
+    Benefits:
+    - ✅ No serverless timeout constraints (can run as long as needed)
+    - ✅ Direct database access (no API round-trips) 
+    - ✅ More CPU/memory available on Railway
+    - ✅ Consistent error handling with backend architecture
+    - ✅ Better logging and monitoring
+    
+    Process:
+    1. Validate PDF file and account ownership
+    2. Extract text from PDF using pdf parsing libraries
+    3. Process with AI client for structured data extraction
+    4. Create statement record directly in database
+    5. Return complete statement response
+    """
+    try:
+        # Validate file type
+        if not file.filename or not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="File must be a PDF")
+        
+        if not file.content_type or file.content_type != 'application/pdf':
+            raise HTTPException(status_code=400, detail="Invalid file type")
+        
+        # Validate account ownership
+        from app.domains.accounts.service import AccountService
+        account_service = AccountService(db)
+        account = account_service.get_account_by_id(account_id, user_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="Account not found")
+        
+        # Read PDF file
+        pdf_content = await file.read()
+        
+        # Process PDF and create statement
+        service = StatementService(db, ai_client)
+        statement = await service.parse_pdf_and_create_statement(
+            pdf_content=pdf_content,
+            filename=file.filename,
+            account_id=account_id,
+            user_id=user_id,
+        )
+        
+        return StatementResponse.model_validate(statement)
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except Exception as e:
+        logger = get_logger(__name__)
+        logger.error(
+            f"PDF parsing failed: {str(e)}",
+            extra={
+                "user_id": str(user_id),
+                "account_id": str(account_id),
+                "filename": file.filename if file.filename else "unknown",
+                "error": str(e)
+            }
+        )
+        raise HTTPException(
+            status_code=500, 
+            detail=f"PDF parsing failed: {str(e)}"
+        )

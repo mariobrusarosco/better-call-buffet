@@ -77,7 +77,8 @@
       "WebFetch(domain:better-call-buffet-prod-production-db41.up.railway.app)",
       "Bash(poetry:*)",
       "WebFetch(domain:api-better-call-buffet.mariobrusarosco.com)",
-      "WebFetch(domain:station.railway.com)"
+      "WebFetch(domain:station.railway.com)",
+      "Bash(docker system prune:*)"
     ],
     "deny": []
   }

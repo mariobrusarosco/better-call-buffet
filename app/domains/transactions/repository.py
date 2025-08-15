@@ -221,3 +221,34 @@ class TransactionRepository:
 
         offset = (page - 1) * per_page
         return query.offset(offset).limit(per_page)
+
+    def get_user_transactions_with_filters(
+        self,
+        user_id: UUID,
+        filters: Optional[TransactionFilters] = None,
+    ) -> Tuple[List[Transaction], int]:
+        """
+        Get all user transactions (from accounts and credit cards) using structured filters.
+
+        Benefits:
+        - ✅ Single endpoint for all user transactions
+        - ✅ Consistent filtering interface across domains
+        - ✅ Type-safe filter validation
+        - ✅ Embedded pagination handling
+        """
+        # Base query for all user transactions
+        query = self.db.query(Transaction).filter(
+            Transaction.user_id == user_id
+        )
+
+        # Apply structured filters
+        if filters:
+            query = self._apply_filters(query, filters)
+            query = self._apply_sorting(query, filters)
+
+            total_count = query.count()
+            query = self._apply_pagination(query, filters)
+        else:
+            total_count = query.count()
+
+        return query.all(), total_count

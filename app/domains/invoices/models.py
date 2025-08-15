@@ -29,8 +29,6 @@ class Invoice(Base):
     raw_invoice = Column(JSON, nullable=False)  # Stores the I_CreditCardRawInvoice data
     is_deleted = Column(Boolean, default=False, nullable=False)
     is_paid = Column(Boolean, default=False, nullable=False)
-    
-    # Legacy fields from original schema
     period_start = Column(DateTime, nullable=True)
     period_end = Column(DateTime, nullable=True)
     due_date = Column(DateTime, nullable=True)

@@ -1,5 +1,7 @@
+import asyncio
 import hashlib
 import json
+import os
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -23,6 +25,7 @@ from app.domains.invoices.schemas import (
 )
 from app.domains.transactions.schemas import TransactionIn
 from app.domains.transactions.service import TransactionService
+from app.core.ai import AIClient
 
 # Configure logger for this service
 logger = get_logger(__name__)
@@ -47,11 +50,12 @@ class InvoiceTransactionProcessingError(Exception):
 
 
 class InvoiceService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, ai_client: Optional[AIClient] = None):
         self.repository = InvoiceRepository(db)
         self.broker_service = BrokersService(db)
         self.credit_card_service = CreditCardService(db)
         self.transaction_service = TransactionService(db)
+        self.ai_client = ai_client
 
     def _prepare_transactions_from_raw_invoice(
         self,
@@ -406,3 +410,196 @@ class InvoiceService:
             credit_card_id, user_id, filters
         )
         return response.data
+
+    async def parse_pdf_and_create_invoice(
+        self,
+        pdf_content: bytes,
+        filename: str,
+        credit_card_id: UUID,
+        user_id: UUID,
+    ) -> Invoice:
+        """
+        🎯 Parse PDF invoice and create database record - NO TIMEOUT LIMITS!
+        
+        This replaces the Netlify function that was timing out. The process:
+        1. Extract text from PDF using PyPDF2 or similar
+        2. Send extracted text to OpenAI for structured parsing
+        3. Create invoice record with parsed data and transactions
+        
+        Benefits over Netlify function:
+        - ✅ No 10-second timeout limit
+        - ✅ More memory and CPU available
+        - ✅ Direct database access
+        - ✅ Better error handling and logging
+        - ✅ Automatic transaction creation from invoice data
+        """
+        try:
+            logger.info(
+                f"Starting PDF parsing for invoice: {filename}",
+                extra={
+                    "filename": filename,
+                    "file_size": len(pdf_content),
+                    "credit_card_id": str(credit_card_id),
+                    "user_id": str(user_id),
+                }
+            )
+
+            # Step 1: Extract text from PDF
+            pdf_text = await self._extract_pdf_text(pdf_content)
+            
+            if not pdf_text.strip():
+                raise InvoiceRawInvoiceEmptyError(
+                    "Could not extract text from PDF. File may be corrupted or image-based."
+                )
+
+            logger.info(
+                f"PDF text extracted successfully",
+                extra={
+                    "text_length": len(pdf_text),
+                    "filename": filename,
+                }
+            )
+
+            # Step 2: Parse with AI client
+            parsed_data = await self._parse_with_ai_client(pdf_text, filename)
+            
+            logger.info(
+                f"AI parsing completed",
+                extra={
+                    "filename": filename,
+                    "transactions_count": len(parsed_data.get("transactions", [])),
+                }
+            )
+
+            # Step 3: Create invoice record with parsed data
+            invoice_in = InvoiceIn(
+                credit_card_id=credit_card_id,
+                raw_invoice=parsed_data  # This will be the structured data from OpenAI
+            )
+            
+            # Use existing create_invoice method (which also creates transactions)
+            invoice = self.create_invoice(invoice_in, user_id)
+            
+            logger.info(
+                f"PDF parsing and invoice creation completed successfully",
+                extra={
+                    "invoice_id": str(invoice.id),
+                    "filename": filename,
+                    "processing_time": "completed",
+                }
+            )
+            
+            return invoice
+
+        except (InvoiceRawInvoiceEmptyError, InvoiceCreditCardNotFoundError, InvoiceBrokerNotFoundError):
+            raise  # Re-raise known invoice errors
+        except Exception as e:
+            logger.error(
+                f"PDF parsing failed: {str(e)}",
+                extra={
+                    "filename": filename,
+                    "credit_card_id": str(credit_card_id),
+                    "user_id": str(user_id),
+                    "error": str(e),
+                }
+            )
+            raise InvoiceTransactionProcessingError(f"PDF parsing failed: {str(e)}")
+
+    async def _extract_pdf_text(self, pdf_content: bytes) -> str:
+        """Extract text from PDF using PyPDF2 - runs in thread to avoid blocking"""
+        def extract_text():
+            try:
+                import PyPDF2
+                import io
+                
+                pdf_stream = io.BytesIO(pdf_content)
+                pdf_reader = PyPDF2.PdfReader(pdf_stream)
+                
+                text_parts = []
+                for page in pdf_reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text_parts.append(page_text)
+                
+                return "\n".join(text_parts)
+                
+            except ImportError:
+                # Fallback: try pdfplumber if PyPDF2 not available
+                try:
+                    import pdfplumber
+                    import io
+                    
+                    pdf_stream = io.BytesIO(pdf_content)
+                    text_parts = []
+                    
+                    with pdfplumber.open(pdf_stream) as pdf:
+                        for page in pdf.pages:
+                            page_text = page.extract_text()
+                            if page_text:
+                                text_parts.append(page_text)
+                    
+                    return "\n".join(text_parts)
+                    
+                except ImportError:
+                    raise InvoiceRawInvoiceEmptyError(
+                        "PDF parsing libraries not installed. Please install PyPDF2 or pdfplumber."
+                    )
+            except Exception as e:
+                raise InvoiceRawInvoiceEmptyError(f"Failed to extract text from PDF: {str(e)}")
+        
+        # Run in thread to avoid blocking the async event loop
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, extract_text)
+
+    async def _parse_with_ai_client(self, pdf_text: str, filename: str) -> Dict:
+        """Parse extracted PDF text using AI client (supports OpenAI, Ollama, etc.)"""
+        if not self.ai_client:
+            raise InvoiceRawInvoiceEmptyError("AI client not configured")
+        
+        try:
+            # Use AI client to parse financial document
+            response = await self.ai_client.parse_financial_document(
+                text=pdf_text,
+                document_type="invoice",
+                language="pt"
+            )
+            
+            if not response.success:
+                error_msg = response.error or "Unknown AI processing error"
+                logger.error(f"AI parsing failed: {error_msg}")
+                raise InvoiceTransactionProcessingError(f"AI processing failed: {error_msg}")
+            
+            if not response.data:
+                raise InvoiceRawInvoiceEmptyError("AI returned empty response")
+            
+            # Convert FinancialData model to dict format for compatibility
+            financial_data = response.data
+            parsed_data = {
+                "total_due": financial_data.total_due,
+                "due_date": financial_data.due_date,
+                "period": financial_data.period,
+                "min_payment": financial_data.min_payment,
+                "installment_options": [
+                    {"months": opt.months, "total": opt.total}
+                    for opt in financial_data.installment_options
+                ],
+                "transactions": [
+                    {
+                        "date": tx.date,
+                        "description": tx.description,
+                        "amount": tx.amount,
+                        "category": tx.category
+                    }
+                    for tx in financial_data.transactions
+                ],
+                "next_due_info": {
+                    "amount": financial_data.next_due_info.amount,
+                    "balance": financial_data.next_due_info.balance
+                } if financial_data.next_due_info else None
+            }
+            
+            return parsed_data
+            
+        except Exception as e:
+            logger.error(f"AI parsing failed: {str(e)}")
+            raise InvoiceTransactionProcessingError(f"AI processing failed: {str(e)}")

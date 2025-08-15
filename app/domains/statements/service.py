@@ -1,5 +1,8 @@
+import asyncio
+import json
+import os
 from datetime import datetime
-from typing import Optional
+from typing import Dict, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -16,16 +19,18 @@ from app.domains.statements.schemas import (
     StatementListResponse,
     StatementResponse,
 )
+from app.core.ai import AIClient
 
 # Configure logger for this service
 logger = get_logger(__name__)
 
 
 class StatementService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, ai_client: Optional[AIClient] = None):
         self.db = db
         self.repository = StatementRepository(db)
         self.account_service = AccountService(db)
+        self.ai_client = ai_client
 
     def create_statement(self, statement_in: StatementIn, user_id: UUID) -> Statement:
         """
@@ -194,3 +199,221 @@ class StatementService:
         except Exception as e:
             logger.warning(f"Error enriching statement data: {str(e)}")
             # Continue without enrichment rather than failing
+
+    async def parse_pdf_and_create_statement(
+        self,
+        pdf_content: bytes,
+        filename: str,
+        account_id: UUID,
+        user_id: UUID,
+    ) -> Statement:
+        """
+        🎯 Parse PDF statement and create database record - NO TIMEOUT LIMITS!
+        
+        This replaces the Netlify function that was timing out. The process:
+        1. Extract text from PDF using PyPDF2 or similar
+        2. Send extracted text to OpenAI for structured parsing
+        3. Create statement record with parsed data
+        
+        Benefits over Netlify function:
+        - ✅ No 10-second timeout limit
+        - ✅ More memory and CPU available
+        - ✅ Direct database access
+        - ✅ Better error handling and logging
+        """
+        try:
+            logger.info(
+                f"Starting PDF parsing for file: {filename}",
+                extra={
+                    "filename": filename,
+                    "file_size": len(pdf_content),
+                    "account_id": str(account_id),
+                    "user_id": str(user_id),
+                }
+            )
+
+            # Step 1: Extract text from PDF
+            pdf_text = await self._extract_pdf_text(pdf_content)
+            
+            if not pdf_text.strip():
+                raise ValidationError(
+                    message="Could not extract text from PDF. File may be corrupted or image-based.",
+                    error_code="PDF_TEXT_EXTRACTION_FAILED"
+                )
+
+            logger.info(
+                f"PDF text extracted successfully",
+                extra={
+                    "text_length": len(pdf_text),
+                    "filename": filename,
+                }
+            )
+
+            # Step 2: Parse with OpenAI GPT
+            parsed_data = await self._parse_with_ai_client(pdf_text, filename)
+            
+            logger.info(
+                f"AI parsing completed",
+                extra={
+                    "filename": filename,
+                    "transactions_count": len(parsed_data.get("transactions", [])),
+                }
+            )
+
+            # Step 3: Create statement record
+            from app.domains.statements.schemas import StatementIn
+            from types import SimpleNamespace
+            
+            # Convert parsed data to expected format
+            raw_statement = SimpleNamespace(**parsed_data)
+            
+            statement_in = StatementIn(
+                account_id=account_id,
+                raw_statement=raw_statement
+            )
+            
+            # Use existing create_statement method
+            statement = self.create_statement(statement_in, user_id)
+            
+            logger.info(
+                f"PDF parsing and statement creation completed successfully",
+                extra={
+                    "statement_id": str(statement.id),
+                    "filename": filename,
+                    "processing_time": "completed",  # Could add timing later
+                }
+            )
+            
+            return statement
+
+        except ValidationError:
+            raise
+        except Exception as e:
+            logger.error(
+                f"PDF parsing failed: {str(e)}",
+                extra={
+                    "filename": filename,
+                    "account_id": str(account_id),
+                    "user_id": str(user_id),
+                    "error": str(e),
+                }
+            )
+            raise ValidationError(
+                message=f"PDF parsing failed: {str(e)}",
+                error_code="PDF_PARSING_FAILED"
+            )
+
+    async def _extract_pdf_text(self, pdf_content: bytes) -> str:
+        """Extract text from PDF using PyPDF2 - runs in thread to avoid blocking"""
+        def extract_text():
+            try:
+                import PyPDF2
+                import io
+                
+                pdf_stream = io.BytesIO(pdf_content)
+                pdf_reader = PyPDF2.PdfReader(pdf_stream)
+                
+                text_parts = []
+                for page in pdf_reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text_parts.append(page_text)
+                
+                return "\n".join(text_parts)
+                
+            except ImportError:
+                # Fallback: try pdfplumber if PyPDF2 not available
+                try:
+                    import pdfplumber
+                    import io
+                    
+                    pdf_stream = io.BytesIO(pdf_content)
+                    text_parts = []
+                    
+                    with pdfplumber.open(pdf_stream) as pdf:
+                        for page in pdf.pages:
+                            page_text = page.extract_text()
+                            if page_text:
+                                text_parts.append(page_text)
+                    
+                    return "\n".join(text_parts)
+                    
+                except ImportError:
+                    raise ValidationError(
+                        message="PDF parsing libraries not installed. Please install PyPDF2 or pdfplumber.",
+                        error_code="PDF_LIBRARY_MISSING"
+                    )
+            except Exception as e:
+                raise ValidationError(
+                    message=f"Failed to extract text from PDF: {str(e)}",
+                    error_code="PDF_EXTRACTION_ERROR"
+                )
+        
+        # Run in thread to avoid blocking the async event loop
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, extract_text)
+
+    async def _parse_with_ai_client(self, pdf_text: str, filename: str) -> Dict:
+        """Parse extracted PDF text using AI client (supports OpenAI, Ollama, etc.)"""
+        if not self.ai_client:
+            raise ValidationError(
+                message="AI client not configured", 
+                error_code="AI_CLIENT_NOT_CONFIGURED"
+            )
+        
+        try:
+            # Use AI client to parse financial document
+            response = await self.ai_client.parse_financial_document(
+                text=pdf_text,
+                document_type="statement",
+                language="pt"
+            )
+            
+            if not response.success:
+                error_msg = response.error or "Unknown AI processing error"
+                logger.error(f"AI parsing failed: {error_msg}")
+                raise ValidationError(
+                    message=f"AI processing failed: {error_msg}",
+                    error_code="AI_PROCESSING_FAILED"
+                )
+            
+            if not response.data:
+                raise ValidationError(
+                    message="AI returned empty response",
+                    error_code="AI_EMPTY_RESPONSE"
+                )
+            
+            # Convert FinancialData model to dict format for compatibility
+            financial_data = response.data
+            parsed_data = {
+                "total_due": financial_data.total_due,
+                "due_date": financial_data.due_date,
+                "period": financial_data.period,
+                "min_payment": financial_data.min_payment,
+                "installment_options": [
+                    {"months": opt.months, "total": opt.total}
+                    for opt in financial_data.installment_options
+                ],
+                "transactions": [
+                    {
+                        "date": tx.date,
+                        "description": tx.description,
+                        "amount": tx.amount,
+                        "category": tx.category
+                    }
+                    for tx in financial_data.transactions
+                ],
+                "next_due_info": {
+                    "amount": financial_data.next_due_info.amount,
+                    "balance": financial_data.next_due_info.balance
+                } if financial_data.next_due_info else None
+            }
+            
+            return parsed_data
+            
+        except Exception as e:
+            logger.error(f"AI parsing failed: {str(e)}")
+            raise ValidationError(
+                message=f"AI processing failed: {str(e)}",
+                error_code="AI_PROCESSING_FAILED"
+            )
