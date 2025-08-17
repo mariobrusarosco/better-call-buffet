@@ -78,7 +78,9 @@
       "Bash(poetry:*)",
       "WebFetch(domain:api-better-call-buffet.mariobrusarosco.com)",
       "WebFetch(domain:station.railway.com)",
-      "Bash(docker system prune:*)"
+      "Bash(docker system prune:*)",
+      "Bash(docker:*)",
+      "Bash(sudo docker-compose:*)"
     ],
     "deny": []
   }
