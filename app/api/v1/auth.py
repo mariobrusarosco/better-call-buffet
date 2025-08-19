@@ -20,6 +20,8 @@ from app.core.auth.schemas import (
     LoginRequest,
     LogoutRequest, 
     RefreshRequest,
+    RegisterRequest,
+    RegisterResponse,
     TokenResponse,
     UserInfo
 )
@@ -27,6 +29,7 @@ from app.db.connection_and_session import get_db_session
 from app.domains.refresh_tokens.schemas import SessionInfo
 from app.domains.refresh_tokens.service import RefreshTokenService
 from app.domains.users.models import User
+from app.domains.users.schemas import UserIn
 from app.domains.users.service import UserService
 
 
@@ -98,6 +101,85 @@ async def login(
         refresh_token=refresh_token.token,
         token_type="bearer",
         expires_in=JWTHandler.ACCESS_TOKEN_EXPIRE_MINUTES * 60  # Convert to seconds
+    )
+
+
+@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
+async def register(
+    register_data: RegisterRequest,
+    request: Request,
+    db: Session = Depends(get_db_session)
+):
+    """
+    Register a new user and automatically log them in.
+    
+    **Flow:**
+    1. Validate registration data
+    2. Create new user account
+    3. Automatically authenticate the new user
+    4. Create JWT access token and refresh token
+    5. Return tokens and user information
+    
+    **Client Usage:**
+    ```
+    POST /auth/register
+    {
+        "email": "user@example.com",
+        "password": "userpassword",
+        "full_name": "John Doe",  // optional
+        "device_name": "Chrome on Windows"  // optional
+    }
+    ```
+    
+    **Response:**
+    ```
+    {
+        "access_token": "eyJ...",
+        "refresh_token": "abc123...",
+        "token_type": "bearer",
+        "expires_in": 1800,
+        "user": {
+            "id": "uuid-string",
+            "email": "user@example.com",
+            "full_name": "John Doe",
+            "is_active": true
+        }
+    }
+    ```
+    """
+    # Create user
+    user_service = UserService(db)
+    user_in = UserIn(
+        email=register_data.email,
+        password=register_data.password,
+        full_name=register_data.full_name
+    )
+    
+    try:
+        user = user_service.create_user(user_in)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    # Create JWT access token
+    access_token = JWTHandler.create_access_token(
+        user_id=user.id,
+        email=user.email
+    )
+    
+    # Create refresh token
+    refresh_token_service = RefreshTokenService(db)
+    refresh_token = refresh_token_service.create_refresh_token(
+        user_id=user.id,
+        device_name=register_data.device_name,
+        ip_address=request.client.host if request.client else None
+    )
+    
+    return RegisterResponse(
+        access_token=access_token,
+        refresh_token=refresh_token.token,
+        token_type="bearer",
+        expires_in=JWTHandler.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        user=UserInfo.model_validate(user)
     )
 
 
