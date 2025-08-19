@@ -19,6 +19,7 @@ from app.domains.balance_points.models import BalancePoint
 from app.domains.brokers.models import Broker
 from app.domains.credit_cards.models import CreditCard
 from app.domains.invoices.models import Invoice
+from app.domains.refresh_tokens.models import RefreshToken
 from app.domains.statements.models import Statement
 from app.domains.transactions.models import Transaction
 from app.domains.users.models import User
@@ -33,7 +34,8 @@ def validate_model_registration():
     """Validate that all expected models are registered"""
     expected_tables = {
         'users', 'accounts', 'brokers', 'credit_cards', 
-        'invoices', 'statements', 'transactions', 'balance_points'
+        'invoices', 'statements', 'transactions', 'balance_points',
+        'refresh_tokens'
     }
     registered_tables = set(get_registered_models())
     
