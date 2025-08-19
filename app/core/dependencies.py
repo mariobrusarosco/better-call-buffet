@@ -1,13 +1,14 @@
 from uuid import UUID
 from functools import lru_cache
 
-from app.core.constants import DEV_USER_ID
 from app.core.config import settings
 from app.core.ai import AIClient
 
+# Import JWT authentication dependency
+from app.core.auth.dependencies import get_current_user_id as jwt_get_current_user_id
 
-def get_current_user_id() -> UUID:
-    return DEV_USER_ID
+# Use the JWT-based authentication for getting current user ID
+get_current_user_id = jwt_get_current_user_id
 
 
 @lru_cache()

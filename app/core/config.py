@@ -12,7 +12,12 @@ class Settings(BaseSettings):
     )
 
     # CORS Configuration
-    BACKEND_CORS_ORIGINS: List[str] = []
+    BACKEND_CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",  # React dev server
+        "http://localhost:2000",  # Your custom frontend port
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:2000",
+    ]
 
     # Database - provide test default for CI
     DATABASE_URL: str = "sqlite:///./test.db"

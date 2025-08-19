@@ -60,8 +60,12 @@ app.add_middleware(
 app.add_middleware(PerformanceMonitoringMiddleware, slow_request_threshold=1.0)
 
 # Configure CORS
-origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
-
+if settings.is_development:
+    # In development, allow all origins for easier frontend development
+    origins = ["*"]
+else:
+    # In production, use specific origins
+    origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
 
 app.add_middleware(
     CORSMiddleware,

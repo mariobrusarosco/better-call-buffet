@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user_id  # Assuming this exists
+from app.core.auth.dependencies import get_current_user, get_current_user_id
 from app.db.connection_and_session import get_db_session
 from app.domains.users.schemas import User, UserIn, UserUpdateIn
 from app.domains.users.service import UserService
@@ -26,7 +26,7 @@ def create_user(user_in: UserIn, db: Session = Depends(get_db_session)):
 def get_users(
     include_inactive: bool = Query(False, description="Include inactive users"),
     db: Session = Depends(get_db_session),
-    # current_user_id: UUID = Depends(get_current_user_id)  # Admin only endpoint
+    current_user: User = Depends(get_current_user)  # Admin only endpoint
 ):
     """Get all users (admin endpoint)"""
     service = UserService(db)
@@ -49,7 +49,7 @@ def get_current_user(
 @router.get("/inactive", response_model=List[User])
 def get_inactive_users(
     db: Session = Depends(get_db_session),
-    # current_user_id: UUID = Depends(get_current_user_id)  # Admin only endpoint
+    current_user: User = Depends(get_current_user)  # Admin only endpoint
 ):
     """Get all inactive users (admin endpoint)"""
     service = UserService(db)
@@ -60,7 +60,7 @@ def get_inactive_users(
 def search_users(
     q: str = Query(..., min_length=2, description="Search term for name or email"),
     db: Session = Depends(get_db_session),
-    # current_user_id: UUID = Depends(get_current_user_id)  # Admin only endpoint
+    current_user: User = Depends(get_current_user)  # Admin only endpoint
 ):
     """Search users by name or email (admin endpoint)"""
     service = UserService(db)
@@ -74,7 +74,7 @@ def search_users(
 def get_user_count(
     active_only: bool = Query(True, description="Count only active users"),
     db: Session = Depends(get_db_session),
-    # current_user_id: UUID = Depends(get_current_user_id)  # Admin only endpoint
+    current_user: User = Depends(get_current_user)  # Admin only endpoint
 ):
     """Get count of users (admin endpoint)"""
     service = UserService(db)
@@ -86,7 +86,7 @@ def get_user_count(
 def get_recent_users(
     days: int = Query(30, ge=1, le=365, description="Number of days to look back"),
     db: Session = Depends(get_db_session),
-    # current_user_id: UUID = Depends(get_current_user_id)  # Admin only endpoint
+    current_user: User = Depends(get_current_user)  # Admin only endpoint
 ):
     """Get recently created users (admin endpoint)"""
     service = UserService(db)
@@ -97,7 +97,7 @@ def get_recent_users(
 def get_user_by_id(
     user_id: UUID,
     db: Session = Depends(get_db_session),
-    # current_user_id: UUID = Depends(get_current_user_id)  # Admin only endpoint
+    current_user: User = Depends(get_current_user)  # Admin only endpoint
 ):
     """Get user by ID (admin endpoint)"""
     service = UserService(db)
@@ -131,7 +131,7 @@ def update_user_by_id(
     user_id: UUID,
     update_data: UserUpdateIn,
     db: Session = Depends(get_db_session),
-    # current_user_id: UUID = Depends(get_current_user_id)  # Admin only endpoint
+    current_user: User = Depends(get_current_user)  # Admin only endpoint
 ):
     """Update user by ID (admin endpoint)"""
     service = UserService(db)
@@ -171,7 +171,7 @@ def reset_user_password(
     user_id: UUID,
     new_password: str = Query(..., description="New password"),
     db: Session = Depends(get_db_session),
-    # current_user_id: UUID = Depends(get_current_user_id)  # Admin only endpoint
+    current_user: User = Depends(get_current_user)  # Admin only endpoint
 ):
     """Reset user password (admin endpoint)"""
     service = UserService(db)
@@ -215,7 +215,7 @@ def deactivate_current_user(
 def deactivate_user(
     user_id: UUID,
     db: Session = Depends(get_db_session),
-    # current_user_id: UUID = Depends(get_current_user_id)  # Admin only endpoint
+    current_user: User = Depends(get_current_user)  # Admin only endpoint
 ):
     """Deactivate user account (admin endpoint)"""
     service = UserService(db)
@@ -229,7 +229,7 @@ def deactivate_user(
 def activate_user(
     user_id: UUID,
     db: Session = Depends(get_db_session),
-    # current_user_id: UUID = Depends(get_current_user_id)  # Admin only endpoint
+    current_user: User = Depends(get_current_user)  # Admin only endpoint
 ):
     """Activate a previously deactivated user (admin endpoint)"""
     service = UserService(db)
@@ -243,7 +243,7 @@ def activate_user(
 def permanently_delete_user(
     user_id: UUID,
     db: Session = Depends(get_db_session),
-    # current_user_id: UUID = Depends(get_current_user_id)  # Admin only endpoint
+    current_user: User = Depends(get_current_user)  # Admin only endpoint
 ):
     """Permanently delete user (admin endpoint) - WARNING: This cannot be undone"""
     service = UserService(db)
