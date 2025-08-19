@@ -6,20 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.core.auth.dependencies import get_current_user, get_current_user_id
 from app.db.connection_and_session import get_db_session
-from app.domains.users.schemas import User, UserIn, UserUpdateIn
+from app.domains.users.schemas import User, UserUpdateIn
 from app.domains.users.service import UserService
 
 router = APIRouter()
-
-
-@router.post("", response_model=User, status_code=status.HTTP_201_CREATED)
-def create_user(user_in: UserIn, db: Session = Depends(get_db_session)):
-    """Create a new user"""
-    service = UserService(db)
-    try:
-        return service.create_user(user_in)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("", response_model=List[User])

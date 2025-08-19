@@ -52,6 +52,19 @@ class LogoutRequest(BaseModel):
     all_devices: bool = Field(default=False, description="Logout from all devices")
 
 
+class RegisterRequest(BaseModel):
+    """Schema for user registration request"""
+    email: EmailStr = Field(..., description="User email address")
+    password: str = Field(..., min_length=8, description="User password")
+    full_name: Optional[str] = Field(None, description="User's full name")
+    device_name: Optional[str] = Field(None, description="Device or browser name for tracking")
+
+
+class RegisterResponse(TokenResponse):
+    """Schema for registration response - includes tokens and user info"""
+    user: "UserInfo" = Field(..., description="Created user information")
+
+
 class UserInfo(BaseModel):
     """Schema for authenticated user information"""
     id: UUID
