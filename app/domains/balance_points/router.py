@@ -5,12 +5,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user_id
+from app.core.auth.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
 from app.domains.balance_points.schemas import (
     BalancePoint,
     BalancePointIn,
     BalancePointUpdateIn,
+    BalancePointUpsertIn,
+    MonthlyBalanceSummary,
 )
 from app.domains.balance_points.service import BalancePointService
 
@@ -28,6 +30,40 @@ def create_balance_point(
     try:
         return service.create_balance_point(
             balance_point_in=balance_point_in, user_id=current_user_id
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/account/{account_id}/date/{target_date}", response_model=BalancePoint)
+def upsert_balance_point(
+    account_id: UUID,
+    target_date: datetime,
+    balance_data: BalancePointUpsertIn,
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    Create or update a balance point for a specific account and date.
+    
+    If a balance point already exists for this account and date, it will be updated.
+    If not, a new balance point will be created.
+    
+    This is useful for:
+    - Setting daily balance snapshots
+    - Updating existing balance records
+    - Ensuring only one balance point per day per account
+    """
+    service = BalancePointService(db)
+    try:
+        # Convert Pydantic model to dict
+        balance_dict = balance_data.model_dump()
+        
+        return service.upsert_balance_point(
+            account_id=account_id,
+            target_date=target_date,
+            balance_data=balance_dict,
+            user_id=current_user_id
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -123,6 +159,35 @@ def get_account_balance_trend(
     service = BalancePointService(db)
     try:
         return service.get_balance_trend(account_id, current_user_id, days)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/account/{account_id}/monthly-summary", response_model=List[MonthlyBalanceSummary])
+def get_monthly_balance_summaries(
+    account_id: UUID,
+    year: Optional[int] = Query(None, description="Year to get summaries for (defaults to current year)"),
+    months: int = Query(12, ge=1, le=12, description="Number of months to return (max 12)"),
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    Get monthly balance summaries for an account.
+    
+    Returns for each month:
+    - started_with: First balance of the month
+    - ended_with: Last balance of the month
+    - movement: Net change during the month (ended - started)
+    - profit: Same as movement
+    - profit_percentage: Percentage change from start of month
+    - has_data: Whether balance points exist for that month
+    
+    Perfect for displaying monthly financial performance cards.
+    """
+    service = BalancePointService(db)
+    try:
+        summaries = service.get_monthly_summaries(account_id, current_user_id, year, months)
+        return [MonthlyBalanceSummary(**summary) for summary in summaries]
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

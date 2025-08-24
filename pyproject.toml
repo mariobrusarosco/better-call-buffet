@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "better-call-buffet"
-version = "0.1.0"
+version = "1.0.0"
 description = "A modern web application for financial management and analysis"
 authors = ["Mario Brusarosco <mario.brusarosco@gmail.com>"]
 readme = "README.md"

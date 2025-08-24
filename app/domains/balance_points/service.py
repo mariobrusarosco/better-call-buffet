@@ -62,6 +62,7 @@ class BalancePointService:
             "account_id": balance_point_in.account_id,
             "date": balance_point_in.date or datetime.utcnow(),
             "balance": balance_point_in.balance,
+            "snapshot_type": balance_point_in.snapshot_type,
             "note": balance_point_in.note,
         }
 
@@ -195,6 +196,63 @@ class BalancePointService:
             raise ValueError("Start date must be before end date")
 
         return self.repository.get_by_user_and_date_range(user_id, start_date, end_date)
+
+    def get_monthly_summaries(
+        self, account_id: UUID, user_id: UUID, year: int = None, months: int = 12
+    ) -> List[dict]:
+        """
+        Get monthly balance summaries for an account.
+        Shows starting balance, ending balance, movement, and profit percentage for each month.
+        
+        Args:
+            account_id: ID of the account
+            user_id: ID of the user
+            year: Year to get summaries for (defaults to current year)
+            months: Number of months to return (defaults to 12, max 12)
+        
+        Returns:
+            List of monthly summaries with balance data
+        """
+        # Validate account ownership
+        account = self.account_service.get_account_by_id(account_id, user_id)
+        if not account:
+            raise ValueError("Account not found or does not belong to user")
+        
+        return self.repository.get_monthly_summaries(account_id, user_id, year, months)
+
+    def upsert_balance_point(
+        self, 
+        account_id: UUID, 
+        target_date: datetime,
+        balance_data: dict,
+        user_id: UUID
+    ) -> BalancePoint:
+        """
+        Create or update a balance point for a specific account and date.
+        
+        Args:
+            account_id: ID of the account
+            target_date: Date for the balance point
+            balance_data: Balance point data (balance, snapshot_type, note)
+            user_id: ID of the user
+        
+        Returns:
+            The created or updated balance point
+        
+        Raises:
+            ValueError: If account doesn't belong to user
+        """
+        # Validate account ownership
+        account = self.account_service.get_account_by_id(account_id, user_id)
+        if not account:
+            raise ValueError("Account not found or does not belong to user")
+        
+        # Convert datetime to date if needed
+        if isinstance(target_date, datetime):
+            target_date = target_date.date()
+        
+        # Call repository upsert method
+        return self.repository.upsert(account_id, user_id, target_date, balance_data)
 
     def get_total_balance_at_date(self, user_id: UUID, target_date: date) -> float:
         """
