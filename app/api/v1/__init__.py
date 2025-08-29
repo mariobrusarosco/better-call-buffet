@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-from app.api.v1.auth import router as auth_router
 from app.domains.accounts.router import router as accounts_router
+from app.domains.auth.router import router as auth_router
 from app.domains.balance_points.router import router as balance_points_router
 from app.domains.brokers.router import router as brokers_router
 from app.domains.credit_cards.router import router as credit_cards_router
