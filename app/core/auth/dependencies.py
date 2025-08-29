@@ -15,7 +15,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from app.core.auth.jwt_handler import JWTHandler
-from app.core.auth.schemas import TokenData
+from app.domains.auth.schemas import TokenData
 from app.db.connection_and_session import get_db_session
 from app.domains.users.models import User
 from app.domains.users.service import UserService
