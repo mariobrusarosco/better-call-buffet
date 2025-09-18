@@ -53,12 +53,13 @@ open http://localhost:8000/docs
 
 | Action | Command | What Happens? |
 |--------|---------|---------------|
-| Start API & DB | `docker-compose up` | Hot reload, logs, DB all in one |
-| Stop everything | `Ctrl+C` or `docker-compose down` | Clean shutdown |
-| Run migrations | `docker-compose exec web alembic upgrade head` | DB schema updated |
-| Run tests | `docker-compose exec web poetry run pytest` | Tests run inside container |
-| Format code | `docker-compose exec web poetry run black .` | Code formatted |
-| Check logs | `docker-compose logs web` | View application logs |
+| Start API & DB | `docker compose up` | Hot reload, logs, DB all in one |
+| Start with log file | `docker compose up \| tee docker-logs.txt` | Same as above + saves logs to file |
+| Stop everything | `Ctrl+C` or `docker compose down` | Clean shutdown |
+| Run migrations | `docker compose exec web alembic upgrade head` | DB schema updated |
+| Run tests | `docker compose exec web poetry run pytest` | Tests run inside container |
+| Format code | `docker compose exec web poetry run black .` | Code formatted |
+| Check logs | `docker compose logs web` | View application logs |
 
 ---
 
