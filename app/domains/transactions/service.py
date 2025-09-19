@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.error_handlers import NotFoundError, ValidationError
 from app.core.logging_config import get_logger
 from app.domains.accounts.service import AccountService
+from app.domains.balance_points.service import BalancePointService
 from app.domains.credit_cards.schemas import CreditCardFilters
 from app.domains.credit_cards.service import CreditCardService
 from app.domains.transactions.models import Transaction
@@ -33,6 +34,7 @@ class TransactionService:
         self.repository = TransactionRepository(db)
         self.account_service = AccountService(db)
         self.credit_card_service = CreditCardService(db)
+        self.balance_point_service = BalancePointService(db)
 
     def create_transactions_bulk(
         self, transactions_data: List[Dict[str, Any]]
@@ -86,6 +88,19 @@ class TransactionService:
                 tx_dict["user_id"] = user_id
                 tx_dict["id"] = uuid.uuid4()  # Generate ID for bulk insert
                 
+                # Calculate balance impact based on movement type
+                amount = float(tx_dict["amount"])
+                movement_type = tx_dict["movement_type"]
+                
+                if movement_type == "income":
+                    tx_dict["balance_impact"] = amount  # Positive impact
+                elif movement_type == "expense":
+                    tx_dict["balance_impact"] = -amount  # Negative impact
+                elif movement_type == "transfer":
+                    tx_dict["balance_impact"] = -amount if tx_dict.get("from_account_id") else amount
+                else:
+                    tx_dict["balance_impact"] = 0  # Default case
+                
                 successful_transactions.append(tx_dict)
                 
                 results.append(TransactionResult(
@@ -132,6 +147,38 @@ class TransactionService:
                         "created_transaction_ids": [str(id) for id in created_ids]
                     }
                 )
+                
+                # Auto-update balance points for all affected accounts
+                affected_accounts = set()
+                for tx_data in successful_transactions:
+                    if tx_data.get("account_id"):
+                        affected_accounts.add(tx_data["account_id"])
+                
+                for account_id in affected_accounts:
+                    try:
+                        # Use the last transaction ID from this account as the trigger
+                        relevant_tx = next(
+                            tx for tx in successful_transactions 
+                            if tx.get("account_id") == account_id
+                        )
+                        
+                        self.balance_point_service.auto_update_balance_from_transaction(
+                            account_id=account_id,
+                            transaction_id=relevant_tx["id"],
+                            user_id=user_id
+                        )
+                        
+                        logger.debug(f"Auto-updated balance point for account {account_id}")
+                        
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to auto-update balance point for account {account_id}: {str(e)}",
+                            extra={
+                                "account_id": str(account_id),
+                                "user_id": str(user_id),
+                                "error": str(e)
+                            }
+                        )
                 
             except Exception as e:
                 logger.error(f"Bulk insert failed: {str(e)}")
@@ -183,8 +230,49 @@ class TransactionService:
     ) -> Transaction:
         transaction_data = transaction.model_dump()
         transaction_data["user_id"] = user_id
+        
+        # Calculate balance impact based on movement type
+        amount = float(transaction_data["amount"])
+        movement_type = transaction_data["movement_type"]
+        
+        if movement_type == "income":
+            transaction_data["balance_impact"] = amount  # Positive impact
+        elif movement_type == "expense":
+            transaction_data["balance_impact"] = -amount  # Negative impact
+        elif movement_type == "transfer":
+            # For transfers, this logic might need to be more complex
+            # For now, we'll handle basic transfers
+            transaction_data["balance_impact"] = -amount if transaction_data.get("from_account_id") else amount
+        else:
+            transaction_data["balance_impact"] = 0  # Default case
 
-        return self.repository.create(transaction_data)
+        # Create the transaction
+        created_transaction = self.repository.create(transaction_data)
+        
+        # Auto-update balance point for the affected account
+        if created_transaction.account_id:
+            try:
+                self.balance_point_service.auto_update_balance_from_transaction(
+                    account_id=created_transaction.account_id,
+                    transaction_id=created_transaction.id,
+                    user_id=user_id
+                )
+            except Exception as e:
+                # Log error but don't fail the transaction creation
+                logger.error(
+                    f"Failed to auto-update balance point after transaction creation: {str(e)}",
+                    extra={
+                        "transaction_id": str(created_transaction.id),
+                        "account_id": str(created_transaction.account_id),
+                        "error": str(e)
+                    }
+                )
+        
+        # TODO: Handle credit card balance updates when credit_card_id is set
+        # if created_transaction.credit_card_id:
+        #     self.balance_point_service.auto_update_balance_from_transaction(...)
+
+        return created_transaction
 
     def check_transaction_validity(
         self,

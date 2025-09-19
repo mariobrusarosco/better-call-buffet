@@ -7,6 +7,7 @@
 Better Call Buffet is a **personal finance platform** that helps you manage your financial life with the sophistication of professional investment tools. Think of it as your personal financial command center with AI assistance.
 
 ### **Core Capabilities**
+
 - 📊 **Multi-Account Management** - Track bank accounts, investments, and credit cards
 - 💳 **Transaction Analytics** - Categorize and analyze spending patterns
 - 🤖 **AI-Powered Insights** - Smart financial analysis and recommendations
@@ -45,21 +46,22 @@ open http://localhost:8000/docs
 **That's it!** 🎉 Your financial platform is now running.
 
 ### **📍 Local URLs**
+
 - **API:** http://localhost:8000
 - **Interactive Docs:** http://localhost:8000/docs
 - **Health Check:** http://localhost:8000/health
 
 ### **▶️ Development Cheat Sheet**
 
-| Action | Command | What Happens? |
-|--------|---------|---------------|
-| Start API & DB | `docker compose up` | Hot reload, logs, DB all in one |
-| Start with log file | `docker compose up \| tee docker-logs.txt` | Same as above + saves logs to file |
-| Stop everything | `Ctrl+C` or `docker compose down` | Clean shutdown |
-| Run migrations | `docker compose exec web alembic upgrade head` | DB schema updated |
-| Run tests | `docker compose exec web poetry run pytest` | Tests run inside container |
-| Format code | `docker compose exec web poetry run black .` | Code formatted |
-| Check logs | `docker compose logs web` | View application logs |
+| Action              | Command                                        | What Happens?                   |
+| ------------------- | ---------------------------------------------- | ------------------------------- | ---------------------------------- |
+| Start API & DB      | `docker compose up`                            | Hot reload, logs, DB all in one |
+| Start with log file | `docker compose up                             | tee logs/dev.log`               | Same as above + saves logs to file |
+| Stop everything     | `Ctrl+C` or `docker compose down`              | Clean shutdown                  |
+| Run migrations      | `docker compose exec web alembic upgrade head` | DB schema updated               |
+| Run tests           | `docker compose exec web poetry run pytest`    | Tests run inside container      |
+| Format code         | `docker compose exec web poetry run black .`   | Code formatted                  |
+| Check logs          | `docker compose logs web`                      | View application logs           |
 
 ---
 
@@ -85,22 +87,26 @@ This project follows **clean architecture** with distinct business domains:
 ### **🛠️ Technology Stack**
 
 #### **Backend Framework**
+
 - **FastAPI** - Modern, high-performance web framework
 - **Python 3.11+** - Latest Python features
 - **Pydantic** - Data validation and serialization
 - **SQLAlchemy 2.0** - Modern ORM with async support
 
 #### **Database & Persistence**
+
 - **PostgreSQL** - Production database
 - **Alembic** - Database migrations
 - **Repository Pattern** - Clean data access abstraction
 
 #### **AI Integration** ⭐
+
 - **OpenAI API** - Financial data analysis and insights
 - **Ollama Support** - Local LLM inference capability
 - **Smart Categorization** - AI-powered transaction parsing
 
 #### **Production Infrastructure**
+
 - **Railway** - Serverless deployment platform
 - **Docker** - Containerization for consistency
 - **GitHub Actions** - CI/CD pipeline
@@ -153,6 +159,7 @@ flowchart TD
 ### **Database Management**
 
 #### **Creating Migrations**
+
 After modifying SQLAlchemy models:
 
 ```bash
@@ -161,6 +168,7 @@ docker-compose exec web alembic upgrade head
 ```
 
 #### **Checking Migration Status**
+
 ```bash
 docker-compose exec web alembic current
 ```
@@ -230,6 +238,7 @@ sequenceDiagram
 **Timeline:** ~2-3 minutes from push to live 🚀
 
 ### **🔗 Production URLs**
+
 - **App:** https://your-app.railway.app
 - **API Docs:** https://your-app.railway.app/docs
 - **Health:** https://your-app.railway.app/health
@@ -276,12 +285,14 @@ better-call-buffet/
 ## 🧠 **AI-Powered Features**
 
 ### **Financial Intelligence**
+
 - **Transaction Categorization** - Automatically categorize expenses
 - **Spending Analysis** - Identify patterns and anomalies
 - **Budget Recommendations** - AI-suggested budget optimizations
 - **Investment Insights** - Portfolio analysis and recommendations
 
 ### **AI Configuration**
+
 ```python
 # OpenAI Integration
 OPENAI_API_KEY=your_openai_key
@@ -295,6 +306,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 ## 🔧 **Key Features**
 
 ### **Financial Management**
+
 - 🏦 **Multi-Account Tracking** - Banks, investments, credit cards
 - 💰 **Transaction Management** - Income, expenses, transfers
 - 📊 **Balance Monitoring** - Historical balance snapshots
@@ -302,6 +314,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 - 📈 **Investment Tracking** - Monitor broker performance
 
 ### **Technical Excellence**
+
 - 🔒 **Security** - Input validation, CORS configuration
 - 📝 **Logging** - Structured JSON logging for production
 - 🏥 **Monitoring** - Health checks and performance tracking
@@ -309,6 +322,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 - 📖 **Documentation** - Auto-generated API docs
 
 ### **Developer Experience**
+
 - 🐳 **Docker Everything** - Consistent development environment
 - 🔄 **Hot Reload** - Instant feedback during development
 - 🚀 **One-Command Setup** - `docker-compose up` and you're running
@@ -319,22 +333,26 @@ OLLAMA_BASE_URL=http://localhost:11434
 ## 🤝 **Contributing**
 
 1. **Fork and Clone**
+
    ```bash
    git clone <your-fork>
    cd better-call-buffet
    ```
 
 2. **Start Development Environment**
+
    ```bash
    docker-compose up -d --build
    ```
 
 3. **Make Your Changes**
+
    - Follow the domain-driven structure
    - Add tests for new features
    - Update documentation
 
 4. **Quality Checks**
+
    ```bash
    docker-compose exec web poetry run pytest
    docker-compose exec web poetry run black .
@@ -349,14 +367,15 @@ OLLAMA_BASE_URL=http://localhost:11434
 
 ### **Common Issues**
 
-| Issue | Solution |
-|-------|----------|
-| Docker permission denied | Add user to docker group: `sudo usermod -aG docker $USER` |
-| Port 8000 already in use | Stop other services or change port in docker-compose.yml |
+| Issue                     | Solution                                                    |
+| ------------------------- | ----------------------------------------------------------- |
+| Docker permission denied  | Add user to docker group: `sudo usermod -aG docker $USER`   |
+| Port 8000 already in use  | Stop other services or change port in docker-compose.yml    |
 | Database connection fails | Ensure PostgreSQL container is healthy: `docker-compose ps` |
-| Migrations fail | Check migration files in `migrations/versions/` |
+| Migrations fail           | Check migration files in `migrations/versions/`             |
 
 ### **Getting Help**
+
 - Check the logs: `docker-compose logs web`
 - Visit the health endpoint: `curl http://localhost:8000/health`
 - Review the API docs: http://localhost:8000/docs

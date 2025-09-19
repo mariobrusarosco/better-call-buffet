@@ -4,10 +4,11 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.domains.accounts.service import AccountService
 from app.domains.balance_points.models import BalancePoint
 from app.domains.balance_points.repository import BalancePointRepository
 from app.domains.balance_points.schemas import BalancePointIn
+from app.domains.transactions.repository import TransactionRepository
+from app.domains.accounts.repository import AccountRepository
 
 
 class BalancePointService:
@@ -18,7 +19,8 @@ class BalancePointService:
 
     def __init__(self, db: Session):
         self.repository = BalancePointRepository(db)
-        self.account_service = AccountService(db)
+        self.account_repository = AccountRepository(db)
+        self.transaction_repository = TransactionRepository(db)
 
     def create_balance_point(
         self, balance_point_in: BalancePointIn, user_id: UUID
@@ -37,7 +39,7 @@ class BalancePointService:
             ValueError: If account doesn't belong to user or duplicate date entry
         """
         # Validate account ownership
-        account = self.account_service.get_account_by_id(
+        account = self.account_repository.get_by_id_and_user(
             balance_point_in.account_id, user_id
         )
         if not account:
@@ -73,7 +75,7 @@ class BalancePointService:
     ) -> List[BalancePoint]:
         """Get all balance points for a specific account"""
         # Validate account ownership
-        account = self.account_service.get_account_by_id(account_id, user_id)
+        account = self.account_repository.get_by_id_and_user(account_id, user_id)
         if not account:
             raise ValueError("Account not found or does not belong to user")
 
@@ -171,7 +173,7 @@ class BalancePointService:
             List of balance points ordered by date
         """
         # Validate account ownership
-        account = self.account_service.get_account_by_id(account_id, user_id)
+        account = self.account_repository.get_by_id_and_user(account_id, user_id)
         if not account:
             raise ValueError("Account not found or does not belong to user")
 
@@ -182,7 +184,7 @@ class BalancePointService:
     ) -> Optional[BalancePoint]:
         """Get the most recent balance point for an account"""
         # Validate account ownership
-        account = self.account_service.get_account_by_id(account_id, user_id)
+        account = self.account_repository.get_by_id_and_user(account_id, user_id)
         if not account:
             raise ValueError("Account not found or does not belong to user")
 
@@ -214,7 +216,7 @@ class BalancePointService:
             List of monthly summaries with balance data
         """
         # Validate account ownership
-        account = self.account_service.get_account_by_id(account_id, user_id)
+        account = self.account_repository.get_by_id_and_user(account_id, user_id)
         if not account:
             raise ValueError("Account not found or does not belong to user")
         
@@ -243,7 +245,7 @@ class BalancePointService:
             ValueError: If account doesn't belong to user
         """
         # Validate account ownership
-        account = self.account_service.get_account_by_id(account_id, user_id)
+        account = self.account_repository.get_by_id_and_user(account_id, user_id)
         if not account:
             raise ValueError("Account not found or does not belong to user")
         
@@ -253,6 +255,126 @@ class BalancePointService:
         
         # Call repository upsert method
         return self.repository.upsert(account_id, user_id, target_date, balance_data)
+
+    def calculate_account_balance_from_transactions(
+        self, account_id: UUID, user_id: UUID
+    ) -> float:
+        """
+        Calculate account balance from all transactions.
+        
+        This method sums all balance_impact values for an account to get
+        the current calculated balance based on transaction history.
+        
+        Args:
+            account_id: ID of the account
+            user_id: ID of the user (for security validation)
+            
+        Returns:
+            Current balance calculated from all transactions
+            
+        Raises:
+            ValueError: If account doesn't belong to user
+        """
+        # Validate account ownership
+        account = self.account_repository.get_by_id_and_user(account_id, user_id)
+        if not account:
+            raise ValueError("Account not found or does not belong to user")
+        
+        # Get all transactions for this account (without filters to get all transactions)
+        transactions, _ = self.transaction_repository.get_account_transactions_with_filters(
+            account_id=account_id, 
+            user_id=user_id,
+            filters=None  # No filters to get all transactions
+        )
+        
+        # Sum all balance impacts (positive for income, negative for expenses)
+        total_balance = sum(
+            float(transaction.balance_impact or 0) for transaction in transactions
+        )
+        
+        return total_balance
+
+    def create_balance_snapshot_from_transactions(
+        self, account_id: UUID, user_id: UUID, note: str = None
+    ) -> BalancePoint:
+        """
+        Create today's balance snapshot by calculating balance from transactions.
+        
+        This is the main method for the "Update Balance" button - it automatically
+        calculates the current balance from transactions and creates/updates today's
+        balance point.
+        
+        Args:
+            account_id: ID of the account
+            user_id: ID of the user
+            note: Optional note for the balance snapshot
+            
+        Returns:
+            The created or updated balance point
+            
+        Raises:
+            ValueError: If account doesn't belong to user
+        """
+        # Calculate current balance from transactions
+        calculated_balance = self.calculate_account_balance_from_transactions(
+            account_id, user_id
+        )
+        
+        # Create/update today's balance point with calculated balance
+        today = datetime.utcnow()
+        balance_data = {
+            "balance": calculated_balance,
+            "snapshot_type": "manual",
+            "note": note
+        }
+        
+        return self.upsert_balance_point(
+            account_id=account_id,
+            target_date=today,
+            balance_data=balance_data,
+            user_id=user_id
+        )
+
+    def auto_update_balance_from_transaction(
+        self, account_id: UUID, transaction_id: UUID, user_id: UUID
+    ) -> BalancePoint:
+        """
+        Automatically update today's balance point after a transaction is created.
+        
+        This method is called by the transaction service whenever a new transaction
+        is added to ensure balance points stay up-to-date with transaction changes.
+        
+        Args:
+            account_id: ID of the affected account
+            transaction_id: ID of the transaction that triggered the update
+            user_id: ID of the user
+            
+        Returns:
+            The created or updated balance point
+            
+        Raises:
+            ValueError: If account doesn't belong to user
+        """
+        # Calculate new balance from all transactions
+        calculated_balance = self.calculate_account_balance_from_transactions(
+            account_id, user_id
+        )
+        
+        # Create/update today's balance point with calculated balance
+        today = datetime.utcnow()
+        balance_data = {
+            "balance": calculated_balance,
+            "snapshot_type": "transaction",  # Automatic update from transaction
+            "note": f"Auto-updated from transaction",
+            "source_transaction_id": transaction_id
+        }
+        
+        return self.upsert_balance_point(
+            account_id=account_id,
+            target_date=today,
+            balance_data=balance_data,
+            user_id=user_id
+        )
 
     def get_total_balance_at_date(self, user_id: UUID, target_date: date) -> float:
         """

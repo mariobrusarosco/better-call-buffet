@@ -9,18 +9,20 @@ from sqlalchemy import func, and_
 from app.domains.accounts.models import Account
 from app.domains.accounts.repository import AccountRepository
 from app.domains.accounts.schemas import AccountIn, AccountType, AccountWithBroker
+from app.domains.balance_points.service import BalancePointService
 
 logger = logging.getLogger(__name__)
 
 
 class AccountService:
-    """
+    """Yes
     Service layer for Account business logic.
     Uses AccountRepository for data access operations.
     """
 
     def __init__(self, db: Session):
         self.repository = AccountRepository(db)
+        self.balance_point_service = BalancePointService(db)
 
     def get_all_user_active_accounts(self, user_id: UUID) -> List[Account]:
         """Get all active accounts for a user"""
@@ -53,7 +55,36 @@ class AccountService:
         account_data["user_id"] = user_id
 
         # Create account through repository
-        return self.repository.create(account_data)
+        created_account = self.repository.create(account_data)
+        
+        # Always create opening balance point
+        initial_balance = account_data.get("balance", 0.0)
+        try:
+            balance_data = {
+                "balance": initial_balance,
+                "snapshot_type": "opening",
+                "note": f"Opening balance for account '{created_account.name}'"
+            }
+            
+            self.balance_point_service.upsert_balance_point(
+                account_id=created_account.id,
+                target_date=datetime.utcnow(),
+                balance_data=balance_data,
+                user_id=user_id
+            )
+            
+            logger.info(
+                f"Created opening balance point for account {created_account.id} "
+                f"with balance {initial_balance}"
+            )
+            
+        except Exception as e:
+            # Log error but don't fail account creation
+            logger.error(
+                f"Failed to create opening balance point for account {created_account.id}: {str(e)}"
+            )
+        
+        return created_account
 
     def get_account_by_id(self, account_id: UUID, user_id: UUID) -> Optional[Account]:
         """

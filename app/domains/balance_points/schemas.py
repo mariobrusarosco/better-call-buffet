@@ -45,6 +45,11 @@ class BalancePointUpsertIn(BaseModel):
     note: Optional[str] = None
 
 
+# Schema for simple balance snapshot creation (no balance input needed)
+class BalanceSnapshotIn(BaseModel):
+    note: Optional[str] = None
+
+
 # Schema for monthly balance summary
 class MonthlyBalanceSummary(BaseModel):
     month: str  # Format: "2025-01"

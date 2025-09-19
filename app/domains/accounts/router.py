@@ -9,6 +9,8 @@ from app.core.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
 from app.domains.accounts.schemas import Account, AccountIn, AccountType
 from app.domains.accounts.service import AccountService
+from app.domains.balance_points.schemas import BalancePoint, BalanceSnapshotIn
+from app.domains.balance_points.service import BalancePointService
 from app.domains.statements.schemas import StatementIn, StatementResponse, StatementListResponse
 from app.domains.statements.service import StatementService
 from app.domains.transactions.schemas import TransactionFilters, TransactionListResponse
@@ -109,25 +111,44 @@ def get_account_endpoint(
     return account
 
 
-@router.patch("/{account_id}/balance")
-def update_account_balance_endpoint(
+@router.post("/{account_id}/update-balance", response_model=BalancePoint)
+def create_balance_snapshot_endpoint(
     account_id: UUID,
-    new_balance: float,
+    balance_snapshot: BalanceSnapshotIn,
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id),
 ):
-    """Update account balance"""
-    service = AccountService(db)
+    """
+    Create today's balance snapshot by calculating balance from transactions.
+    
+    This endpoint provides the "Update Balance" button functionality:
+    - Automatically calculates current balance from all account transactions
+    - Creates or updates today's balance point with the calculated balance
+    - No manual balance input needed - everything is calculated from transaction history
+    
+    **Perfect for the balance tracking button that:**
+    - First call today: Creates new balance point with calculated balance
+    - Subsequent calls today: Updates existing balance point
+    - Next day: Creates new balance point (maintains daily history)
+    
+    **Frontend Usage:**
+    ```javascript
+    POST /api/v1/accounts/{accountId}/update-balance
+    {
+        "note": "End of day snapshot"  // Optional
+    }
+    ```
+    
+    **Response:** Complete balance point object with calculated balance
+    """
+    balance_service = BalancePointService(db)
     try:
-        account = service.update_account_balance(
-            account_id, current_user_id, new_balance
+        balance_point = balance_service.create_balance_snapshot_from_transactions(
+            account_id=account_id,
+            user_id=current_user_id,
+            note=balance_snapshot.note
         )
-        if not account:
-            raise HTTPException(status_code=404, detail="Account not found")
-        return {
-            "message": "Balance updated successfully",
-            "new_balance": account.balance,
-        }
+        return balance_point
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
