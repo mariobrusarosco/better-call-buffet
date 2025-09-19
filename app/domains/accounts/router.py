@@ -114,7 +114,7 @@ def get_account_endpoint(
 @router.post("/{account_id}/update-balance", response_model=BalancePoint)
 def create_balance_snapshot_endpoint(
     account_id: UUID,
-    balance_snapshot: BalanceSnapshotIn,
+    balance_snapshot_in: Optional[BalanceSnapshotIn] = None,
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id),
 ):
@@ -133,10 +133,8 @@ def create_balance_snapshot_endpoint(
     
     **Frontend Usage:**
     ```javascript
-    POST /api/v1/accounts/{accountId}/update-balance
-    {
-        "note": "End of day snapshot"  // Optional
-    }
+    POST /api/v1/accounts/{accountId}/update-balance?note=End%20of%20day%20snapshot
+    // No body required - note is optional query parameter
     ```
     
     **Response:** Complete balance point object with calculated balance
@@ -146,7 +144,7 @@ def create_balance_snapshot_endpoint(
         balance_point = balance_service.create_balance_snapshot_from_transactions(
             account_id=account_id,
             user_id=current_user_id,
-            note=balance_snapshot.note
+            note=balance_snapshot_in.note if balance_snapshot_in else None
         )
         return balance_point
     except ValueError as e:

@@ -260,17 +260,17 @@ class BalancePointService:
         self, account_id: UUID, user_id: UUID
     ) -> float:
         """
-        Calculate account balance from all transactions.
+        Calculate account balance from initial balance plus all transactions.
         
-        This method sums all balance_impact values for an account to get
-        the current calculated balance based on transaction history.
+        This method starts with the account's initial balance and adds all
+        transaction impacts to get the current calculated balance.
         
         Args:
             account_id: ID of the account
             user_id: ID of the user (for security validation)
             
         Returns:
-            Current balance calculated from all transactions
+            Current balance = initial_balance + sum(transaction_impacts)
             
         Raises:
             ValueError: If account doesn't belong to user
@@ -280,6 +280,9 @@ class BalancePointService:
         if not account:
             raise ValueError("Account not found or does not belong to user")
         
+        # Start with the account's initial/opening balance
+        initial_balance = float(account.balance or 0)
+        
         # Get all transactions for this account (without filters to get all transactions)
         transactions, _ = self.transaction_repository.get_account_transactions_with_filters(
             account_id=account_id, 
@@ -288,9 +291,12 @@ class BalancePointService:
         )
         
         # Sum all balance impacts (positive for income, negative for expenses)
-        total_balance = sum(
+        transaction_impacts = sum(
             float(transaction.balance_impact or 0) for transaction in transactions
         )
+        
+        # Current balance = initial balance + all transaction impacts
+        total_balance = initial_balance + transaction_impacts
         
         return total_balance
 

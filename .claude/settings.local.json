@@ -80,7 +80,15 @@
       "WebFetch(domain:station.railway.com)",
       "Bash(docker system prune:*)",
       "Bash(docker:*)",
-      "Bash(sudo docker-compose:*)"
+      "Bash(sudo docker-compose:*)",
+      "WebSearch",
+      "WebSearch",
+      "WebFetch(domain:restfulapi.net)",
+      "WebFetch(domain:stackoverflow.blog)",
+      "WebFetch(domain:blog.hubspot.com)",
+      "WebFetch(domain:softwareengineering.stackexchange.com)",
+      "WebFetch(domain:docs.stripe.com)",
+      "WebFetch(domain:docs.stripe.com)"
     ],
     "deny": []
   }
