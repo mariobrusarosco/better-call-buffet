@@ -256,6 +256,10 @@ class BalancePointRepository:
         Create or update a balance point for a specific account and date.
         If a balance point exists for this date, it will be updated.
         If not, a new one will be created.
+        
+        PROTECTION: Opening balance points are never overwritten.
+        If trying to update an opening balance point, a separate transaction
+        balance point will be created instead.
         """
         # Check if balance point exists for this account and date
         existing = (
@@ -269,14 +273,32 @@ class BalancePointRepository:
         )
         
         if existing:
-            # Update existing balance point
-            for key, value in balance_data.items():
-                if hasattr(existing, key):
-                    setattr(existing, key, value)
-            
-            self.db.commit()
-            self.db.refresh(existing)
-            return existing
+            # PROTECTION: Don't overwrite opening balance points
+            if existing.snapshot_type == "opening":
+                # Create a separate transaction balance point instead
+                # Use a slightly different time to avoid conflicts
+                from datetime import datetime, timedelta
+                transaction_time = datetime.combine(target_date, datetime.min.time()) + timedelta(seconds=1)
+                
+                new_balance_point = BalancePoint(
+                    account_id=account_id,
+                    user_id=user_id,
+                    date=transaction_time,
+                    **balance_data
+                )
+                self.db.add(new_balance_point)
+                self.db.commit()
+                self.db.refresh(new_balance_point)
+                return new_balance_point
+            else:
+                # Update existing balance point (non-opening types)
+                for key, value in balance_data.items():
+                    if hasattr(existing, key):
+                        setattr(existing, key, value)
+                
+                self.db.commit()
+                self.db.refresh(existing)
+                return existing
         else:
             # Create new balance point
             new_balance_point = BalancePoint(

@@ -70,7 +70,6 @@ class AccountService:
         
         return created_account
 
-
     ## ------- REVISION THRESHOLD -------
     def get_all_user_active_accounts(self, user_id: UUID) -> List[Account]:
         """Get all active accounts for a user with calculated balances"""

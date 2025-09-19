@@ -22,6 +22,8 @@ class BalancePointService:
         self.account_repository = AccountRepository(db)
         self.transaction_repository = TransactionRepository(db)
 
+    ## ------- REVISION THRESHOLD -------
+    
     def create_balance_point(
         self, balance_point_in: BalancePointIn, user_id: UUID
     ) -> BalancePoint:
