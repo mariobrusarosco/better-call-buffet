@@ -8,57 +8,42 @@ from sqlalchemy import func, and_
 
 from app.domains.accounts.models import Account
 from app.domains.accounts.repository import AccountRepository
-from app.domains.accounts.schemas import AccountIn, AccountType, AccountWithBroker
+from app.domains.accounts.schemas import AccountCreateIn, AccountType, AccountWithBroker, AccountWithBalance
 from app.domains.balance_points.service import BalancePointService
 
 logger = logging.getLogger(__name__)
 
 
 class AccountService:
-    """Yes
-    Service layer for Account business logic.
-    Uses AccountRepository for data access operations.
-    """
 
     def __init__(self, db: Session):
         self.repository = AccountRepository(db)
         self.balance_point_service = BalancePointService(db)
 
-    def get_all_user_active_accounts(self, user_id: UUID) -> List[Account]:
-        """Get all active accounts for a user"""
-        return self.repository.get_active_accounts_by_user(user_id)
+    def get_account_by_id(self, account_id: UUID, user_id: UUID) -> Optional[AccountWithBalance]:
+        account = self.repository.get_by_id_and_user(account_id, user_id)
+        if account:
+            balance = self.balance_point_service.calculate_account_balance_from_transactions(
+                account_id, user_id
+            )
+            # Set the calculated balance
+            account.balance = balance
+        return account
 
-    def get_all_user_inactive_accounts(self, user_id: UUID) -> List[Account]:
-        """Get all inactive accounts for a user"""
-        return self.repository.get_inactive_accounts_by_user(user_id)
-
-    def create_account(self, account_in: AccountIn, user_id: UUID) -> Account:
-        """
-        Create a new account with business logic validation.
-
-        Args:
-            account_in: Account creation data
-            user_id: ID of the user creating the account
-
-        Returns:
-            The created account
-
-        Raises:
-            ValueError: If account name already exists for user
-        """
+    def create_account(self, account_in: AccountCreateIn, user_id: UUID) -> Account:
         # Business logic: Check if account name already exists for this user
         if self.repository.exists_by_name_and_user(account_in.name, user_id):
             raise ValueError(f"Account with name '{account_in.name}' already exists")
 
-        # Prepare account data
-        account_data = account_in.model_dump()
-        account_data["user_id"] = user_id
-
+        initial_balance = account_in.balance
+        
+        # Prepare account data (excluding balance)
+        account_data = account_in.model_dump(exclude={'balance'})
+        account_data["user_id"] = user_id   
         # Create account through repository
         created_account = self.repository.create(account_data)
         
-        # Always create opening balance point
-        initial_balance = account_data.get("balance", 0.0)
+        # Create opening balance point with the provided balance
         try:
             balance_data = {
                 "balance": initial_balance,
@@ -79,25 +64,39 @@ class AccountService:
             )
             
         except Exception as e:
-            # Log error but don't fail account creation
             logger.error(
                 f"Failed to create opening balance point for account {created_account.id}: {str(e)}"
             )
         
         return created_account
 
-    def get_account_by_id(self, account_id: UUID, user_id: UUID) -> Optional[Account]:
-        """
-        Get account by ID with business logic validation.
 
-        Args:
-            account_id: ID of the account to retrieve
-            user_id: ID of the user requesting the account
+    ## ------- REVISION THRESHOLD -------
+    def get_all_user_active_accounts(self, user_id: UUID) -> List[Account]:
+        """Get all active accounts for a user with calculated balances"""
+        accounts = self.repository.get_active_accounts_by_user(user_id)
+        
+        # Calculate balance for each account
+        for account in accounts:
+            calculated_balance = self.balance_point_service.calculate_account_balance_from_transactions(
+                account.id, user_id
+            )
+            account.balance = calculated_balance
+            
+        return accounts
 
-        Returns:
-            The account if found and belongs to user, None otherwise
-        """
-        return self.repository.get_by_id_and_user(account_id, user_id)
+    def get_all_user_inactive_accounts(self, user_id: UUID) -> List[Account]:
+        """Get all inactive accounts for a user with calculated balances"""
+        accounts = self.repository.get_inactive_accounts_by_user(user_id)
+        
+        # Calculate balance for each account
+        for account in accounts:
+            calculated_balance = self.balance_point_service.calculate_account_balance_from_transactions(
+                account.id, user_id
+            )
+            account.balance = calculated_balance
+            
+        return accounts
 
     def get_accounts_by_type(
         self, user_id: UUID, account_type: AccountType

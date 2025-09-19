@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
-from app.domains.accounts.schemas import Account, AccountIn, AccountType
+from app.domains.accounts.schemas import Account, AccountCreateIn, AccountType, AccountWithBalance   
 from app.domains.accounts.service import AccountService
 from app.domains.balance_points.schemas import BalancePoint, BalanceSnapshotIn
 from app.domains.balance_points.service import BalancePointService
@@ -85,7 +85,7 @@ def get_accounts_by_type_endpoint(
 
 @router.post("", response_model=Account)
 def create_account_endpoint(
-    account_in: AccountIn,
+    account_in: AccountCreateIn,
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id),
 ):
@@ -97,7 +97,7 @@ def create_account_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/{account_id}", response_model=Account)
+@router.get("/{account_id}", response_model=AccountWithBalance)
 def get_account_endpoint(
     account_id: UUID,
     db: Session = Depends(get_db_session),
@@ -105,7 +105,10 @@ def get_account_endpoint(
 ):
     """Get a specific account by ID"""
     service = AccountService(db)
+
+    print("------xxxxx-----", account_id)
     account = service.get_account_by_id(account_id=account_id, user_id=current_user_id)
+
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     return account

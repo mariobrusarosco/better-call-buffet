@@ -280,8 +280,12 @@ class BalancePointService:
         if not account:
             raise ValueError("Account not found or does not belong to user")
         
-        # Start with the account's initial/opening balance
-        initial_balance = float(account.balance or 0)
+        # Get the initial/opening balance from the opening balance point
+        balance_points = self.repository.get_by_account_and_user(account_id, user_id)
+        opening_balance_point = next(
+            (bp for bp in balance_points if bp.snapshot_type == "opening"), None
+        )
+        initial_balance = float(opening_balance_point.balance) if opening_balance_point else 0.0
         
         # Get all transactions for this account (without filters to get all transactions)
         transactions, _ = self.transaction_repository.get_account_transactions_with_filters(

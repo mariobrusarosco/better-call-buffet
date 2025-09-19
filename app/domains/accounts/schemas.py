@@ -22,15 +22,14 @@ class AccountBase(BaseModel):
     name: str
     description: Optional[str] = None
     type: AccountType
-    balance: float = Field(default=0.0, ge=0.0)
     currency: str = "BRL"
     broker_id: UUID  # Keep broker_id for input validation
     is_active: bool = True
 
 
-# Schema for creating/updating an account
-class AccountIn(AccountBase):
-    pass
+# Schema for creating an account with initial balance
+class AccountCreateIn(AccountBase):
+    balance: float = Field(default=0.0, ge=0.0)
 
 
 # Schema for updating an account
@@ -62,7 +61,6 @@ class Account(BaseModel):
     name: str
     description: Optional[str] = None
     type: AccountType
-    balance: float
     currency: str
     is_active: bool
     broker: Broker
@@ -73,16 +71,8 @@ class Account(BaseModel):
 
 
 # Simplified response schema (excludes timestamps)
-class AccountResponse(BaseModel):
-    id: UUID
-    name: str
-    description: Optional[str] = None
-    type: AccountType
+class AccountWithBalance(Account):
     balance: float
-    currency: str
-    is_active: bool
-    broker: Broker
-    user_id: UUID
 
     class Config:
         from_attributes = True

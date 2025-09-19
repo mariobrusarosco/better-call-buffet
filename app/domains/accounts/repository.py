@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session, joinedload
 
 from app.domains.accounts.models import Account
-from app.domains.accounts.schemas import AccountIn, AccountType
+from app.domains.accounts.schemas import AccountType
 from app.domains.brokers.models import Broker
 
 

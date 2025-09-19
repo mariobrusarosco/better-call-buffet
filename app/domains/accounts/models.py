@@ -34,8 +34,6 @@ class Account(Base):
     __table_args__ = (
         Index("ix_accounts_user_id", "user_id"),  # Index for faster user lookups
         Index("ix_accounts_type", "type"),  # Index for filtering by type
-        # Balance precision constraint
-        CheckConstraint('balance = ROUND(balance, 2)', name='balance_precision'),
     )
 
     # Primary Key
@@ -48,13 +46,7 @@ class Account(Base):
     currency = Column(String, default="BRL", nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     
-    # Enhanced Balance Management (changed from Float to DECIMAL)
-    balance = Column(DECIMAL(15, 2), default=Decimal('0.00'), nullable=False)
-    available_balance = Column(DECIMAL(15, 2), default=Decimal('0.00'), nullable=False)  # For holds/pending
-    
-    # NEW: Balance Tracking
-    last_transaction_id = Column(UUID(as_uuid=True), ForeignKey("transactions.id"), nullable=True)
-    balance_updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # Balance is now calculated from balance_points, not stored here
     
     # Foreign Keys
     broker_id = Column(UUID(as_uuid=True), ForeignKey("brokers.id"), nullable=False)
