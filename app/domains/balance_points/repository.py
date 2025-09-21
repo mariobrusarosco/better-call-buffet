@@ -273,35 +273,17 @@ class BalancePointRepository:
         )
         
         if existing:
-            # PROTECTION: Don't overwrite opening balance points
-            if existing.snapshot_type == "opening":
-                # Create a separate transaction balance point instead
-                # Use a slightly different time to avoid conflicts
-                transaction_time = datetime.combine(target_date, datetime.min.time()) + timedelta(seconds=1)
-                
-                new_balance_point = BalancePoint(
-                    account_id=account_id,
-                    user_id=user_id,
-                    date=transaction_time,
-                    calculated_at=datetime.utcnow(),  # Set when balance was calculated
-                    **balance_data
-                )
-                self.db.add(new_balance_point)
-                self.db.commit()
-                self.db.refresh(new_balance_point)
-                return new_balance_point
-            else:
-                # Update existing balance point (non-opening types)
-                for key, value in balance_data.items():
-                    if hasattr(existing, key):
-                        setattr(existing, key, value)
-                
-                # Update calculated_at to current time for recalculated balance
-                existing.calculated_at = datetime.utcnow()
-                
-                self.db.commit()
-                self.db.refresh(existing)
-                return existing
+            # Always update existing balance point - no protection needed for automatic updates
+            for key, value in balance_data.items():
+                if hasattr(existing, key):
+                    setattr(existing, key, value)
+            
+            # Update calculated_at to current time for recalculated balance
+            existing.calculated_at = datetime.utcnow()
+            
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
         else:
             # Create new balance point
             new_balance_point = BalancePoint(

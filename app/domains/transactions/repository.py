@@ -13,6 +13,10 @@ class TransactionRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def get_by_id(self, transaction_id: UUID) -> Optional[Transaction]:
+        """Get a transaction by its ID"""
+        return self.db.query(Transaction).filter(Transaction.id == transaction_id).first()
+
     def create(self, transaction_data: dict):
         try:
             transaction = Transaction(**transaction_data)

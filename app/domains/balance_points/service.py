@@ -354,13 +354,18 @@ class BalancePointService:
     def auto_update_balance_from_transaction(
         self, account_id: UUID, transaction_id: UUID, user_id: UUID
     ) -> BalancePoint:
+        # Get the transaction to use its date for the balance point
+        transaction = self.transaction_repository.get_by_id(transaction_id)
+        if not transaction:
+            raise ValueError(f"Transaction {transaction_id} not found")
+        
         # Calculate new balance using smart incremental logic
         calculated_balance = self.calculate_account_balance_from_transactions(
             account_id, user_id
         )
         
-        # Create/update today's balance point with calculated balance
-        today = datetime.utcnow()
+        # Create/update balance point for the transaction's date (not today!)
+        transaction_date = transaction.date
         balance_data = {
             "balance": calculated_balance,
             "snapshot_type": "transaction",  # Automatic update from transaction
@@ -370,7 +375,7 @@ class BalancePointService:
         
         return self.upsert_balance_point(
             account_id=account_id,
-            target_date=today,
+            target_date=transaction_date,
             balance_data=balance_data,
             user_id=user_id
         )
