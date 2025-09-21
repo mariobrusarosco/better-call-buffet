@@ -84,7 +84,7 @@ class AccountService:
             
         return accounts
 
-    def get_all_user_inactive_accounts(self, user_id: UUID) -> List[Account]:
+    def get_all_user_inactive_accounts(self, user_id: UUID) -> List[AccountWithBalance]:
         """Get all inactive accounts for a user with calculated balances"""
         accounts = self.repository.get_inactive_accounts_by_user(user_id)
         

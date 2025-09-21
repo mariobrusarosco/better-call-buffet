@@ -19,7 +19,7 @@ from app.domains.transactions.service import TransactionService
 router = APIRouter()
 
 
-@router.get("", response_model=List[Account])
+@router.get("", response_model=List[AccountWithBalance])
 def get_all_accounts_endpoint(
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id),
@@ -29,7 +29,7 @@ def get_all_accounts_endpoint(
     return service.get_all_user_active_accounts(user_id=current_user_id)
 
 
-@router.get("/active", response_model=List[Account])
+@router.get("/active", response_model=List[AccountWithBalance])
 def get_active_accounts_endpoint(
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id),
@@ -39,7 +39,7 @@ def get_active_accounts_endpoint(
     return service.get_all_user_active_accounts(user_id=current_user_id)
 
 
-@router.get("/inactive", response_model=List[Account])
+@router.get("/inactive", response_model=List[AccountWithBalance])
 def get_inactive_accounts_endpoint(
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id),
