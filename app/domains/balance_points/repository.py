@@ -34,7 +34,7 @@ class BalancePointRepository:
             .filter(
                 BalancePoint.account_id == account_id, BalancePoint.user_id == user_id
             )
-            .order_by(BalancePoint.date.desc())
+            .order_by(BalancePoint.date.asc())
             .all()
         )
 
@@ -68,13 +68,13 @@ class BalancePointRepository:
     def get_latest_by_account(
         self, account_id: UUID, user_id: UUID
     ) -> Optional[BalancePoint]:
-        """Get the most recent balance point for an account"""
+        """Get the most recent balance point for an account based on calculated_at timestamp"""
         return (
             self.db.query(BalancePoint)
             .filter(
                 BalancePoint.account_id == account_id, BalancePoint.user_id == user_id
             )
-            .order_by(BalancePoint.date.desc())
+            .order_by(BalancePoint.calculated_at.desc())
             .first()
         )
 
@@ -277,13 +277,13 @@ class BalancePointRepository:
             if existing.snapshot_type == "opening":
                 # Create a separate transaction balance point instead
                 # Use a slightly different time to avoid conflicts
-                from datetime import datetime, timedelta
                 transaction_time = datetime.combine(target_date, datetime.min.time()) + timedelta(seconds=1)
                 
                 new_balance_point = BalancePoint(
                     account_id=account_id,
                     user_id=user_id,
                     date=transaction_time,
+                    calculated_at=datetime.utcnow(),  # Set when balance was calculated
                     **balance_data
                 )
                 self.db.add(new_balance_point)
@@ -296,6 +296,9 @@ class BalancePointRepository:
                     if hasattr(existing, key):
                         setattr(existing, key, value)
                 
+                # Update calculated_at to current time for recalculated balance
+                existing.calculated_at = datetime.utcnow()
+                
                 self.db.commit()
                 self.db.refresh(existing)
                 return existing
@@ -305,6 +308,7 @@ class BalancePointRepository:
                 account_id=account_id,
                 user_id=user_id,
                 date=target_date,
+                calculated_at=datetime.utcnow(),  # Set when balance was calculated
                 **balance_data
             )
             self.db.add(new_balance_point)

@@ -38,6 +38,7 @@ class BalancePoint(Base):
     
     # Snapshot Information
     date = Column(DateTime, nullable=False)
+    calculated_at = Column(DateTime, nullable=False, default=datetime.utcnow)  # When balance was calculated
     note = Column(String, nullable=True)
     
     # Required Fields
@@ -53,8 +54,10 @@ class BalancePoint(Base):
         Index("ix_balance_points_account_id", "account_id"),
         Index("ix_balance_points_credit_card_id", "credit_card_id"),
         Index("ix_balance_points_date", "date"),
+        Index("ix_balance_points_calculated_at", "calculated_at"),
         Index("ix_balance_points_snapshot_type", "snapshot_type"),
         Index("ix_balance_points_user_date", "user_id", "date"),
+        Index("ix_balance_points_account_calculated_at", "account_id", "calculated_at"),
         Index("ix_balance_points_verified", "is_verified"),
         Index("ix_balance_points_source_transaction", "source_transaction_id"),
         

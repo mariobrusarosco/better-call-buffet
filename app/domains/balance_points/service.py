@@ -262,17 +262,21 @@ class BalancePointService:
         self, account_id: UUID, user_id: UUID
     ) -> float:
         """
-        Calculate account balance from initial balance plus all transactions.
+        Calculate account balance using smart incremental logic with balance points.
         
-        This method starts with the account's initial balance and adds all
-        transaction impacts to get the current calculated balance.
+        Performance Strategy:
+        1. Find latest balance point for account (if any)
+        2. If balance point exists: latest_balance + sum(transactions_since_calculated_at)
+        3. If no balance point: fallback to full calculation from opening balance
+        
+        This approach transforms O(all_transactions) to O(recent_transactions).
         
         Args:
             account_id: ID of the account
             user_id: ID of the user (for security validation)
             
         Returns:
-            Current balance = initial_balance + sum(transaction_impacts)
+            Current calculated balance
             
         Raises:
             ValueError: If account doesn't belong to user
@@ -282,50 +286,50 @@ class BalancePointService:
         if not account:
             raise ValueError("Account not found or does not belong to user")
         
-        # Get the initial/opening balance from the opening balance point
-        balance_points = self.repository.get_by_account_and_user(account_id, user_id)
-        opening_balance_point = next(
-            (bp for bp in balance_points if bp.snapshot_type == "opening"), None
-        )
-        initial_balance = float(opening_balance_point.balance) if opening_balance_point else 0.0
+        # SMART APPROACH: Try to use latest balance point + delta
+        latest_balance_point = self.repository.get_latest_by_account(account_id, user_id)
         
-        # Get all transactions for this account (without filters to get all transactions)
-        transactions, _ = self.transaction_repository.get_account_transactions_with_filters(
-            account_id=account_id, 
-            user_id=user_id,
-            filters=None  # No filters to get all transactions
-        )
+        if latest_balance_point:
+            base_balance = float(latest_balance_point.balance)
+            delta_transactions = self.transaction_repository.get_account_transactions_since_timestamp(
+                account_id=account_id,
+                user_id=user_id,
+                since_timestamp=latest_balance_point.calculated_at
+            )
+            
+            delta_impact = sum(
+                float(transaction.balance_impact or 0) for transaction in delta_transactions
+            )
+            
+            return base_balance + delta_impact
         
-        # Sum all balance impacts (positive for income, negative for expenses)
-        transaction_impacts = sum(
-            float(transaction.balance_impact or 0) for transaction in transactions
-        )
-        
-        # Current balance = initial balance + all transaction impacts
-        total_balance = initial_balance + transaction_impacts
-        
-        return total_balance
+        else:
+            # This only happens when user hasn't created any balance points yet
+            # Get opening balance from opening balance point
+            balance_points = self.repository.get_by_account_and_user(account_id, user_id)
+            opening_balance_point = next(
+                (bp for bp in balance_points if bp.snapshot_type == "opening"), None
+            )
+            initial_balance = float(opening_balance_point.balance) if opening_balance_point else 0.0
+            
+            transactions, _ = self.transaction_repository.get_account_transactions_with_filters(
+                account_id=account_id, 
+                user_id=user_id,
+                filters=None  # No filters to get all transactions
+            )
+            
+            # Sum all balance impacts
+            transaction_impacts = sum(
+                float(transaction.balance_impact or 0) for transaction in transactions
+            )
+            
+            return initial_balance + transaction_impacts
 
     def create_balance_snapshot_from_transactions(
         self, account_id: UUID, user_id: UUID, note: str = None
     ) -> BalancePoint:
         """
         Create today's balance snapshot by calculating balance from transactions.
-        
-        This is the main method for the "Update Balance" button - it automatically
-        calculates the current balance from transactions and creates/updates today's
-        balance point.
-        
-        Args:
-            account_id: ID of the account
-            user_id: ID of the user
-            note: Optional note for the balance snapshot
-            
-        Returns:
-            The created or updated balance point
-            
-        Raises:
-            ValueError: If account doesn't belong to user
         """
         # Calculate current balance from transactions
         calculated_balance = self.calculate_account_balance_from_transactions(
@@ -350,24 +354,7 @@ class BalancePointService:
     def auto_update_balance_from_transaction(
         self, account_id: UUID, transaction_id: UUID, user_id: UUID
     ) -> BalancePoint:
-        """
-        Automatically update today's balance point after a transaction is created.
-        
-        This method is called by the transaction service whenever a new transaction
-        is added to ensure balance points stay up-to-date with transaction changes.
-        
-        Args:
-            account_id: ID of the affected account
-            transaction_id: ID of the transaction that triggered the update
-            user_id: ID of the user
-            
-        Returns:
-            The created or updated balance point
-            
-        Raises:
-            ValueError: If account doesn't belong to user
-        """
-        # Calculate new balance from all transactions
+        # Calculate new balance using smart incremental logic
         calculated_balance = self.calculate_account_balance_from_transactions(
             account_id, user_id
         )

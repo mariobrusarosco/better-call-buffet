@@ -252,3 +252,35 @@ class TransactionRepository:
             total_count = query.count()
 
         return query.all(), total_count
+
+    def get_account_transactions_since_timestamp(
+        self, account_id: UUID, user_id: UUID, since_timestamp: datetime
+    ) -> List[Transaction]:
+        """
+        Get all account transactions created after a specific timestamp.
+        
+        This method is optimized for balance calculation performance:
+        - Returns only transactions created after the given timestamp
+        - No pagination or complex filtering
+        - Ordered by created_at for consistent processing
+        
+        Args:
+            account_id: ID of the account
+            user_id: ID of the user (for security)
+            since_timestamp: Only return transactions created after this timestamp
+            
+        Returns:
+            List of transactions created after the timestamp
+        """
+        return (
+            self.db.query(Transaction)
+            .filter(
+                and_(
+                    Transaction.account_id == account_id,
+                    Transaction.user_id == user_id,
+                    Transaction.created_at > since_timestamp,
+                )
+            )
+            .order_by(Transaction.created_at.asc())
+            .all()
+        )

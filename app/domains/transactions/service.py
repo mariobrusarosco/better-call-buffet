@@ -268,10 +268,6 @@ class TransactionService:
                     }
                 )
         
-        # TODO: Handle credit card balance updates when credit_card_id is set
-        # if created_transaction.credit_card_id:
-        #     self.balance_point_service.auto_update_balance_from_transaction(...)
-
         return created_transaction
 
     def check_transaction_validity(

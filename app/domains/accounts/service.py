@@ -71,16 +71,16 @@ class AccountService:
         return created_account
 
     ## ------- REVISION THRESHOLD -------
-    def get_all_user_active_accounts(self, user_id: UUID) -> List[Account]:
+    def get_all_user_active_accounts(self, user_id: UUID) -> List[AccountWithBalance]:
         """Get all active accounts for a user with calculated balances"""
         accounts = self.repository.get_active_accounts_by_user(user_id)
         
         # Calculate balance for each account
         for account in accounts:
-            calculated_balance = self.balance_point_service.calculate_account_balance_from_transactions(
+            balance = self.balance_point_service.calculate_account_balance_from_transactions(
                 account.id, user_id
             )
-            account.balance = calculated_balance
+            account.balance = balance
             
         return accounts
 
