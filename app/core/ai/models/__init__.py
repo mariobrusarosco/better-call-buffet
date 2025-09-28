@@ -1,10 +1,9 @@
-from .requests import AIRequest, FinancialParsingRequest, ChatRequest
+from .requests import AIRequest, FinancialParsingRequest
 from .responses import AIResponse, FinancialData, TransactionData
 
 __all__ = [
     "AIRequest",
     "FinancialParsingRequest", 
-    "ChatRequest",
     "AIResponse",
     "FinancialData",
     "TransactionData"

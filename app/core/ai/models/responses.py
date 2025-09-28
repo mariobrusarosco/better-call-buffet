@@ -11,11 +11,6 @@ class AIResponse(BaseModel, ABC):
     error: Optional[str] = Field(default=None, description="Error message if failed")
 
 
-class ChatResponse(AIResponse):
-    """Response from chat completion"""
-    content: Optional[str] = Field(description="Generated response content")
-    usage: Optional[Dict[str, int]] = Field(default=None, description="Token usage stats")
-    finish_reason: Optional[str] = Field(default=None, description="Completion finish reason")
 
 
 class InstallmentOption(BaseModel):
@@ -55,18 +50,3 @@ class FinancialParsingResponse(AIResponse):
     raw_response: Optional[str] = Field(default=None, description="Raw AI response")
 
 
-class StructuredExtractionResponse(AIResponse):
-    """Response from structured data extraction"""
-    extracted_data: Optional[Dict[str, Any]] = Field(default=None, description="Extracted structured data")
-    confidence: Optional[float] = Field(default=None, description="Extraction confidence score")
-
-
-class ClassificationResult(BaseModel):
-    """Single classification result"""
-    category: str = Field(description="Predicted category")
-    confidence: float = Field(description="Confidence score")
-
-
-class TextClassificationResponse(AIResponse):
-    """Response from text classification"""
-    predictions: List[ClassificationResult] = Field(default_factory=list, description="Classification results")

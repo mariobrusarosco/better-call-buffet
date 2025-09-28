@@ -506,45 +506,49 @@ class InvoiceService:
             raise InvoiceTransactionProcessingError(f"PDF parsing failed: {str(e)}")
 
     async def _extract_pdf_text(self, pdf_content: bytes) -> str:
-        """Extract text from PDF using PyPDF2 - runs in thread to avoid blocking"""
+        """Extract text from PDF using pdfplumber - much better than PyPDF2"""
         def extract_text():
             try:
-                import PyPDF2
+                import pdfplumber
                 import io
                 
+                logger.info(f"Starting PDF extraction with pdfplumber, content size: {len(pdf_content)} bytes")
+                
                 pdf_stream = io.BytesIO(pdf_content)
-                pdf_reader = PyPDF2.PdfReader(pdf_stream)
-                
                 text_parts = []
-                for page in pdf_reader.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text_parts.append(page_text)
                 
-                return "\n".join(text_parts)
-                
-            except ImportError:
-                # Fallback: try pdfplumber if PyPDF2 not available
-                try:
-                    import pdfplumber
-                    import io
+                with pdfplumber.open(pdf_stream) as pdf:
+                    logger.info(f"PDF opened successfully, has {len(pdf.pages)} pages")
                     
-                    pdf_stream = io.BytesIO(pdf_content)
-                    text_parts = []
-                    
-                    with pdfplumber.open(pdf_stream) as pdf:
-                        for page in pdf.pages:
+                    for i, page in enumerate(pdf.pages):
+                        logger.info(f"Processing page {i+1}")
+                        try:
+                            logger.info(f"About to call extract_text() on page {i+1}")
                             page_text = page.extract_text()
+                            logger.info(f"extract_text() completed for page {i+1}")
                             if page_text:
                                 text_parts.append(page_text)
-                    
-                    return "\n".join(text_parts)
-                    
-                except ImportError:
-                    raise InvoiceRawInvoiceEmptyError(
-                        "PDF parsing libraries not installed. Please install PyPDF2 or pdfplumber."
-                    )
+                                logger.info(f"Page {i+1} text length: {len(page_text)}")
+                                logger.info(f"Page {i+1} first 100 chars: {page_text[:100]}")
+                            else:
+                                logger.warning(f"Page {i+1} has no extractable text")
+                        except Exception as page_error:
+                            logger.error(f"Error extracting text from page {i+1}: {str(page_error)}")
+                            logger.error(f"Page error type: {type(page_error)}")
+                            import traceback
+                            logger.error(f"Page error traceback: {traceback.format_exc()}")
+                            continue
+                
+                if not text_parts:
+                    raise InvoiceRawInvoiceEmptyError("No text could be extracted from PDF")
+                
+                logger.info(f"Successfully extracted {len(text_parts)} pages of text")
+                return "\n".join(text_parts)
+                
             except Exception as e:
+                logger.error(f"PDF extraction failed: {str(e)}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 raise InvoiceRawInvoiceEmptyError(f"Failed to extract text from PDF: {str(e)}")
         
         # Run in thread to avoid blocking the async event loop

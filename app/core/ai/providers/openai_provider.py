@@ -4,14 +4,12 @@ import json
 import os
 from typing import Dict, Any, Optional
 
+from app.core.logging_config import get_logger
 from ..base import BaseAIProvider
-from ..models.requests import (
-    ChatRequest, 
-    FinancialParsingRequest, 
-    ChatMessage
-)
+
+logger = get_logger(__name__)
+from ..models.requests import FinancialParsingRequest
 from ..models.responses import (
-    ChatResponse, 
     FinancialParsingResponse,
     FinancialData,
     InstallmentOption,
@@ -27,7 +25,7 @@ class OpenAIProvider(BaseAIProvider):
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         self.api_key = config.get("api_key") or os.getenv("OPENAI_API_KEY")
-        self.default_model = config.get("model", "gpt-3.5-turbo-1106")
+        self.default_model = config.get("model", "gpt-4o-mini-2024-07-18")
         self.client = None
         
     def _get_provider_name(self) -> str:
@@ -40,138 +38,120 @@ class OpenAIProvider(BaseAIProvider):
                 import openai
                 if not self.api_key:
                     raise ValueError("OpenAI API key not configured")
-                self.client = openai.OpenAI(api_key=self.api_key)
+                self.client = openai.AsyncOpenAI(api_key=self.api_key)
             except ImportError:
                 raise ImportError("OpenAI library not installed. Please install: pip install openai")
         return self.client
     
-    def _supports_json_mode(self) -> bool:
-        """OpenAI supports JSON mode"""
-        return True
     
-    async def chat_completion(self, request: ChatRequest) -> ChatResponse:
-        """Generate chat completion using OpenAI"""
-        try:
-            client = self._get_client()
-            
-            # Convert ChatMessage objects to dict format
-            messages = []
-            for msg in request.messages:
-                if isinstance(msg, ChatMessage):
-                    messages.append({"role": msg.role, "content": msg.content})
-                else:
-                    messages.append(msg)
-            
-            # Prepare request parameters
-            params = {
-                "model": request.model or self.default_model,
-                "messages": messages,
-                "temperature": request.temperature,
-            }
-            
-            if request.max_tokens:
-                params["max_tokens"] = request.max_tokens
-                
-            if request.response_format:
-                params["response_format"] = request.response_format
-            
-            # Make async call to OpenAI
-            response = await asyncio.to_thread(
-                client.chat.completions.create,
-                **params
-            )
-            
-            content = response.choices[0].message.content if response.choices else None
-            usage = {
-                "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
-                "completion_tokens": response.usage.completion_tokens if response.usage else 0,
-                "total_tokens": response.usage.total_tokens if response.usage else 0
-            } if response.usage else None
-            
-            return ChatResponse(
-                provider=self.provider_name,
-                model=params["model"],
-                success=True,
-                content=content,
-                usage=usage,
-                finish_reason=response.choices[0].finish_reason if response.choices else None
-            )
-            
-        except Exception as e:
-            return ChatResponse(
-                provider=self.provider_name,
-                model=request.model or self.default_model,
-                success=False,
-                error=str(e)
-            )
     
     async def parse_financial_document(self, request: FinancialParsingRequest) -> FinancialParsingResponse:
-        """Parse financial documents using OpenAI"""
+        """Parse financial documents using OpenAI structured outputs"""
         try:
+            from ..models.responses import FinancialData
+            
             # Truncate text to fit context
             text = request.text[:request.max_text_length]
             
-            # Get appropriate prompt
+            # Get appropriate prompt  
             system_prompt = get_financial_parsing_prompt(
                 document_type=request.document_type,
                 language=request.language
             )
             
-            # Create chat request
-            chat_request = ChatRequest(
-                provider=self.provider_name,
-                model=request.model or self.default_model,
-                temperature=request.temperature,
-                max_tokens=request.max_tokens,
+            # Define JSON schema for structured outputs
+            financial_schema = {
+                "type": "object",
+                "properties": {
+                    "total_due": {"type": "string", "description": "Total amount due"},
+                    "due_date": {"type": "string", "description": "Payment due date"},
+                    "period": {"type": "string", "description": "Billing period"},
+                    "min_payment": {"type": "string", "description": "Minimum payment amount"},
+                    "installment_options": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "months": {"type": "integer", "description": "Number of months"},
+                                "total": {"type": "string", "description": "Total amount for installment"}
+                            },
+                            "required": ["months", "total"]
+                        }
+                    },
+                    "transactions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "date": {"type": "string", "description": "Transaction date"},
+                                "description": {"type": "string", "description": "Transaction description"},
+                                "amount": {"type": "string", "description": "Transaction amount"},
+                                "category": {"type": "string", "description": "Transaction category"}
+                            },
+                            "required": ["date", "description", "amount", "category"]
+                        }
+                    },
+                    "next_due_info": {
+                        "type": "object",
+                        "properties": {
+                            "amount": {"type": "string", "description": "Next payment amount"},
+                            "balance": {"type": "string", "description": "Current balance"}
+                        }
+                    }
+                },
+                "required": ["total_due", "due_date", "period", "min_payment", "transactions"]
+            }
+            
+            # Use OpenAI structured outputs with proper API call
+            client = self._get_client()
+            model_to_use = request.model or self.default_model
+            logger.info(f"Using OpenAI model: {model_to_use}")
+            response = await client.chat.completions.create(
+                model=model_to_use,
                 messages=[
-                    ChatMessage(role="system", content=system_prompt),
-                    ChatMessage(
-                        role="user", 
-                        content=f"Please analyze the following {request.document_type} text and return the information in JSON format:\n\n{text}"
-                    )
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Analyze this {request.document_type}:\n\n{text}"}
                 ],
-                response_format={"type": "json_object"}
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "financial_data",
+                        "schema": financial_schema
+                    }
+                },
+                temperature=request.temperature
             )
             
-            # Get response from chat completion
-            chat_response = await self.chat_completion(chat_request)
-            
-            if not chat_response.success:
+            # Extract and parse the structured response
+            content = response.choices[0].message.content
+            if not content:
                 return FinancialParsingResponse(
                     provider=self.provider_name,
                     model=request.model or self.default_model,
                     success=False,
-                    error=chat_response.error
+                    error="No content returned from OpenAI"
                 )
             
-            if not chat_response.content:
-                return FinancialParsingResponse(
-                    provider=self.provider_name,
-                    model=request.model or self.default_model,
-                    success=False,
-                    error="OpenAI returned empty response"
-                )
-            
-            # Parse JSON response
+            # Parse JSON response into Pydantic model
             try:
-                parsed_data = json.loads(chat_response.content)
-                financial_data = self._parse_financial_data(parsed_data)
-                
-                return FinancialParsingResponse(
-                    provider=self.provider_name,
-                    model=request.model or self.default_model,
-                    success=True,
-                    data=financial_data,
-                    raw_response=chat_response.content
-                )
-                
-            except json.JSONDecodeError as e:
+                import json
+                parsed_json = json.loads(content)
+                financial_data = FinancialData(**parsed_json)
+            except (json.JSONDecodeError, ValueError) as e:
                 return FinancialParsingResponse(
                     provider=self.provider_name,
                     model=request.model or self.default_model,
                     success=False,
-                    error=f"Invalid JSON response: {str(e)}"
+                    error=f"Failed to parse structured response: {str(e)}"
                 )
+            
+            return FinancialParsingResponse(
+                provider=self.provider_name,
+                model=request.model or self.default_model,
+                success=True,
+                data=financial_data,
+                raw_response=content
+            )
                 
         except Exception as e:
             return FinancialParsingResponse(
@@ -181,57 +161,16 @@ class OpenAIProvider(BaseAIProvider):
                 error=f"Financial parsing failed: {str(e)}"
             )
     
-    def _parse_financial_data(self, data: Dict[str, Any]) -> FinancialData:
-        """Convert raw JSON to FinancialData model"""
-        
-        # Parse installment options
-        installment_options = []
-        for option in data.get("installment_options", []):
-            installment_options.append(InstallmentOption(
-                months=option.get("months", 0),
-                total=option.get("total", "")
-            ))
-        
-        # Parse transactions
-        transactions = []
-        for transaction in data.get("transactions", []):
-            transactions.append(TransactionData(
-                date=transaction.get("date", ""),
-                description=transaction.get("description", ""),
-                amount=transaction.get("amount", ""),
-                category=transaction.get("category", "")
-            ))
-        
-        # Parse next due info
-        next_due_info = None
-        if "next_due_info" in data and data["next_due_info"]:
-            next_due_info = NextDueInfo(
-                amount=data["next_due_info"].get("amount", ""),
-                balance=data["next_due_info"].get("balance", "")
-            )
-        
-        return FinancialData(
-            total_due=data.get("total_due", ""),
-            due_date=data.get("due_date", ""),
-            period=data.get("period", ""),
-            min_payment=data.get("min_payment", ""),
-            installment_options=installment_options,
-            transactions=transactions,
-            next_due_info=next_due_info
-        )
     
     async def health_check(self) -> bool:
         """Check if OpenAI API is available"""
         try:
-            chat_request = ChatRequest(
-                provider=self.provider_name,
+            client = self._get_client()
+            response = await client.chat.completions.create(
                 model=self.default_model,
-                temperature=0.1,
-                messages=[ChatMessage(role="user", content="Hello")]
+                messages=[{"role": "user", "content": "test"}],
+                max_tokens=1
             )
-            
-            response = await self.chat_completion(chat_request)
-            return response.success
-            
+            return bool(response.choices)
         except Exception:
             return False

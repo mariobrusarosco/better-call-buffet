@@ -5,13 +5,8 @@ from typing import Dict, Any, Optional
 import httpx
 
 from ..base import BaseAIProvider
-from ..models.requests import (
-    ChatRequest, 
-    FinancialParsingRequest, 
-    ChatMessage
-)
+from ..models.requests import FinancialParsingRequest
 from ..models.responses import (
-    ChatResponse, 
     FinancialParsingResponse,
     FinancialData,
     InstallmentOption,
@@ -33,78 +28,6 @@ class OllamaProvider(BaseAIProvider):
     def _get_provider_name(self) -> str:
         return "ollama"
     
-    def _supports_json_mode(self) -> bool:
-        """Ollama supports JSON through format parameter"""
-        return True
-    
-    async def chat_completion(self, request: ChatRequest) -> ChatResponse:
-        """Generate chat completion using Ollama"""
-        try:
-            # Convert ChatMessage objects to dict format
-            messages = []
-            for msg in request.messages:
-                if isinstance(msg, ChatMessage):
-                    messages.append({"role": msg.role, "content": msg.content})
-                else:
-                    messages.append(msg)
-            
-            # Prepare request payload
-            payload = {
-                "model": request.model or self.default_model,
-                "messages": messages,
-                "stream": False,  # We want complete responses
-                "options": {
-                    "temperature": request.temperature,
-                }
-            }
-            
-            if request.max_tokens:
-                payload["options"]["num_predict"] = request.max_tokens
-            
-            # Add JSON format if requested
-            if request.response_format and request.response_format.get("type") == "json_object":
-                payload["format"] = "json"
-            
-            # Make async HTTP request to Ollama
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    f"{self.base_url}/api/chat",
-                    json=payload
-                )
-                response.raise_for_status()
-                
-                result = response.json()
-                content = result.get("message", {}).get("content", "")
-                
-                return ChatResponse(
-                    provider=self.provider_name,
-                    model=payload["model"],
-                    success=True,
-                    content=content,
-                    finish_reason=result.get("done_reason")
-                )
-                
-        except httpx.TimeoutException:
-            return ChatResponse(
-                provider=self.provider_name,
-                model=request.model or self.default_model,
-                success=False,
-                error="Request timeout - Ollama may be slow or unavailable"
-            )
-        except httpx.HTTPStatusError as e:
-            return ChatResponse(
-                provider=self.provider_name,
-                model=request.model or self.default_model,
-                success=False,
-                error=f"HTTP error: {e.response.status_code} - {e.response.text}"
-            )
-        except Exception as e:
-            return ChatResponse(
-                provider=self.provider_name,
-                model=request.model or self.default_model,
-                success=False,
-                error=str(e)
-            )
     
     async def parse_financial_document(self, request: FinancialParsingRequest) -> FinancialParsingResponse:
         """Parse financial documents using Ollama"""
@@ -118,45 +41,48 @@ class OllamaProvider(BaseAIProvider):
                 language=request.language
             )
             
-            # Create chat request with JSON format
-            chat_request = ChatRequest(
-                provider=self.provider_name,
-                model=request.model or self.default_model,
-                temperature=request.temperature,
-                max_tokens=request.max_tokens,
-                messages=[
-                    ChatMessage(role="system", content=system_prompt),
-                    ChatMessage(
-                        role="user", 
-                        content=f"Please analyze the following {request.document_type} text and return the information in JSON format:\n\n{text}"
+            # Prepare request payload for direct Ollama API call
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Please analyze the following {request.document_type} text and return the information in JSON format:\n\n{text}"}
+            ]
+            
+            payload = {
+                "model": request.model or self.default_model,
+                "messages": messages,
+                "stream": False,
+                "format": "json",
+                "options": {
+                    "temperature": request.temperature,
+                }
+            }
+            
+            if request.max_tokens:
+                payload["options"]["num_predict"] = request.max_tokens
+            
+            # Make direct async HTTP request to Ollama
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    f"{self.base_url}/api/chat",
+                    json=payload
+                )
+                response.raise_for_status()
+                
+                result = response.json()
+                content = result.get("message", {}).get("content", "")
+                
+                if not content:
+                    return FinancialParsingResponse(
+                        provider=self.provider_name,
+                        model=request.model or self.default_model,
+                        success=False,
+                        error="Ollama returned empty response"
                     )
-                ],
-                response_format={"type": "json_object"}
-            )
-            
-            # Get response from chat completion
-            chat_response = await self.chat_completion(chat_request)
-            
-            if not chat_response.success:
-                return FinancialParsingResponse(
-                    provider=self.provider_name,
-                    model=request.model or self.default_model,
-                    success=False,
-                    error=chat_response.error
-                )
-            
-            if not chat_response.content:
-                return FinancialParsingResponse(
-                    provider=self.provider_name,
-                    model=request.model or self.default_model,
-                    success=False,
-                    error="Ollama returned empty response"
-                )
             
             # Parse JSON response
             try:
                 # Clean up response - sometimes Ollama adds extra text
-                content = chat_response.content.strip()
+                content = content.strip()
                 
                 # Try to find JSON in the response
                 start_idx = content.find('{')
@@ -175,7 +101,7 @@ class OllamaProvider(BaseAIProvider):
                     model=request.model or self.default_model,
                     success=True,
                     data=financial_data,
-                    raw_response=chat_response.content
+                    raw_response=content
                 )
                 
             except json.JSONDecodeError as e:
@@ -183,7 +109,7 @@ class OllamaProvider(BaseAIProvider):
                     provider=self.provider_name,
                     model=request.model or self.default_model,
                     success=False,
-                    error=f"Invalid JSON response: {str(e)}. Raw response: {chat_response.content[:200]}..."
+                    error=f"Invalid JSON response: {str(e)}. Raw response: {content[:200]}..."
                 )
                 
         except Exception as e:
