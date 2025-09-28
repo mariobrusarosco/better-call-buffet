@@ -262,14 +262,10 @@ class StatementService:
 
             # Step 3: Create statement record
             from app.domains.statements.schemas import StatementIn
-            from types import SimpleNamespace
-            
-            # Convert parsed data to expected format
-            raw_statement = SimpleNamespace(**parsed_data)
             
             statement_in = StatementIn(
                 account_id=account_id,
-                raw_statement=raw_statement
+                raw_statement=parsed_data
             )
             
             # Use existing create_statement method
@@ -304,50 +300,69 @@ class StatementService:
             )
 
     async def _extract_pdf_text(self, pdf_content: bytes) -> str:
-        """Extract text from PDF using PyPDF2 - runs in thread to avoid blocking"""
+        """Extract text from PDF using multiple methods"""
         def extract_text():
+            text_parts = []
+            
+            # Method 1: Try pdfplumber first (better for complex PDFs)
+            try:
+                import pdfplumber
+                import io
+                
+                logger.info("Trying pdfplumber extraction...")
+                pdf_stream = io.BytesIO(pdf_content)
+                
+                with pdfplumber.open(pdf_stream) as pdf:
+                    logger.info(f"PDF has {len(pdf.pages)} pages")
+                    
+                    for i, page in enumerate(pdf.pages):
+                        try:
+                            page_text = page.extract_text()
+                            if page_text and page_text.strip():
+                                text_parts.append(page_text)
+                                logger.info(f"Page {i+1}: extracted {len(page_text)} characters")
+                            else:
+                                logger.warning(f"Page {i+1}: no text extracted")
+                        except Exception as e:
+                            logger.error(f"Error on page {i+1}: {str(e)}")
+                
+                if text_parts:
+                    logger.info(f"pdfplumber extracted {len(text_parts)} pages successfully")
+                    return "\n".join(text_parts)
+                    
+            except Exception as e:
+                logger.warning(f"pdfplumber failed: {str(e)}")
+            
+            # Method 2: Try PyPDF2 fallback
             try:
                 import PyPDF2
                 import io
                 
+                logger.info("Trying PyPDF2 extraction...")
                 pdf_stream = io.BytesIO(pdf_content)
                 pdf_reader = PyPDF2.PdfReader(pdf_stream)
                 
-                text_parts = []
-                for page in pdf_reader.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text_parts.append(page_text)
+                for i, page in enumerate(pdf_reader.pages):
+                    try:
+                        page_text = page.extract_text()
+                        if page_text and page_text.strip():
+                            text_parts.append(page_text)
+                            logger.info(f"PyPDF2 page {i+1}: extracted {len(page_text)} characters")
+                    except Exception as e:
+                        logger.error(f"PyPDF2 error on page {i+1}: {str(e)}")
                 
-                return "\n".join(text_parts)
-                
-            except ImportError:
-                # Fallback: try pdfplumber if PyPDF2 not available
-                try:
-                    import pdfplumber
-                    import io
-                    
-                    pdf_stream = io.BytesIO(pdf_content)
-                    text_parts = []
-                    
-                    with pdfplumber.open(pdf_stream) as pdf:
-                        for page in pdf.pages:
-                            page_text = page.extract_text()
-                            if page_text:
-                                text_parts.append(page_text)
-                    
+                if text_parts:
+                    logger.info(f"PyPDF2 extracted {len(text_parts)} pages successfully")
                     return "\n".join(text_parts)
                     
-                except ImportError:
-                    raise ValidationError(
-                        message="PDF parsing libraries not installed. Please install PyPDF2 or pdfplumber.",
-                        error_code="PDF_LIBRARY_MISSING"
-                    )
             except Exception as e:
-                raise ValidationError(
-                    message=f"Failed to extract text from PDF: {str(e)}",
-                    error_code="PDF_EXTRACTION_ERROR"
-                )
+                logger.warning(f"PyPDF2 failed: {str(e)}")
+            
+            # If both methods fail
+            raise ValidationError(
+                message="Could not extract text from PDF. The file might be image-based, password-protected, or corrupted.",
+                error_code="PDF_TEXT_EXTRACTION_FAILED"
+            )
         
         # Run in thread to avoid blocking the async event loop
         loop = asyncio.get_event_loop()

@@ -4,11 +4,24 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/better_call_buffet}
-      - PROJECT_NAME=${PROJECT_NAME:-Better Call Buffet}
-      - API_V1_PREFIX=${API_V1_PREFIX:-/api/v1}
-      - SECRET_KEY=${SECRET_KEY:-development-secret-key-change-in-production}
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-["http://localhost:3000","http://localhost:5173","http://localhost:8000"]}
+      - DATABASE_URL=${DATABASE_URL}
+      - PROJECT_NAME=${PROJECT_NAME}
+      - API_V1_PREFIX=${API_V1_PREFIX}
+      - SECRET_KEY=${SECRET_KEY}
+      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ENVIRONMENT=${ENVIRONMENT}
+      - DEBUG=${DEBUG}
+      - ENABLE_PERFORMANCE_LOGGING=${ENABLE_PERFORMANCE_LOGGING}
+      - SENTRY_DSN=${SENTRY_DSN}
+      - MOCK_USER_ID=${MOCK_USER_ID}
+      - AI_PROVIDER=${AI_PROVIDER}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+      - OPENAI_TEMPERATURE=${OPENAI_TEMPERATURE}
+      - OPENAI_MAX_TOKENS=${OPENAI_MAX_TOKENS}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
+      - OLLAMA_MODEL=${OLLAMA_MODEL}
+      - OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT}
     depends_on:
       db:
         condition: service_healthy

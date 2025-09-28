@@ -202,6 +202,42 @@ docker-compose exec web poetry run pytest tests/test_accounts.py
 docker-compose exec web poetry run pytest --cov=app
 ```
 
+### **📦 Managing Dependencies**
+
+#### **Adding New Dependencies**
+
+```bash
+# Add a production dependency
+docker compose exec web poetry add package-name
+
+# Add a development dependency  
+docker compose exec web poetry add --group dev package-name
+
+# Add with version constraints
+docker compose exec web poetry add "package-name>=1.0.0,<2.0.0"
+
+# Example: Adding PDF processing libraries
+docker compose exec web poetry add PyPDF2 pdfplumber
+```
+
+#### **After Adding Dependencies**
+
+```bash
+# Rebuild container to include new packages
+docker compose down
+docker compose up --build
+
+# Verify installation
+docker compose exec web poetry show | grep package-name
+```
+
+#### **Why This Process?**
+
+- **Poetry manages dependencies** in `pyproject.toml` with proper version resolution
+- **Docker rebuild** ensures container has new packages and no conflicts
+- **Reproducible builds** across development and production environments
+- **Lock file updates** ensure consistent versions for all team members
+
 ---
 
 ## 🚀 **Production Deployment - Railway Serverless**

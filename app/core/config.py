@@ -19,42 +19,42 @@ class Settings(BaseSettings):
         "http://127.0.0.1:2000",
     ]
 
-    # Database - provide test default for CI
-    DATABASE_URL: str = "sqlite:///./test.db"
+    # Database
+    DATABASE_URL: str
 
     # Environment
-    ENVIRONMENT: str = "development"
-    DEBUG: bool = True
+    ENVIRONMENT: str
+    DEBUG: bool
 
     # Security
-    SECRET_KEY: str = "dev-secret-key-change-in-production"
+    SECRET_KEY: str
 
     # API Configuration
-    API_V1_PREFIX: str = "/api/v1"
-    PROJECT_NAME: str = "Better Call Buffet"
+    API_V1_PREFIX: str
+    PROJECT_NAME: str
 
     # Logging Configuration
-    ENABLE_PERFORMANCE_LOGGING: bool = False
+    ENABLE_PERFORMANCE_LOGGING: bool
 
     # Sentry Configuration (Error Logging)
-    SENTRY_DSN: str = ""  # Set in production environment
+    SENTRY_DSN: str
 
     # Development User ID (for mocking authentication in seeds/tests)
-    MOCK_USER_ID: str = "550e8400-e29b-41d4-a716-446655440000"
+    MOCK_USER_ID: str
 
     # AI Configuration
-    AI_PROVIDER: str = "openai"  # "openai" or "ollama"
+    AI_PROVIDER: str
     
     # OpenAI Configuration
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-3.5-turbo-1106"
-    OPENAI_TEMPERATURE: float = 0.3
-    OPENAI_MAX_TOKENS: int = 4000
+    OPENAI_API_KEY: str
+    OPENAI_MODEL: str
+    OPENAI_TEMPERATURE: float
+    OPENAI_MAX_TOKENS: int
     
     # Ollama Configuration
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "llama2"
-    OLLAMA_TIMEOUT: int = 120  # seconds
+    OLLAMA_BASE_URL: str
+    OLLAMA_MODEL: str
+    OLLAMA_TIMEOUT: int
 
     @property
     def is_production(self) -> bool:

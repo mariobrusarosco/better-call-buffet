@@ -94,11 +94,9 @@ def init_db():
                 'name': 'Checking Account',
                 'description': 'Primary checking account',
                 'type': 'cash',
-                'balance': 5000.00,
                 'user_id': str(test_user.id),
                 'broker_id': str(test_broker.id),
                 'currency': 'BRL',
-                'balance_updated_at': datetime.utcnow(),
                 'created_at': datetime.utcnow(),
                 'updated_at': datetime.utcnow(),
             },
@@ -107,11 +105,9 @@ def init_db():
                 'name': 'Savings Account',
                 'description': 'Emergency fund',
                 'type': 'savings',
-                'balance': 10000.00,
                 'user_id': str(test_user.id),
                 'broker_id': str(test_broker.id),
                 'currency': 'BRL',
-                'balance_updated_at': datetime.utcnow(),
                 'created_at': datetime.utcnow(),
                 'updated_at': datetime.utcnow(),
             },
@@ -120,11 +116,9 @@ def init_db():
                 'name': 'Credit Account',
                 'description': 'Primary credit account',
                 'type': 'credit',
-                'balance': 500.00,
                 'user_id': str(test_user.id),
                 'broker_id': str(test_broker.id),
                 'currency': 'BRL',
-                'balance_updated_at': datetime.utcnow(),
                 'created_at': datetime.utcnow(),
                 'updated_at': datetime.utcnow(),
             },
@@ -133,11 +127,9 @@ def init_db():
                 'name': 'Investment Account',
                 'description': 'Investment portfolio',
                 'type': 'investment',
-                'balance': 25000.00,
                 'user_id': str(test_user.id),
                 'broker_id': str(test_broker.id),
                 'currency': 'BRL',
-                'balance_updated_at': datetime.utcnow(),
                 'created_at': datetime.utcnow(),
                 'updated_at': datetime.utcnow(),
             },
@@ -146,12 +138,12 @@ def init_db():
         for account_data in accounts_data:
             db.execute(text("""
                 INSERT INTO accounts (
-                    id, name, description, type, balance, available_balance,
-                    user_id, broker_id, currency, balance_updated_at, 
+                    id, name, description, type, 
+                    user_id, broker_id, currency, 
                     is_active, created_at, updated_at
                 ) VALUES (
-                    :id, :name, :description, :type, :balance, :balance,
-                    :user_id, :broker_id, :currency, :balance_updated_at,
+                    :id, :name, :description, :type,
+                    :user_id, :broker_id, :currency,
                     true, :created_at, :updated_at
                 )
             """), account_data)

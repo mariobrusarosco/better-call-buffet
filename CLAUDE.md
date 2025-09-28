@@ -20,35 +20,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Start API and database with hot reload
-docker-compose up
+docker compose up
 
 # Stop services
-docker-compose down
+docker compose down
 
 # Run inside containers (exec commands)
-docker-compose exec web poetry run <command>
+docker compose exec web poetry run <command>
 
 # Run single test file
-docker-compose exec web poetry run pytest tests/specific_test.py
+docker compose exec web poetry run pytest tests/specific_test.py
 
 # Run tests with verbose output
-docker-compose exec web poetry run pytest -v
+docker compose exec web poetry run pytest -v
 
 # Run tests for specific domain
-docker-compose exec web poetry run pytest tests/domains/accounts/
+docker compose exec web poetry run pytest tests/domains/accounts/
 ```
 
 ### Database Operations
 
 ```bash
 # Apply migrations
-docker-compose exec web alembic upgrade head
+docker compose exec web alembic upgrade head
 
 # Create new migration (after model changes)
-docker-compose exec web alembic revision --autogenerate -m "Description"
+docker compose exec web alembic revision --autogenerate -m "Description"
 
 # Check current migration status
-docker-compose exec web alembic current
+docker compose exec web alembic current
 
 ```
 
@@ -56,30 +56,30 @@ docker-compose exec web alembic current
 
 ```bash
 # Format code
-docker-compose exec web poetry run black .
+docker compose exec web poetry run black .
 
 # Run all tests
-docker-compose exec web poetry run pytest
+docker compose exec web poetry run pytest
 
 # Type checking
-docker-compose exec web poetry run mypy app
+docker compose exec web poetry run mypy app
 
 # Linting
-docker-compose exec web poetry run flake8
+docker compose exec web poetry run flake8
 
 # Import sorting
-docker-compose exec web poetry run isort .
+docker compose exec web poetry run isort .
 
 # Security scanning
-docker-compose exec web poetry run safety check
-docker-compose exec web poetry run pip-audit
+docker compose exec web poetry run safety check
+docker compose exec web poetry run pip-audit
 ```
 
 ### Production & Deployment Scripts
 
 ```bash
 # Database seeding
-docker-compose exec web python scripts/seed_db.py
+docker compose exec web python scripts/seed_db.py
 ```
 
 ## Architecture Overview
@@ -173,7 +173,7 @@ This project emphasizes learning backend development concepts:
 1. Modify SQLAlchemy models in `app/domains/*/models.py`
 2. Generate migration: `alembic revision --autogenerate -m "Description"`
 3. Review generated migration file in `migrations/versions/`
-4. Test locally: `docker-compose exec web alembic upgrade head`
+4. Test locally: `docker compose exec web alembic upgrade head`
 5. Push to main branch (triggers two-stage deployment):
    - **GitHub Actions**: Validates migrations (`alembic check`)
    - **Railway**: Applies migrations (`alembic upgrade head`)
