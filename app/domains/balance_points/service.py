@@ -380,6 +380,48 @@ class BalancePointService:
             user_id=user_id
         )
 
+    def auto_update_balance_from_transaction_deletion(
+        self, account_id: UUID, deleted_transaction_date: datetime, user_id: UUID
+    ) -> BalancePoint:
+        """
+        Auto-update account balance after a transaction deletion.
+        
+        Args:
+            account_id: ID of the account that had the transaction
+            deleted_transaction_date: Date of the deleted transaction
+            user_id: ID of the user
+            
+        Returns:
+            Updated balance point
+            
+        Raises:
+            ValueError: If account doesn't belong to user
+        """
+        # Validate account ownership
+        account = self.account_repository.get_by_id_and_user(account_id, user_id)
+        if not account:
+            raise ValueError("Account not found or does not belong to user")
+        
+        # Calculate new balance using smart incremental logic
+        calculated_balance = self.calculate_account_balance_from_transactions(
+            account_id, user_id
+        )
+        
+        # Create/update balance point for the transaction's date
+        balance_data = {
+            "balance": calculated_balance,
+            "snapshot_type": "transaction",
+            "note": "Auto-updated after transaction deletion",
+            "source_transaction_id": None  # No source transaction since it was deleted
+        }
+        
+        return self.upsert_balance_point(
+            account_id=account_id,
+            target_date=deleted_transaction_date,
+            balance_data=balance_data,
+            user_id=user_id
+        )
+
     def get_total_balance_at_date(self, user_id: UUID, target_date: date) -> float:
         """
         Calculate total balance across all accounts at a specific date.

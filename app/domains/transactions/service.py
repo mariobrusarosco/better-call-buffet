@@ -503,3 +503,96 @@ class TransactionService:
                 f"Error retrieving transactions for user {user_id}: {str(e)}"
             )
             raise
+
+    def delete_transaction(self, transaction_id: UUID, user_id: UUID) -> bool:
+        """
+        Delete a single transaction by ID and auto-update balance.
+        
+        Benefits:
+        - ✅ User ownership validation
+        - ✅ Safe deletion with rollback
+        - ✅ Automatic balance recalculation
+        - ✅ Logging for audit trail
+        
+        Args:
+            transaction_id: UUID of the transaction to delete
+            user_id: UUID of the user (for ownership validation)
+            
+        Returns:
+            bool: True if deleted, False if not found or not owned
+            
+        Raises:
+            Exception: If deletion fails
+        """
+        try:
+            logger.info(f"Attempting to delete transaction {transaction_id} for user {user_id}")
+            
+            # Get transaction details before deletion for balance update
+            transaction = self.repository.get_by_id(transaction_id)
+            if not transaction or transaction.user_id != user_id:
+                logger.warning(f"Transaction {transaction_id} not found or not owned by user {user_id}")
+                return False
+            
+            # Store transaction details for balance update
+            account_id = transaction.account_id
+            transaction_date = transaction.date
+            
+            # Delete the transaction
+            result = self.repository.delete_by_id(transaction_id, user_id)
+            
+            if result:
+                logger.info(f"Successfully deleted transaction {transaction_id}")
+                
+                # Auto-update balance if transaction was linked to an account
+                if account_id:
+                    try:
+                        balance_service = BalancePointService(self.db)
+                        balance_service.auto_update_balance_from_transaction_deletion(
+                            account_id=account_id,
+                            deleted_transaction_date=transaction_date,
+                            user_id=user_id
+                        )
+                        logger.info(f"Auto-updated balance for account {account_id} after transaction deletion")
+                    except Exception as e:
+                        logger.error(f"Failed to auto-update balance after deleting transaction {transaction_id}: {str(e)}")
+                        # Don't fail the deletion because of balance update issues
+                        pass
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error deleting transaction {transaction_id}: {str(e)}")
+            raise
+
+    def bulk_delete_transactions(self, transaction_ids: List[UUID], user_id: UUID) -> int:
+        """
+        Bulk delete transactions by IDs.
+        
+        Benefits:
+        - ✅ User ownership validation for all transactions
+        - ✅ High performance bulk delete
+        - ✅ Single database round-trip
+        - ✅ Logging for audit trail
+        
+        Args:
+            transaction_ids: List of UUIDs to delete
+            user_id: UUID of the user (for ownership validation)
+            
+        Returns:
+            int: Number of transactions actually deleted
+            
+        Raises:
+            Exception: If bulk delete fails
+        """
+        try:
+            logger.info(f"Attempting to bulk delete {len(transaction_ids)} transactions for user {user_id}")
+            
+            deleted_count = self.repository.bulk_delete_by_ids(transaction_ids, user_id)
+            
+            logger.info(f"Successfully deleted {deleted_count} out of {len(transaction_ids)} transactions")
+            
+            return deleted_count
+            
+        except Exception as e:
+            logger.error(f"Error bulk deleting transactions: {str(e)}")
+            raise

@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class TransactionBase(BaseModel):
@@ -132,6 +132,28 @@ class TransactionBulkResponse(BaseModel):
     total_successful: int
     total_failed: int
     results: List[TransactionResult]
+
+
+class TransactionBulkDeleteRequest(BaseModel):
+    """Request schema for bulk delete operations"""
+    transaction_ids: List[UUID]
+    
+    class Config:
+        # Allow string UUIDs to be converted to UUID objects
+        json_encoders = {
+            UUID: str
+        }
+    
+    @field_validator('transaction_ids', mode='before')
+    @classmethod
+    def parse_uuid_strings(cls, v):
+        """Convert string UUIDs to UUID objects"""
+        if isinstance(v, list):
+            try:
+                return [UUID(str(uuid_str)) for uuid_str in v]
+            except ValueError as e:
+                raise ValueError(f"Invalid UUID in list: {e}")
+        return v
     
     @property
     def success_rate(self) -> float:

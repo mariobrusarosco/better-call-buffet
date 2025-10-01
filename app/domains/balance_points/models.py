@@ -29,8 +29,13 @@ class BalancePoint(Base):
     
     # NEW: Enhanced Tracking Fields
     snapshot_type = Column(String, nullable=False)  # "daily", "transaction", "manual", "reconciliation"
-    source_transaction_id = Column(UUID(as_uuid=True), ForeignKey("transactions.id"), nullable=True)
+    source_transaction_id = Column(UUID(as_uuid=True), ForeignKey("transactions.id", ondelete="CASCADE"), nullable=True)
     is_verified = Column(Boolean, default=False, nullable=False)  # For reconciliation validation
+    
+    # Stale Tracking Fields
+    is_stale = Column(Boolean, default=False, nullable=False)  # True if balance needs recalculation
+    stale_reason = Column(String, nullable=True)  # Why this balance point became stale
+    last_validated = Column(DateTime, nullable=True)  # When this balance was last confirmed accurate
     
     # Balance Target (XOR: either account_id OR credit_card_id)
     account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=True)

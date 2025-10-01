@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
 from app.domains.transactions.schemas import (
+    TransactionBulkDeleteRequest,
     TransactionBulkRequest,
     TransactionBulkResponse,
     TransactionFilters,
@@ -119,3 +120,72 @@ def create_transactions_bulk_endpoint(
     """
     service = TransactionService(db)
     return service.create_transactions_bulk_with_validation(bulk_request, user_id)
+
+
+@router.delete("/bulk")
+def delete_transactions_bulk_endpoint(
+    bulk_delete_request: TransactionBulkDeleteRequest,
+    db: Session = Depends(get_db_session),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    🗑️ Bulk delete multiple transactions
+    
+    This endpoint allows users to delete multiple transactions in a single request.
+    
+    Benefits:
+    - ✅ User ownership validation for all transactions
+    - ✅ High performance bulk delete
+    - ✅ Single database round-trip
+    - ✅ Returns count of deleted transactions
+    
+    Use Cases:
+    - Remove multiple incorrect transactions
+    - Clean up duplicate entries
+    - Bulk transaction cleanup
+    
+    Request Body:
+    {
+        "transaction_ids": ["uuid1", "uuid2", "uuid3"]
+    }
+    """
+    service = TransactionService(db)
+    deleted_count = service.bulk_delete_transactions(bulk_delete_request.transaction_ids, user_id)
+    
+    return {
+        "message": f"Successfully deleted {deleted_count} transactions",
+        "deleted_count": deleted_count,
+        "requested_count": len(bulk_delete_request.transaction_ids)
+    }
+
+
+@router.delete("/{transaction_id}")
+def delete_transaction_endpoint(
+    transaction_id: UUID,
+    db: Session = Depends(get_db_session),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    🗑️ Delete a single transaction by ID
+    
+    This endpoint allows users to delete their own transactions.
+    
+    Benefits:
+    - ✅ User ownership validation
+    - ✅ Safe deletion with rollback
+    - ✅ Audit logging
+    - ✅ Returns success status
+    
+    Use Cases:
+    - Remove incorrect transactions
+    - Clean up duplicate entries
+    - User-initiated transaction removal
+    """
+    service = TransactionService(db)
+    success = service.delete_transaction(transaction_id, user_id)
+    
+    if not success:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Transaction not found or not accessible")
+    
+    return {"message": "Transaction deleted successfully"}

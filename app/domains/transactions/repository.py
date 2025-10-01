@@ -154,6 +154,7 @@ class TransactionRepository:
             and_(
                 Transaction.credit_card_id == credit_card_id,
                 Transaction.user_id == user_id,
+                Transaction.is_deleted == False
             )
         )
 
@@ -288,3 +289,131 @@ class TransactionRepository:
             .order_by(Transaction.created_at.asc())
             .all()
         )
+
+    def delete_by_id(self, transaction_id: UUID, user_id: UUID) -> bool:
+        """
+        Delete a single transaction by ID, ensuring user ownership.
+        
+        Benefits:
+        - ✅ User ownership validation
+        - ✅ Safe deletion with rollback
+        - ✅ CASCADE delete handles related records
+        - ✅ Returns success status
+        
+        Args:
+            transaction_id: UUID of the transaction to delete
+            user_id: UUID of the user (for ownership validation)
+            
+        Returns:
+            bool: True if deleted, False if not found or not owned
+            
+        Raises:
+            Exception: If deletion fails, rolls back transaction
+        """
+        try:
+            # Find transaction and verify ownership
+            transaction = self.db.query(Transaction).filter(
+                and_(
+                    Transaction.id == transaction_id,
+                    Transaction.user_id == user_id
+                )
+            ).first()
+            
+            if not transaction:
+                return False
+                
+            # Delete the transaction (CASCADE will handle related records)
+            self.db.delete(transaction)
+            self.db.commit()
+            return True
+            
+        except Exception as e:
+            self.db.rollback()
+            raise e
+
+    def bulk_delete_by_ids(self, transaction_ids: List[UUID], user_id: UUID) -> int:
+        """
+        Bulk delete transactions by IDs, ensuring user ownership.
+        
+        Benefits:
+        - ✅ User ownership validation for all transactions
+        - ✅ High performance bulk delete via SQLAlchemy
+        - ✅ Proper foreign key reference cleanup
+        - ✅ Consistent error handling with rollback
+        - ✅ Returns count of deleted transactions
+        
+        Args:
+            transaction_ids: List of UUIDs to delete
+            user_id: UUID of the user (for ownership validation)
+            
+        Returns:
+            int: Number of transactions actually deleted
+            
+        Raises:
+            Exception: If bulk delete fails, rolls back transaction
+        """
+        try:
+            # Get transaction details before deletion to determine affected accounts and dates
+            transactions_to_delete = self.db.query(Transaction).filter(
+                and_(
+                    Transaction.id.in_(transaction_ids),
+                    Transaction.user_id == user_id
+                )
+            ).all()
+            
+            if not transactions_to_delete:
+                self.db.commit()
+                return 0
+            
+            # Group transactions by account and find earliest date per account
+            from app.domains.balance_points.models import BalancePoint
+            from datetime import datetime
+            
+            account_earliest_dates = {}
+            for tx in transactions_to_delete:
+                if tx.account_id:  # Only process account transactions
+                    if tx.account_id not in account_earliest_dates:
+                        account_earliest_dates[tx.account_id] = tx.date
+                    else:
+                        if tx.date < account_earliest_dates[tx.account_id]:
+                            account_earliest_dates[tx.account_id] = tx.date
+            
+            # Mark balance points as stale for affected accounts (from earliest deletion date forward)
+            for account_id, earliest_date in account_earliest_dates.items():
+                self.db.query(BalancePoint).filter(
+                    and_(
+                        BalancePoint.account_id == account_id,
+                        BalancePoint.user_id == user_id,
+                        BalancePoint.date >= earliest_date
+                    )
+                ).update({
+                    "is_stale": True,
+                    "stale_reason": f"Transactions deleted affecting balance calculation",
+                    "last_validated": None
+                }, synchronize_session=False)
+            
+            # Clean up foreign key references to avoid constraint violations
+            self.db.query(BalancePoint).filter(
+                and_(
+                    BalancePoint.source_transaction_id.in_(transaction_ids),
+                    BalancePoint.user_id == user_id
+                )
+            ).update(
+                {"source_transaction_id": None},
+                synchronize_session=False
+            )
+            
+            # Now delete transactions with user ownership validation
+            deleted_count = self.db.query(Transaction).filter(
+                and_(
+                    Transaction.id.in_(transaction_ids),
+                    Transaction.user_id == user_id
+                )
+            ).delete(synchronize_session=False)
+            
+            self.db.commit()
+            return deleted_count
+            
+        except Exception as e:
+            self.db.rollback()
+            raise e
