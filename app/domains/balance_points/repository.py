@@ -78,6 +78,21 @@ class BalancePointRepository:
             .first()
         )
 
+    def get_latest_fresh_balance_point(
+        self, account_id: UUID, user_id: UUID
+    ) -> Optional[BalancePoint]:
+        """Get the most recent NON-STALE balance point for an account"""
+        return (
+            self.db.query(BalancePoint)
+            .filter(
+                BalancePoint.account_id == account_id,
+                BalancePoint.user_id == user_id,
+                BalancePoint.is_stale == False
+            )
+            .order_by(BalancePoint.date.desc())
+            .first()
+        )
+
     def get_by_account_and_date(
         self, account_id: UUID, user_id: UUID, target_date: date
     ) -> Optional[BalancePoint]:
@@ -90,6 +105,21 @@ class BalancePointRepository:
                 func.date(BalancePoint.date) == target_date,
             )
             .first()
+        )
+
+    def get_balance_points_after_date(
+        self, account_id: UUID, user_id: UUID, from_date: datetime
+    ) -> List[BalancePoint]:
+        """Get all balance points for an account on or after a specific date"""
+        return (
+            self.db.query(BalancePoint)
+            .filter(
+                BalancePoint.account_id == account_id,
+                BalancePoint.user_id == user_id,
+                BalancePoint.date >= from_date,
+            )
+            .order_by(BalancePoint.date.asc())
+            .all()
         )
 
     def get_balance_history_summary(

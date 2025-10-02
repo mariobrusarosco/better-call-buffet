@@ -148,31 +148,31 @@ class TransactionService:
                     }
                 )
                 
-                # Auto-update balance points for all affected accounts
-                affected_accounts = set()
+                # Mark balance points as stale for all affected accounts
+                affected_accounts = {}  # account_id -> earliest transaction date
                 for tx_data in successful_transactions:
                     if tx_data.get("account_id"):
-                        affected_accounts.add(tx_data["account_id"])
+                        account_id = tx_data["account_id"]
+                        tx_date = tx_data["date"]
+                        
+                        if account_id not in affected_accounts:
+                            affected_accounts[account_id] = tx_date
+                        elif tx_date < affected_accounts[account_id]:
+                            affected_accounts[account_id] = tx_date
                 
-                for account_id in affected_accounts:
+                for account_id, earliest_date in affected_accounts.items():
                     try:
-                        # Use the last transaction ID from this account as the trigger
-                        relevant_tx = next(
-                            tx for tx in successful_transactions 
-                            if tx.get("account_id") == account_id
-                        )
-                        
-                        self.balance_point_service.auto_update_balance_from_transaction(
+                        marked_count = self.balance_point_service.mark_balance_points_stale_after_transaction_change(
                             account_id=account_id,
-                            transaction_id=relevant_tx["id"],
-                            user_id=user_id
+                            transaction_date=earliest_date,
+                            user_id=user_id,
+                            reason=f"Bulk transactions added affecting balance calculation"
                         )
-                        
-                        logger.debug(f"Auto-updated balance point for account {account_id}")
+                        logger.info(f"Marked {marked_count} balance points as stale for account {account_id} after bulk creation")
                         
                     except Exception as e:
                         logger.error(
-                            f"Failed to auto-update balance point for account {account_id}: {str(e)}",
+                            f"Failed to mark balance points as stale for account {account_id}: {str(e)}",
                             extra={
                                 "account_id": str(account_id),
                                 "user_id": str(user_id),
@@ -249,18 +249,20 @@ class TransactionService:
         # Create the transaction
         created_transaction = self.repository.create(transaction_data)
         
-        # Auto-update balance point for the affected account
+        # Mark balance points as stale for the affected account
         if created_transaction.account_id:
             try:
-                self.balance_point_service.auto_update_balance_from_transaction(
+                marked_count = self.balance_point_service.mark_balance_points_stale_after_transaction_change(
                     account_id=created_transaction.account_id,
-                    transaction_id=created_transaction.id,
-                    user_id=user_id
+                    transaction_date=created_transaction.date,
+                    user_id=user_id,
+                    reason=f"New transaction added: {created_transaction.id}"
                 )
+                logger.info(f"Marked {marked_count} balance points as stale after transaction creation")
             except Exception as e:
                 # Log error but don't fail the transaction creation
                 logger.error(
-                    f"Failed to auto-update balance point after transaction creation: {str(e)}",
+                    f"Failed to mark balance points as stale after transaction creation: {str(e)}",
                     extra={
                         "transaction_id": str(created_transaction.id),
                         "account_id": str(created_transaction.account_id),
@@ -543,18 +545,19 @@ class TransactionService:
             if result:
                 logger.info(f"Successfully deleted transaction {transaction_id}")
                 
-                # Auto-update balance if transaction was linked to an account
+                # Mark balance points as stale if transaction was linked to an account
                 if account_id:
                     try:
                         balance_service = BalancePointService(self.db)
-                        balance_service.auto_update_balance_from_transaction_deletion(
+                        marked_count = balance_service.mark_balance_points_stale_after_transaction_change(
                             account_id=account_id,
-                            deleted_transaction_date=transaction_date,
-                            user_id=user_id
+                            transaction_date=transaction_date,
+                            user_id=user_id,
+                            reason=f"Transaction deleted: {transaction_id}"
                         )
-                        logger.info(f"Auto-updated balance for account {account_id} after transaction deletion")
+                        logger.info(f"Marked {marked_count} balance points as stale after transaction deletion")
                     except Exception as e:
-                        logger.error(f"Failed to auto-update balance after deleting transaction {transaction_id}: {str(e)}")
+                        logger.error(f"Failed to mark balance points as stale after deleting transaction {transaction_id}: {str(e)}")
                         # Don't fail the deletion because of balance update issues
                         pass
             

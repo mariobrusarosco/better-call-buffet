@@ -248,3 +248,5 @@ def get_total_balance_at_date(
         "total_balance": total_balance,
         "currency": "BRL",  # You might want to make this configurable
     }
+
+

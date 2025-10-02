@@ -435,3 +435,154 @@ class BalancePointService:
             Total balance across all accounts at the specified date
         """
         return self.repository.get_total_balance_at_date(user_id, target_date)
+
+    def mark_balance_points_stale_after_transaction_change(
+        self, account_id: UUID, transaction_date: datetime, user_id: UUID, reason: str
+    ) -> int:
+        """
+        Mark balance points as stale after a transaction is added, modified, or deleted.
+        
+        Args:
+            account_id: ID of the affected account
+            transaction_date: Date of the transaction that changed
+            user_id: ID of the user
+            reason: Reason for marking as stale
+            
+        Returns:
+            Number of balance points marked as stale
+        """
+        # Validate account ownership
+        account = self.account_repository.get_by_id_and_user(account_id, user_id)
+        if not account:
+            raise ValueError("Account not found or does not belong to user")
+        
+        # Mark all balance points on or after the transaction date as stale
+        # because they could all be affected by the transaction change
+        affected_balance_points = self.repository.get_balance_points_after_date(
+            account_id=account_id,
+            user_id=user_id,
+            from_date=transaction_date
+        )
+        
+        marked_count = 0
+        for bp in affected_balance_points:
+            self.repository.update(bp, {
+                "is_stale": True,
+                "stale_reason": reason,
+                "last_validated": None
+            })
+            marked_count += 1
+            
+        return marked_count
+
+    def get_current_balance_with_smart_recalculation(
+        self, account_id: UUID, user_id: UUID
+    ) -> tuple[float, bool]:
+        """
+        Get current account balance using smart recalculation strategy.
+        
+        Performance Strategy:
+        1. Check if latest balance point is fresh
+        2. If fresh: return immediately
+        3. If stale: find latest fresh balance point as baseline
+        4. Recalculate from that baseline forward
+        5. Create new fresh balance point
+        
+        Args:
+            account_id: ID of the account
+            user_id: ID of the user
+            
+        Returns:
+            Tuple of (current_balance, was_recalculated)
+        """
+        # Validate account ownership
+        account = self.account_repository.get_by_id_and_user(account_id, user_id)
+        if not account:
+            raise ValueError("Account not found or does not belong to user")
+        
+        # Check if latest balance point is fresh
+        latest_balance_point = self.repository.get_latest_by_account(account_id, user_id)
+        
+        if latest_balance_point and not latest_balance_point.is_stale:
+            # Latest balance is fresh, return immediately
+            return float(latest_balance_point.balance), False
+        
+        # Need to recalculate - find latest fresh balance point as baseline
+        latest_fresh_bp = self.repository.get_latest_fresh_balance_point(account_id, user_id)
+        
+        if latest_fresh_bp:
+            # Smart approach: Start from latest fresh balance point
+            base_balance = float(latest_fresh_bp.balance)
+            base_date = latest_fresh_bp.date
+            
+            # Get transactions since the fresh balance point
+            transactions_since = self.transaction_repository.get_account_transactions_since_timestamp(
+                account_id=account_id,
+                user_id=user_id,
+                since_timestamp=base_date
+            )
+            
+            # Calculate balance delta from transactions since fresh point
+            balance_delta = sum(
+                float(transaction.balance_impact or 0) for transaction in transactions_since
+            )
+            
+            current_balance = base_balance + balance_delta
+        else:
+            # No fresh balance points - full recalculation from beginning
+            current_balance = self.calculate_account_balance_from_transactions(account_id, user_id)
+        
+        # Create new fresh balance point with calculated balance
+        self.upsert_balance_point(
+            account_id=account_id,
+            target_date=datetime.utcnow(),
+            balance_data={
+                "balance": current_balance,
+                "snapshot_type": "manual",
+                "note": "Smart recalculation after stale detection",
+                "is_stale": False,
+                "last_validated": datetime.utcnow()
+            },
+            user_id=user_id
+        )
+        
+        return current_balance, True
+
+    def refresh_stale_balance_points(
+        self, account_id: UUID, user_id: UUID
+    ) -> dict:
+        """
+        Refresh all stale balance points for an account using smart recalculation.
+        
+        Returns summary of what was refreshed.
+        """
+        # Get current balance (this will create a fresh point if needed)
+        current_balance, was_recalculated = self.get_current_balance_with_smart_recalculation(
+            account_id, user_id
+        )
+        
+        if not was_recalculated:
+            return {
+                "current_balance": current_balance,
+                "stale_points_found": 0,
+                "points_refreshed": 0,
+                "message": "Balance was already fresh"
+            }
+        
+        # Mark all stale balance points as fresh since we now have accurate balance
+        # This is optional optimization - we could also just leave them stale
+        stale_points = self.repository.get_balance_points_after_date(
+            account_id=account_id,
+            user_id=user_id,
+            from_date=datetime.min  # Get all balance points
+        )
+        
+        stale_count = sum(1 for bp in stale_points if bp.is_stale)
+        
+        # For now, just report - we could optionally mark old stale points as fresh
+        return {
+            "current_balance": current_balance,
+            "stale_points_found": stale_count,
+            "points_refreshed": 1,  # The new fresh point we created
+            "message": f"Recalculated balance and created fresh balance point"
+        }
