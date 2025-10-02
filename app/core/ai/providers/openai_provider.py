@@ -11,11 +11,13 @@ from ..models.requests import FinancialParsingRequest
 from ..models.responses import (
     FinancialParsingResponse,
     FinancialData,
-    InstallmentOption,
-    TransactionData,
-    NextDueInfo
+    CreditCardInvoiceData,
+    BankStatementData
 )
-from ..prompts.financial_parsing import get_financial_parsing_prompt
+from ..prompts.financial_parsing import (
+    get_bank_statement_prompt,
+    get_credit_card_invoice_prompt
+)
 
 
 class OpenAIProvider(BaseAIProvider):
@@ -44,70 +46,165 @@ class OpenAIProvider(BaseAIProvider):
     
     
     
-    async def parse_financial_document(self, request: FinancialParsingRequest) -> FinancialParsingResponse:
-        """Parse financial documents using OpenAI structured outputs with .parse() method"""
+    async def parse_bank_statement(self, request: FinancialParsingRequest) -> FinancialParsingResponse:
+        """
+        Parse BANK ACCOUNT STATEMENT ONLY using OpenAI structured outputs.
+        
+        NO credit card logic. NO shared conversion. Bank statements ONLY.
+        """
         try:
-            from ..models.responses import FinancialData
+            from ..models.responses import BankStatementData, FinancialData
             
             # Truncate text to fit context
             text = request.text[:request.max_text_length]
             
-            # Get appropriate prompt  
-            system_prompt = get_financial_parsing_prompt(
-                document_type=request.document_type,
-                language=request.language
-            )
+            # Get bank statement specific prompt
+            system_prompt = get_bank_statement_prompt(language=request.language)
             
             # Use OpenAI structured outputs with .parse() method
             client = self._get_client()
             model_to_use = request.model or self.default_model
-            logger.info(f"Using OpenAI model: {model_to_use}")
+            logger.info(f"Parsing BANK STATEMENT with OpenAI model: {model_to_use}")
             
-            # The .parse() method automatically:
-            # 1. Converts Pydantic model to JSON schema
-            # 2. Sends request with structured output format
-            # 3. Parses and validates the response
-            # 4. Returns the Pydantic model directly
+            # Parse with BankStatementData schema (no credit card fields!)
             response = await client.beta.chat.completions.parse(
                 model=model_to_use,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Analyze this {request.document_type}:\n\n{text}"}
+                    {"role": "user", "content": f"Analyze this bank account statement:\n\n{text}"}
                 ],
-                response_format=FinancialData,  # Pass Pydantic model directly!
+                response_format=BankStatementData,  # Bank statement schema ONLY!
                 temperature=request.temperature
             )
             
-            # Get the parsed Pydantic model directly from the response
+            # Get the parsed Pydantic model
             parsed_message = response.choices[0].message
             
-            # Check if parsing was successful
             if not parsed_message.parsed:
                 return FinancialParsingResponse(
                     provider=self.provider_name,
-                    model=request.model or self.default_model,
+                    model=model_to_use,
                     success=False,
-                    error="OpenAI failed to parse the response into structured format"
+                    error="OpenAI failed to parse bank statement"
                 )
             
-            # Get the FinancialData object (already validated!)
-            financial_data = parsed_message.parsed
+            # Get BankStatementData object
+            bank_statement = parsed_message.parsed
+            
+            # Convert to FinancialData (legacy format for compatibility)
+            financial_data = FinancialData(
+                period=bank_statement.period,
+                # Credit card fields (empty for bank statements)
+                total_due="",
+                due_date="",
+                min_payment="",
+                installment_options=[],
+                next_due_info=None,
+                # Bank statement fields
+                opening_balance=bank_statement.opening_balance,
+                closing_balance=bank_statement.closing_balance,
+                # Common fields
+                transactions=bank_statement.transactions
+            )
+            
+            logger.info(f"✅ Bank statement parsed: {len(bank_statement.transactions)} transactions, closing={bank_statement.closing_balance}")
             
             return FinancialParsingResponse(
                 provider=self.provider_name,
-                model=request.model or self.default_model,
+                model=model_to_use,
                 success=True,
                 data=financial_data,
                 raw_response=parsed_message.content or ""
             )
                 
         except Exception as e:
-            logger.error(f"Financial parsing failed: {str(e)}")
+            logger.error(f"Bank statement parsing failed: {str(e)}")
             return FinancialParsingResponse(
                 provider=self.provider_name,
                 model=request.model or self.default_model,
                 success=False,
-                error=f"Financial parsing failed: {str(e)}"
+                error=f"Bank statement parsing failed: {str(e)}"
+            )
+    
+    
+    async def parse_credit_card_invoice(self, request: FinancialParsingRequest) -> FinancialParsingResponse:
+        """
+        Parse CREDIT CARD INVOICE ONLY using OpenAI structured outputs.
+        
+        NO bank statement logic. NO shared conversion. Credit card invoices ONLY.
+        """
+        try:
+            from ..models.responses import CreditCardInvoiceData, FinancialData
+            
+            # Truncate text to fit context
+            text = request.text[:request.max_text_length]
+            
+            # Get credit card invoice specific prompt
+            system_prompt = get_credit_card_invoice_prompt(language=request.language)
+            
+            # Use OpenAI structured outputs with .parse() method
+            client = self._get_client()
+            model_to_use = request.model or self.default_model
+            logger.info(f"Parsing CREDIT CARD INVOICE with OpenAI model: {model_to_use}")
+            
+            # Parse with CreditCardInvoiceData schema (no bank statement fields!)
+            response = await client.beta.chat.completions.parse(
+                model=model_to_use,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Analyze this credit card invoice:\n\n{text}"}
+                ],
+                response_format=CreditCardInvoiceData,  # Credit card schema ONLY!
+                temperature=request.temperature
+            )
+            
+            # Get the parsed Pydantic model
+            parsed_message = response.choices[0].message
+            
+            if not parsed_message.parsed:
+                return FinancialParsingResponse(
+                    provider=self.provider_name,
+                    model=model_to_use,
+                    success=False,
+                    error="OpenAI failed to parse credit card invoice"
+                )
+            
+            # Get CreditCardInvoiceData object
+            invoice = parsed_message.parsed
+            
+            # Convert to FinancialData (legacy format for compatibility)
+            financial_data = FinancialData(
+                period=invoice.period,
+                # Credit card fields
+                total_due=invoice.total_due,
+                due_date=invoice.due_date,
+                min_payment=invoice.min_payment,
+                installment_options=invoice.installment_options,
+                next_due_info=invoice.next_due_info,
+                # Bank statement fields (empty for credit cards)
+                opening_balance="",
+                closing_balance="",
+                # Common fields
+                transactions=invoice.transactions
+            )
+            
+            logger.info(f"✅ Credit card invoice parsed: {len(invoice.transactions)} transactions, total_due={invoice.total_due}")
+            
+            return FinancialParsingResponse(
+                provider=self.provider_name,
+                model=model_to_use,
+                success=True,
+                data=financial_data,
+                raw_response=parsed_message.content or ""
+            )
+                
+        except Exception as e:
+            logger.error(f"Credit card invoice parsing failed: {str(e)}")
+            return FinancialParsingResponse(
+                provider=self.provider_name,
+                model=request.model or self.default_model,
+                success=False,
+                error=f"Credit card invoice parsing failed: {str(e)}"
             )
     
     

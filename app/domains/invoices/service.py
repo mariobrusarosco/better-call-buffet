@@ -561,10 +561,9 @@ class InvoiceService:
             raise InvoiceRawInvoiceEmptyError("AI client not configured")
         
         try:
-            # Use AI client to parse financial document
-            response = await self.ai_client.parse_financial_document(
+            # Use AI client specialized method for CREDIT CARD INVOICES ONLY
+            response = await self.ai_client.parse_credit_card_invoice(
                 text=pdf_text,
-                document_type="invoice",
                 language="pt"
             )
             

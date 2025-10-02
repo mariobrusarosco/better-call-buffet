@@ -41,37 +41,81 @@ class AIClient:
             logger.error("AI health check failed", error=str(e), provider=self.provider_name)
             return False
     
-    # Core AI Operations
-    async def parse_financial_document(
+    # ============================================================================
+    # SPECIALIZED AI OPERATIONS - NO SHARED LOGIC
+    # ============================================================================
+    
+    async def parse_bank_statement(
         self,
         text: str,
-        document_type: str = "statement",
         language: str = "pt",
         model: Optional[str] = None,
         temperature: float = 0.3
     ) -> FinancialParsingResponse:
-        """Parse financial documents into structured data"""
+        """
+        Parse BANK ACCOUNT STATEMENT into structured data.
+        
+        ONLY for bank statements - NOT for credit card invoices.
+        """
         
         request = FinancialParsingRequest(
             provider=self.provider_name,
             model=model or self.config.get("model"),
             temperature=temperature,
             text=text,
-            document_type=document_type,
+            document_type="statement",  # Hardcoded for bank statements
             language=language
         )
         
         try:
-            response = await self._provider.parse_financial_document(request)
-            
+            response = await self._provider.parse_bank_statement(request)
             return response
             
         except Exception as e:
             logger.error(
-                "Financial document parsing failed",
+                "Bank statement parsing failed",
                 provider=self.provider_name,
                 model=request.model,
-                document_type=document_type,
+                error=str(e)
+            )
+            return FinancialParsingResponse(
+                provider=self.provider_name,
+                model=request.model,
+                success=False,
+                error=str(e)
+            )
+    
+    async def parse_credit_card_invoice(
+        self,
+        text: str,
+        language: str = "pt",
+        model: Optional[str] = None,
+        temperature: float = 0.3
+    ) -> FinancialParsingResponse:
+        """
+        Parse CREDIT CARD INVOICE into structured data.
+        
+        ONLY for credit card invoices - NOT for bank statements.
+        """
+        
+        request = FinancialParsingRequest(
+            provider=self.provider_name,
+            model=model or self.config.get("model"),
+            temperature=temperature,
+            text=text,
+            document_type="invoice",  # Hardcoded for invoices
+            language=language
+        )
+        
+        try:
+            response = await self._provider.parse_credit_card_invoice(request)
+            return response
+            
+        except Exception as e:
+            logger.error(
+                "Credit card invoice parsing failed",
+                provider=self.provider_name,
+                model=request.model,
                 error=str(e)
             )
             return FinancialParsingResponse(

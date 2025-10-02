@@ -161,10 +161,10 @@ class StatementService:
 
     def _enrich_statement_data(self, statement_data: dict, raw_statement) -> None:
         """
-        Extract structured data from raw statement and add to statement_data.
+        Extract structured data from raw BANK STATEMENT and add to statement_data.
         
-        This method parses dates, amounts, and other structured information
-        from the raw statement format.
+        This method parses dates, balances, and other structured information
+        from the RawBankStatement format.
         """
         try:
             # Parse period dates if available
@@ -180,21 +180,19 @@ class StatementService:
                     except ValueError:
                         logger.warning("Could not parse period dates from statement")
 
-            # Parse due date
-            if hasattr(raw_statement, 'due_date') and raw_statement.due_date:
-                try:
-                    due_date = datetime.strptime(raw_statement.due_date, "%d/%m/%Y")
-                    statement_data["due_date"] = due_date
-                except ValueError:
-                    logger.warning("Could not parse due date from statement")
-
-            # Extract financial summary (keep as strings to preserve formatting)
-            statement_data["total_due"] = getattr(raw_statement, 'total_due', None)
-            statement_data["min_payment"] = getattr(raw_statement, 'min_payment', None)
+            # Extract bank statement balances (keep as strings to preserve formatting)
+            statement_data["opening_balance"] = getattr(raw_statement, 'opening_balance', None)
+            statement_data["closing_balance"] = getattr(raw_statement, 'closing_balance', None)
             
-            # Extract opening/closing balance from next_due_info or transactions
-            if hasattr(raw_statement, 'next_due_info') and raw_statement.next_due_info:
-                statement_data["closing_balance"] = raw_statement.next_due_info.balance
+            logger.info(
+                f"Enriched bank statement data",
+                extra={
+                    "period_start": statement_data.get("period_start"),
+                    "period_end": statement_data.get("period_end"),
+                    "opening_balance": statement_data.get("opening_balance"),
+                    "closing_balance": statement_data.get("closing_balance")
+                }
+            )
 
         except Exception as e:
             logger.warning(f"Error enriching statement data: {str(e)}")
@@ -369,7 +367,11 @@ class StatementService:
         return await loop.run_in_executor(None, extract_text)
 
     async def _parse_with_ai_client(self, pdf_text: str, filename: str) -> Dict:
-        """Parse extracted PDF text using AI client (supports OpenAI, Ollama, etc.)"""
+        """
+        Parse extracted PDF text using AI client for BANK STATEMENTS.
+        
+        Returns a dict compatible with RawBankStatement schema.
+        """
         if not self.ai_client:
             raise ValidationError(
                 message="AI client not configured", 
@@ -377,10 +379,9 @@ class StatementService:
             )
         
         try:
-            # Use AI client to parse financial document
-            response = await self.ai_client.parse_financial_document(
+            # Use AI client specialized method for BANK STATEMENTS ONLY
+            response = await self.ai_client.parse_bank_statement(
                 text=pdf_text,
-                document_type="statement",
                 language="pt"
             )
             
@@ -398,17 +399,15 @@ class StatementService:
                     error_code="AI_EMPTY_RESPONSE"
                 )
             
-            # Convert FinancialData model to dict format for compatibility
+            # Convert FinancialData (legacy format) to RawBankStatement format
+            # The AI provider already converted BankStatementData -> FinancialData for compatibility
             financial_data = response.data
+            
+            # Build RawBankStatement compatible dict (NO credit card fields!)
             parsed_data = {
-                "total_due": financial_data.total_due,
-                "due_date": financial_data.due_date,
                 "period": financial_data.period,
-                "min_payment": financial_data.min_payment,
-                "installment_options": [
-                    {"months": opt.months, "total": opt.total}
-                    for opt in financial_data.installment_options
-                ],
+                "opening_balance": getattr(financial_data, 'opening_balance', "") or "",
+                "closing_balance": getattr(financial_data, 'closing_balance', "") or "",
                 "transactions": [
                     {
                         "date": tx.date,
@@ -417,12 +416,18 @@ class StatementService:
                         "category": tx.category
                     }
                     for tx in financial_data.transactions
-                ],
-                "next_due_info": {
-                    "amount": financial_data.next_due_info.amount,
-                    "balance": financial_data.next_due_info.balance
-                } if financial_data.next_due_info else None
+                ]
             }
+            
+            logger.info(
+                f"Successfully converted AI response to RawBankStatement format",
+                extra={
+                    "period": parsed_data["period"],
+                    "opening_balance": parsed_data["opening_balance"],
+                    "closing_balance": parsed_data["closing_balance"],
+                    "transaction_count": len(parsed_data["transactions"])
+                }
+            )
             
             return parsed_data
             

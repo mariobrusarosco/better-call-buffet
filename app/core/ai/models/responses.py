@@ -13,36 +13,93 @@ class AIResponse(BaseModel, ABC):
 
 
 
-class InstallmentOption(BaseModel):
-    """Credit card installment option"""
-    months: int = Field(description="Number of months")
-    total: str = Field(description="Total amount for installment")
-
+# ============================================================================
+# TRANSACTION MODEL (Used by both statements and invoices)
+# ============================================================================
 
 class TransactionData(BaseModel):
-    """Individual transaction data"""
+    """
+    Individual transaction data.
+    
+    This is the ONLY shared model - transactions appear in both
+    bank statements and credit card invoices.
+    """
     date: str = Field(description="Transaction date")
     description: str = Field(description="Transaction description")
     amount: str = Field(description="Transaction amount")
     category: str = Field(default="", description="Transaction category")
 
 
+# ============================================================================
+# CREDIT CARD INVOICE MODELS (Credit card specific)
+# ============================================================================
+
+class InstallmentOption(BaseModel):
+    """Credit card installment option"""
+    months: int = Field(description="Number of months")
+    total: str = Field(description="Total amount for installment")
+
+
 class NextDueInfo(BaseModel):
-    """Next payment due information"""
+    """Next payment due information for credit cards"""
     amount: str = Field(description="Next payment amount")
     balance: str = Field(description="Current balance")
 
 
-class FinancialData(BaseModel):
-    """Structured financial document data"""
-    total_due: str = Field(description="Total amount due")
+class CreditCardInvoiceData(BaseModel):
+    """Structured credit card invoice data"""
+    total_due: str = Field(description="Total amount due on the credit card")
     due_date: str = Field(description="Payment due date")
     period: str = Field(description="Billing period")
     min_payment: str = Field(description="Minimum payment amount")
-    installment_options: List[InstallmentOption] = Field(default_factory=list)
-    transactions: List[TransactionData] = Field(default_factory=list)
-    next_due_info: Optional[NextDueInfo] = Field(default=None)
+    installment_options: List[InstallmentOption] = Field(default_factory=list, description="Available installment payment options")
+    transactions: List[TransactionData] = Field(default_factory=list, description="List of transactions")
+    next_due_info: Optional[NextDueInfo] = Field(default=None, description="Information about next payment due")
 
+
+# ============================================================================
+# BANK STATEMENT MODELS (Bank account specific)
+# ============================================================================
+
+class BankStatementData(BaseModel):
+    """Structured bank account statement data"""
+    period: str = Field(description="Statement period (e.g., '01/01/2025 - 31/01/2025')")
+    opening_balance: str = Field(default="", description="Opening balance at start of period")
+    closing_balance: str = Field(description="Closing balance at end of period")
+    transactions: List[TransactionData] = Field(default_factory=list, description="List of transactions with signed amounts")
+
+
+# ============================================================================
+# LEGACY/COMPATIBILITY MODEL (For backward compatibility)
+# ============================================================================
+
+class FinancialData(BaseModel):
+    """
+    Legacy financial document data model.
+    
+    DEPRECATED: Use CreditCardInvoiceData or BankStatementData instead.
+    Kept for backward compatibility with existing code.
+    """
+    period: str = Field(description="Billing/statement period")
+    
+    # Credit card fields (optional for bank statements)
+    total_due: str = Field(default="", description="Total amount due")
+    due_date: str = Field(default="", description="Payment due date")
+    min_payment: str = Field(default="", description="Minimum payment amount")
+    installment_options: List[InstallmentOption] = Field(default_factory=list)
+    next_due_info: Optional[NextDueInfo] = Field(default=None)
+    
+    # Bank statement fields (optional for credit cards)
+    opening_balance: str = Field(default="", description="Opening balance (bank statements)")
+    closing_balance: str = Field(default="", description="Closing balance (bank statements)")
+    
+    # Common fields
+    transactions: List[TransactionData] = Field(default_factory=list)
+
+
+# ============================================================================
+# RESPONSE MODELS
+# ============================================================================
 
 class FinancialParsingResponse(AIResponse):
     """Response from financial document parsing"""

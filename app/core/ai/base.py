@@ -19,8 +19,13 @@ class BaseAIProvider(ABC):
         pass
     
     @abstractmethod
-    async def parse_financial_document(self, request: FinancialParsingRequest) -> FinancialParsingResponse:
-        """Parse financial documents into structured data"""
+    async def parse_bank_statement(self, request: FinancialParsingRequest) -> FinancialParsingResponse:
+        """Parse BANK STATEMENT ONLY into structured data"""
+        pass
+    
+    @abstractmethod
+    async def parse_credit_card_invoice(self, request: FinancialParsingRequest) -> FinancialParsingResponse:
+        """Parse CREDIT CARD INVOICE ONLY into structured data"""
         pass
     
     @abstractmethod
