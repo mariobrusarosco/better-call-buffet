@@ -44,6 +44,7 @@ class Transaction(Base):
     
     # Status Fields
     is_paid = Column(Boolean, default=True)  # Changed default to True for consistency
+    is_deleted = Column(Boolean, default=False)  # Soft delete flag
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

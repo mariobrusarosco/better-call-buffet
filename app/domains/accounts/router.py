@@ -107,7 +107,6 @@ def get_account_endpoint(
     """Get a specific account by ID"""
     service = AccountService(db)
 
-    print("------xxxxx-----", account_id)
     account = service.get_account_by_id(account_id=account_id, user_id=current_user_id)
 
     if not account:

@@ -57,78 +57,10 @@ class InvoiceService:
         self.transaction_service = TransactionService(db)
         self.ai_client = ai_client
 
-    def _prepare_transactions_from_raw_invoice(
-        self,
-        raw_transactions: List[Dict[str, Any]],
-        credit_card_id: UUID,
-        broker_id: UUID,
-        user_id: UUID,
-    ) -> List[Dict[str, Any]]:
-        if not raw_transactions:
-            return []
-
-        transaction_data_list = []
-
-        # Transform raw invoice transactions to transaction format
-        for i, raw_tx in enumerate(raw_transactions):
-            transaction_id = uuid.uuid4()
-
-            # Invoice-specific transformation using utility functions
-            transaction_date = safe_parse_date(raw_tx.get("date"))
-            amount = safe_parse_float(raw_tx.get("amount"))
-            description = raw_tx.get("description", "").strip()
-            description = description if description else "No description provided"
-
-            transaction_data_list.append(
-                {
-                    "id": transaction_id,
-                    "account_id": None,  # Credit card transactions don't have accounts
-                    "credit_card_id": credit_card_id,
-                    "broker_id": broker_id,
-                    "user_id": user_id,
-                    "is_paid": False,  # New transactions are unpaid by default
-                    "date": transaction_date,
-                    "amount": amount,
-                    "description": description,
-                    "movement_type": "expense",  # Credit card transactions are expenses
-                    "category": raw_tx.get("category", "GENERAL"),  # Default category
-                    "created_at": datetime.utcnow(),
-                    "updated_at": datetime.utcnow(),
-                }
-            )
-
-        return transaction_data_list
-
-    def _create_invoice_transactions(
-        self,
-        raw_transactions: List[Dict[str, Any]],
-        credit_card_id: UUID,
-        broker_id: UUID,
-        user_id: UUID,
-    ) -> None:
-        """
-        🎓 BULK TRANSACTION CREATION
-
-        This method demonstrates efficient bulk processing:
-        - Transforms raw invoice data to transaction format
-        - Uses bulk insert for performance
-        - Maintains data consistency between invoices and transactions
-        """
-        logger.info(
-            f"Processing {len(raw_transactions)} transactions for invoice creation"
-        )
-
-        # Prepare transaction data
-        transaction_data_list = self._prepare_transactions_from_raw_invoice(
-            raw_transactions, credit_card_id, broker_id, user_id
-        )
-
-        if transaction_data_list:
-            # Create transactions in bulk
-            transaction_ids = self.transaction_service.create_transactions_from_data(
-                transaction_data_list, user_id
-            )
-            logger.info(f"✅ Created {len(transaction_ids)} transactions successfully")
+    # 🗑️ REMOVED: Transaction creation methods
+    # Frontend now decides which transactions to keep via bulk endpoint
+    # _prepare_transactions_from_raw_invoice() - REMOVED
+    # _create_invoice_transactions() - REMOVED
 
     def create_invoice(self, invoice_in: InvoiceIn, user_id: UUID) -> Invoice:
         # Validate credit card ownership using the filtering pattern
@@ -159,20 +91,9 @@ class InvoiceService:
         invoice_data["user_id"] = user_id
         invoice_data["broker_id"] = broker_id  # Set broker_id from credit card
 
-        # 🎓 BULK TRANSACTION PROCESSING
-        # Process all transactions from the raw invoice in a single efficient operation
-        if invoice_data.get("raw_invoice") and invoice_data["raw_invoice"].get(
-            "transactions"
-        ):
-            raw_transactions = invoice_data["raw_invoice"]["transactions"]
-
-            # Create all transactions in bulk
-            self._create_invoice_transactions(
-                raw_transactions,
-                UUID(str(credit_card.id)),  # Explicit UUID conversion for type checker
-                broker_id,
-                user_id,
-            )
+        # 🎯 TRANSACTION CREATION REMOVED
+        # Frontend will decide which transactions to keep via bulk endpoint
+        # No automatic transaction creation during invoice upload
 
         return self.repository.create(invoice_data)
 
