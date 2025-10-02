@@ -2,10 +2,10 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user_id
+from app.core.dependencies import get_current_user_id, get_ai_client
 from app.db.connection_and_session import get_db_session
 from app.domains.accounts.schemas import Account, AccountCreateIn, AccountType, AccountWithBalance   
 from app.domains.accounts.service import AccountService
@@ -15,6 +15,7 @@ from app.domains.statements.schemas import StatementIn, StatementResponse, State
 from app.domains.statements.service import StatementService
 from app.domains.transactions.schemas import TransactionFilters, TransactionListResponse
 from app.domains.transactions.service import TransactionService
+from app.core.ai import AIClient
 
 router = APIRouter()
 
@@ -334,3 +335,59 @@ def create_account_statement_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error creating statement")
+
+
+@router.post("/{account_id}/statements/parse-pdf", response_model=StatementResponse, status_code=201)
+async def parse_account_statement_pdf_endpoint(
+    account_id: UUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db_session),
+    user_id: UUID = Depends(get_current_user_id),
+    ai_client: AIClient = Depends(get_ai_client),
+):
+    try:
+        # Validate file type
+        if not file.filename or not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="File must be a PDF")
+        
+        if not file.content_type or file.content_type != 'application/pdf':
+            raise HTTPException(status_code=400, detail="Invalid file type")
+        
+        # Validate account ownership
+        account_service = AccountService(db)
+        account = account_service.get_account_by_id(account_id, user_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="Account not found")
+        
+        # Read PDF file
+        pdf_content = await file.read()
+        
+        # Process PDF and create statement (with transactions!)
+        service = StatementService(db, ai_client)
+        statement = await service.parse_pdf_and_create_statement(
+            pdf_content=pdf_content,
+            filename=file.filename,
+            account_id=account_id,
+            user_id=user_id,
+        )
+        
+        return StatementResponse.model_validate(statement)
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except Exception as e:
+        from app.core.logging_config import get_logger
+        logger = get_logger(__name__)
+        logger.error(
+            f"PDF parsing failed: {str(e)}",
+            extra={
+                "user_id": str(user_id),
+                "account_id": str(account_id),
+                "filename": file.filename if file.filename else "unknown",
+                "error": str(e)
+            }
+        )
+        raise HTTPException(
+            status_code=500, 
+            detail=f"PDF parsing failed: {str(e)}"
+        )
