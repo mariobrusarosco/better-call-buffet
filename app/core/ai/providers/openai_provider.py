@@ -1,6 +1,5 @@
 """OpenAI provider implementation"""
 import asyncio
-import json
 import os
 from typing import Dict, Any, Optional
 
@@ -46,7 +45,7 @@ class OpenAIProvider(BaseAIProvider):
     
     
     async def parse_financial_document(self, request: FinancialParsingRequest) -> FinancialParsingResponse:
-        """Parse financial documents using OpenAI structured outputs"""
+        """Parse financial documents using OpenAI structured outputs with .parse() method"""
         try:
             from ..models.responses import FinancialData
             
@@ -59,101 +58,51 @@ class OpenAIProvider(BaseAIProvider):
                 language=request.language
             )
             
-            # Define JSON schema for structured outputs
-            financial_schema = {
-                "type": "object",
-                "properties": {
-                    "total_due": {"type": "string", "description": "Total amount due"},
-                    "due_date": {"type": "string", "description": "Payment due date"},
-                    "period": {"type": "string", "description": "Billing period"},
-                    "min_payment": {"type": "string", "description": "Minimum payment amount"},
-                    "installment_options": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "months": {"type": "integer", "description": "Number of months"},
-                                "total": {"type": "string", "description": "Total amount for installment"}
-                            },
-                            "required": ["months", "total"]
-                        }
-                    },
-                    "transactions": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "date": {"type": "string", "description": "Transaction date"},
-                                "description": {"type": "string", "description": "Transaction description"},
-                                "amount": {"type": "string", "description": "Transaction amount"},
-                                "category": {"type": "string", "description": "Transaction category"}
-                            },
-                            "required": ["date", "description", "amount", "category"]
-                        }
-                    },
-                    "next_due_info": {
-                        "type": "object",
-                        "properties": {
-                            "amount": {"type": "string", "description": "Next payment amount"},
-                            "balance": {"type": "string", "description": "Current balance"}
-                        }
-                    }
-                },
-                "required": ["total_due", "due_date", "period", "min_payment", "transactions"]
-            }
-            
-            # Use OpenAI structured outputs with proper API call
+            # Use OpenAI structured outputs with .parse() method
             client = self._get_client()
             model_to_use = request.model or self.default_model
             logger.info(f"Using OpenAI model: {model_to_use}")
-            response = await client.chat.completions.create(
+            
+            # The .parse() method automatically:
+            # 1. Converts Pydantic model to JSON schema
+            # 2. Sends request with structured output format
+            # 3. Parses and validates the response
+            # 4. Returns the Pydantic model directly
+            response = await client.beta.chat.completions.parse(
                 model=model_to_use,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"Analyze this {request.document_type}:\n\n{text}"}
                 ],
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "financial_data",
-                        "schema": financial_schema
-                    }
-                },
+                response_format=FinancialData,  # Pass Pydantic model directly!
                 temperature=request.temperature
             )
             
-            # Extract and parse the structured response
-            content = response.choices[0].message.content
-            if not content:
+            # Get the parsed Pydantic model directly from the response
+            parsed_message = response.choices[0].message
+            
+            # Check if parsing was successful
+            if not parsed_message.parsed:
                 return FinancialParsingResponse(
                     provider=self.provider_name,
                     model=request.model or self.default_model,
                     success=False,
-                    error="No content returned from OpenAI"
+                    error="OpenAI failed to parse the response into structured format"
                 )
             
-            # Parse JSON response into Pydantic model
-            try:
-                import json
-                parsed_json = json.loads(content)
-                financial_data = FinancialData(**parsed_json)
-            except (json.JSONDecodeError, ValueError) as e:
-                return FinancialParsingResponse(
-                    provider=self.provider_name,
-                    model=request.model or self.default_model,
-                    success=False,
-                    error=f"Failed to parse structured response: {str(e)}"
-                )
+            # Get the FinancialData object (already validated!)
+            financial_data = parsed_message.parsed
             
             return FinancialParsingResponse(
                 provider=self.provider_name,
                 model=request.model or self.default_model,
                 success=True,
                 data=financial_data,
-                raw_response=content
+                raw_response=parsed_message.content or ""
             )
                 
         except Exception as e:
+            logger.error(f"Financial parsing failed: {str(e)}")
             return FinancialParsingResponse(
                 provider=self.provider_name,
                 model=request.model or self.default_model,
