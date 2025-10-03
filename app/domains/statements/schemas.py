@@ -25,7 +25,7 @@ class RawBankStatement(BaseModel):
     """Raw bank account statement data - NO credit card fields"""
     period: str
     opening_balance: str = ""
-    closing_balance: str
+    closing_balance: str = ""  # Made optional for backward compatibility
     transactions: List[StatementTransaction]
 
 

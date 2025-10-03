@@ -13,7 +13,8 @@ from ..models.responses import (
     TransactionData,
     NextDueInfo
 )
-from ..prompts.financial_parsing import get_financial_parsing_prompt
+from app.domains.statements.ai_prompts import get_bank_statement_prompt
+from app.domains.invoices.ai_prompts import get_credit_card_invoice_prompt
 
 
 class OllamaProvider(BaseAIProvider):
@@ -35,11 +36,13 @@ class OllamaProvider(BaseAIProvider):
             # Truncate text to fit context
             text = request.text[:request.max_text_length]
             
-            # Get appropriate prompt
-            system_prompt = get_financial_parsing_prompt(
-                document_type=request.document_type,
-                language=request.language
-            )
+            # Get appropriate prompt from domain-specific modules
+            if request.document_type == "invoice":
+                system_prompt = get_credit_card_invoice_prompt(language=request.language)
+            elif request.document_type == "statement":
+                system_prompt = get_bank_statement_prompt(language=request.language)
+            else:
+                raise ValueError(f"Unsupported document_type: {request.document_type}")
             
             # Prepare request payload for direct Ollama API call
             messages = [

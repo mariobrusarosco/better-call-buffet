@@ -123,6 +123,11 @@ class Invoice(BaseModel):
     is_deleted: bool
     is_paid: bool
     user_id: UUID
+    # Missing fields from model
+    period_start: Optional[datetime] = None
+    period_end: Optional[datetime] = None  
+    due_date: Optional[datetime] = None
+    total_amount: Optional[float] = None
     created_at: datetime
     updated_at: datetime
 

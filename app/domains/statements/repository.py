@@ -125,7 +125,6 @@ class StatementRepository:
         sort_fields = {
             "created_at": Statement.created_at,
             "updated_at": Statement.updated_at,
-            "due_date": Statement.due_date,
             "period_start": Statement.period_start,
             "period_end": Statement.period_end,
         }

@@ -14,10 +14,8 @@ from ..models.responses import (
     CreditCardInvoiceData,
     BankStatementData
 )
-from ..prompts.financial_parsing import (
-    get_bank_statement_prompt,
-    get_credit_card_invoice_prompt
-)
+from app.domains.statements.ai_prompts import get_bank_statement_prompt
+from app.domains.invoices.ai_prompts import get_credit_card_invoice_prompt
 
 
 class OpenAIProvider(BaseAIProvider):

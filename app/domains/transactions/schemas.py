@@ -8,6 +8,10 @@ from pydantic import BaseModel, field_validator
 class TransactionBase(BaseModel):
     account_id: Optional[UUID] = None
     credit_card_id: Optional[UUID] = None
+    # Transfer support (for account-to-account transfers)
+    from_account_id: Optional[UUID] = None
+    to_account_id: Optional[UUID] = None
+    # Core fields
     broker_id: UUID
     is_paid: bool
     date: datetime
@@ -24,6 +28,7 @@ class TransactionIn(TransactionBase):
 class TransactionResponse(TransactionBase):
     id: UUID
     user_id: UUID
+    is_deleted: bool  # Missing field - needed for soft delete support
     created_at: datetime
     updated_at: datetime
 
@@ -88,6 +93,10 @@ class TransactionBulkIn(BaseModel):
     """Individual transaction for bulk operations"""
     account_id: Optional[UUID] = None
     credit_card_id: Optional[UUID] = None
+    # Transfer support (for account-to-account transfers)
+    from_account_id: Optional[UUID] = None
+    to_account_id: Optional[UUID] = None
+    # Core fields
     broker_id: UUID
     is_paid: bool
     date: datetime
