@@ -166,6 +166,49 @@ class StatementService:
             logger.warning(f"Error enriching statement data: {str(e)}")
             # Continue without enrichment rather than failing
 
+    def delete_statement(self, statement_id: UUID, user_id: UUID) -> bool:
+        """
+        Delete a statement by ID with user ownership validation.
+        
+        Benefits:
+        - ✅ User ownership validation
+        - ✅ Safe soft deletion with rollback
+        - ✅ Logging for audit trail
+        
+        Args:
+            statement_id: UUID of the statement to delete
+            user_id: UUID of the user (for ownership validation)
+            
+        Returns:
+            bool: True if deleted, False if not found or not owned
+        """
+        try:
+            # Use repository to delete (handles ownership validation)
+            success = self.repository.delete(statement_id, user_id)
+            
+            if success:
+                logger.info(
+                    f"Statement deleted successfully",
+                    extra={
+                        "statement_id": str(statement_id),
+                        "user_id": str(user_id),
+                    }
+                )
+            else:
+                logger.warning(
+                    f"Statement not found or not owned by user",
+                    extra={
+                        "statement_id": str(statement_id),
+                        "user_id": str(user_id),
+                    }
+                )
+                
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error deleting statement {statement_id}: {str(e)}")
+            raise
+
     async def parse_pdf_and_create_statement(
         self,
         pdf_content: bytes,

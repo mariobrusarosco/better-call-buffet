@@ -54,7 +54,7 @@ class TransactionIn(TransactionBase):
 class TransactionResponse(TransactionBase):
     id: UUID
     user_id: UUID
-    is_deleted: bool  # Missing field - needed for soft delete support
+    is_deleted: bool = False  # Default to False for NULL values in database
     created_at: datetime
     updated_at: datetime
 

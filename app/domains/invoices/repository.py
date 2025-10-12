@@ -236,3 +236,18 @@ class InvoiceRepository:
             credit_card_id, user_id, filters
         )
         return invoices
+
+    def delete(self, invoice_id: UUID, user_id: UUID) -> bool:
+        """Soft delete invoice"""
+        try:
+            invoice = self.get_by_id(invoice_id, user_id)
+            if not invoice:
+                return False
+
+            invoice.is_deleted = True
+            invoice.updated_at = datetime.utcnow()
+            self.db.commit()
+            return True
+        except Exception as e:
+            self.db.rollback()
+            raise e

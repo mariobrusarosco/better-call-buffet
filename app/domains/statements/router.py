@@ -184,3 +184,46 @@ async def parse_pdf_statement_endpoint(
             status_code=500, 
             detail=f"PDF parsing failed: {str(e)}"
         )
+
+
+@router.delete("/{statement_id}", status_code=204)
+def delete_statement_endpoint(
+    statement_id: UUID,
+    db: Session = Depends(get_db_session),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    Delete a statement by ID.
+    
+    Performs soft deletion of the statement record.
+    Only the statement owner can delete their statements.
+    """
+    try:
+        service = StatementService(db)
+        success = service.delete_statement(statement_id, user_id)
+        
+        if not success:
+            raise HTTPException(
+                status_code=404, 
+                detail="Statement not found or not accessible"
+            )
+            
+        # Return 204 No Content for successful deletion
+        return None
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except Exception as e:
+        logger = get_logger(__name__)
+        logger.error(
+            f"Error deleting statement: {str(e)}",
+            extra={
+                "statement_id": str(statement_id),
+                "user_id": str(user_id),
+                "error": str(e)
+            }
+        )
+        raise HTTPException(
+            status_code=500, 
+            detail="Error deleting statement"
+        )

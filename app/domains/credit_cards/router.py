@@ -392,6 +392,59 @@ def get_invoices(
         raise HTTPException(status_code=500, detail="Error retrieving invoices")
 
 
+@router.delete("/{credit_card_id}/invoices/{invoice_id}", status_code=204)
+def delete_invoice_endpoint(
+    credit_card_id: UUID = Path(..., description="The ID of the credit card"),
+    invoice_id: UUID = Path(..., description="The ID of the invoice to delete"),
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    🗑️ Delete an invoice by ID (NESTED RESOURCE PATTERN)
+    
+    This endpoint demonstrates RESTful nested resource deletion:
+    - DELETE /credit_cards/{id}/invoices/{invoice_id} deletes a specific invoice
+    - Validates both credit card and invoice ownership
+    - Uses soft delete to preserve data integrity
+    
+    Benefits:
+    - ✅ User ownership validation
+    - ✅ Credit card ownership validation  
+    - ✅ Soft delete (preserves data)
+    - ✅ Proper audit logging
+    - ✅ Consistent with other delete endpoints
+    """
+    try:
+        # First verify the credit card exists and belongs to the user
+        credit_card_service = CreditCardService(db)
+        try:
+            card_filters = CreditCardFilters(credit_card_id=credit_card_id)
+            credit_card = credit_card_service.get_user_unique_credit_card_with_filters(
+                current_user_id, card_filters
+            )
+            if not credit_card:
+                raise HTTPException(status_code=404, detail="Credit card not found")
+        except Exception:
+            raise HTTPException(status_code=404, detail="Credit card not found")
+
+        # Delete the invoice
+        invoice_service = InvoiceService(db)
+        success = invoice_service.delete_invoice(invoice_id, current_user_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+            
+        logger.info(f"✅ Invoice {invoice_id} deleted successfully for credit card {credit_card_id}")
+        # 204 No Content - successful deletion
+        return None
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except Exception as e:
+        logger.error(f"❌ Error deleting invoice {invoice_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error deleting invoice")
+
+
 @router.get("/{credit_card_id}/transactions", response_model=TransactionListResponse)
 def get_credit_card_transactions_endpoint(
     credit_card_id: UUID,

@@ -527,3 +527,46 @@ class InvoiceService:
         except Exception as e:
             logger.error(f"AI parsing failed: {str(e)}")
             raise InvoiceTransactionProcessingError(f"AI processing failed: {str(e)}")
+
+    def delete_invoice(self, invoice_id: UUID, user_id: UUID) -> bool:
+        """
+        Delete an invoice by ID with user ownership validation.
+        
+        Benefits:
+        - ✅ User ownership validation
+        - ✅ Safe soft deletion with rollback
+        - ✅ Logging for audit trail
+        
+        Args:
+            invoice_id: UUID of the invoice to delete
+            user_id: UUID of the user (for ownership validation)
+            
+        Returns:
+            bool: True if deleted, False if not found or not owned
+        """
+        try:
+            # Use repository to delete (handles ownership validation)
+            success = self.repository.delete(invoice_id, user_id)
+            
+            if success:
+                logger.info(
+                    f"Invoice deleted successfully",
+                    extra={
+                        "invoice_id": str(invoice_id),
+                        "user_id": str(user_id),
+                    }
+                )
+            else:
+                logger.warning(
+                    f"Invoice not found or not owned by user",
+                    extra={
+                        "invoice_id": str(invoice_id),
+                        "user_id": str(user_id),
+                    }
+                )
+                
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error deleting invoice {invoice_id}: {str(e)}")
+            raise
