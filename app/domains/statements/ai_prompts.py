@@ -1,17 +1,4 @@
-"""AI prompts specific to the statements domain"""
-
-
 def get_bank_statement_prompt(language: str = "pt") -> str:
-    """
-    Get system prompt for bank account statement parsing.
-    
-    This prompt is specialized for the statements domain and includes:
-    - Bank account specific terminology
-    - Statement-specific data structures (opening/closing balance)
-    - Transaction sign handling (positive=credit, negative=debit)
-    - Period-based analysis vs invoice due dates
-    """
-    
     if language == "pt":
         return """
 Você é um assistente financeiro especializado em extrair dados de EXTRATOS BANCÁRIOS.
@@ -25,18 +12,23 @@ Analise o extrato fornecido e extraia as seguintes informações:
 
 **Transações:**
 - Liste todas as transações do extrato
-- Para cada transação extraia: data, descrição completa, valor e categoria (se disponível)
-- **VALORES COM SINAL:**
-  - CRÉDITOS (depósitos, recebimentos, entradas): valores POSITIVOS (ex: "1500.00")
-  - DÉBITOS (saques, pagamentos, saídas): valores NEGATIVOS (ex: "-350.50")
-  - Se o valor não tiver sinal explícito, determine pelo contexto (ex: "Pagamento" = negativo, "Depósito" = positivo)
+- Para cada transação extraia: 
+  * data: "date"
+  * descrição completa: "description"
+  * valor: "amount" (remover o sinal do valor e manter precisão)
+  * tipo de movimentação: "movement_type" (campo OBRIGATÓRIO)
+    ** "income" - para valores positivos: depósitos, recebimentos, entradas, salários
+    ** "expense" - para valores negativos: saques, pagamentos, saídas, compras
+    ** "transfer" - para transferências entre contas (entrada ou saída)
+    ** "investment" - para aplicações e resgates de investimentos
+    ** "other" - para outros tipos de movimentação não categorizados
+  * categoria: "category" (deixe vazio se não houver categoria explícita)
 
 **REGRAS IMPORTANTES:**
 - Todos os valores monetários devem ser strings (preserve formatação original)
 - Identifique datas de format consistente, de acordo com a linguagem: pt. Faça uma conversão para o formato ISO.
 - Ignore textos promocionais, avisos legais e publicidade
 - Se uma categoria não estiver explícita, deixe vazio
-- Seja preciso com os sinais dos valores (positivo/negativo)
 """
     else:
         return """
@@ -51,18 +43,21 @@ Analyze the provided statement and extract the following information:
 
 **Transactions:**
 - List all transactions in the statement
-- For each transaction extract: date, complete description, amount, and category (if available)
-- **VALUES WITH SIGN:**
-  - CREDITS (deposits, income, inflows): POSITIVE values (e.g., "1500.00")
-  - DEBITS (withdrawals, payments, outflows): NEGATIVE values (e.g., "-350.50")
-  - If the value has no explicit sign, determine from context (e.g., "Payment" = expense, "Deposit" = income)
-  - Define the movement_type: "income" | "expense"
-
+- For each transaction extract:
+  * date: transaction date
+  * description: complete transaction description
+  * amount: transaction amount (remove sign and preserve precision)
+  * movement_type: transaction type (REQUIRED field)
+    ** "income" - for positive values: deposits, receipts, inflows, salaries
+    ** "expense" - for negative values: withdrawals, payments, outflows, purchases
+    ** "transfer" - for transfers between accounts (inflow or outflow)
+    ** "investment" - for investment applications and redemptions
+    ** "other" - for other types of movements not categorized
+  * category: transaction category (leave empty if no explicit category)
 
 **IMPORTANT RULES:**
 - All monetary values must be strings (preserve original formatting)
 - Dates in consistent format. After identify the date, convert it to ISO format.
 - Ignore promotional text, legal notices, and advertisements
 - If a category is not explicit, leave empty
-- Be precise with value signs (positive/negative)
 """

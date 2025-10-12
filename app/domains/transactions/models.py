@@ -21,7 +21,7 @@ class Transaction(Base):
     date = Column(DateTime, nullable=False)
     
     # Movement Classification
-    movement_type = Column(String, nullable=False)  # "income" | "expense" | "transfer"
+    movement_type = Column(String, nullable=False)  # "income" | "expense" | "transfer" | "investment" | "reinbursement" | "other"
     category = Column(String, nullable=True)
     
     # NEW: Calculated Balance Impact (pre-calculated for performance)

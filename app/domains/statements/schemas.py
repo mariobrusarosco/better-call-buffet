@@ -1,20 +1,18 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel
+
+# Import transaction schema from transactions domain
+from app.domains.transactions.schemas import TransactionData
 
 
 # ============================================================================
 # SHARED MODELS
 # ============================================================================
 
-class StatementTransaction(BaseModel):
-    """Transaction within a statement or invoice"""
-    date: str  # Keep as string to preserve original format like "07/04/2025"
-    description: str
-    amount: str  # Keep as string to preserve formatting like "-202,06"
-    category: str = ""
+# StatementTransaction is now replaced by TransactionData from transactions domain
 
 
 # ============================================================================
@@ -26,7 +24,7 @@ class RawBankStatement(BaseModel):
     period: str
     opening_balance: str = ""
     closing_balance: str = ""  # Made optional for backward compatibility
-    transactions: List[StatementTransaction]
+    transactions: List[TransactionData]
 
 
 # ============================================================================
@@ -53,33 +51,8 @@ class RawCreditCardInvoice(BaseModel):
     min_payment: str
     installment_options: List[InstallmentOption] = []
     next_due_info: Optional[NextDueInfo] = None
-    transactions: List[StatementTransaction]
+    transactions: List[TransactionData]
 
-
-# ============================================================================
-# LEGACY/COMPATIBILITY SCHEMA (For existing code)
-# ============================================================================
-
-class RawStatement(BaseModel):
-    """
-    DEPRECATED: Use RawBankStatement or RawCreditCardInvoice instead.
-    
-    Legacy schema that tried to handle both statements and invoices.
-    Kept for backward compatibility only.
-    """
-    period: str
-    # Credit card fields
-    total_due: str = ""
-    due_date: str = ""
-    min_payment: str = ""
-    installment_options: List[Any] = []
-    next_due_info: Optional[NextDueInfo] = None
-    # Bank statement fields
-    opening_balance: Optional[str] = None
-    closing_balance: Optional[str] = None
-    balance: Optional[str] = None
-    # Common
-    transactions: List[StatementTransaction]
 
 
 # Input schema for creating bank statements

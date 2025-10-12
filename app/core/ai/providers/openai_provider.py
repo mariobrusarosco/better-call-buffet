@@ -63,6 +63,7 @@ class OpenAIProvider(BaseAIProvider):
             client = self._get_client()
             model_to_use = request.model or self.default_model
             logger.info(f"Parsing BANK STATEMENT with OpenAI model: {model_to_use}")
+
             
             # Parse with BankStatementData schema (no credit card fields!)
             response = await client.beta.chat.completions.parse(
@@ -77,7 +78,7 @@ class OpenAIProvider(BaseAIProvider):
             
             # Get the parsed Pydantic model
             parsed_message = response.choices[0].message
-            
+
             if not parsed_message.parsed:
                 return FinancialParsingResponse(
                     provider=self.provider_name,

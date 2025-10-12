@@ -91,7 +91,8 @@
       "WebFetch(domain:docs.stripe.com)",
       "WebFetch(domain:docs.claude.com)",
       "WebFetch(domain:pypi.org)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }

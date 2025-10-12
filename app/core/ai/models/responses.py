@@ -2,6 +2,9 @@ from abc import ABC
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
 
+# Import transaction schema from transactions domain
+from app.domains.transactions.schemas import TransactionData
+
 
 class AIResponse(BaseModel, ABC):
     """Base class for all AI responses"""
@@ -13,21 +16,6 @@ class AIResponse(BaseModel, ABC):
 
 
 
-# ============================================================================
-# TRANSACTION MODEL (Used by both statements and invoices)
-# ============================================================================
-
-class TransactionData(BaseModel):
-    """
-    Individual transaction data.
-    
-    This is the ONLY shared model - transactions appear in both
-    bank statements and credit card invoices.
-    """
-    date: str = Field(description="Transaction date")
-    description: str = Field(description="Transaction description")
-    amount: str = Field(description="Transaction amount")
-    category: str = Field(default="", description="Transaction category")
 
 
 # ============================================================================

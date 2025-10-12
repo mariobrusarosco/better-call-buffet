@@ -33,11 +33,6 @@ class StatementService:
         self.ai_client = ai_client
 
     def create_statement(self, statement_in: StatementIn, user_id: UUID) -> Statement:
-        """
-        Create a new account statement.
-        
-        Validates account ownership and processes the raw statement data.
-        """
         try:
             # Validate account exists and belongs to user
             account = self.account_service.get_account_by_id(
@@ -61,17 +56,6 @@ class StatementService:
 
             # Create statement
             statement = self.repository.create(statement_data)
-
-            logger.info(
-                f"Statement created successfully",
-                extra={
-                    "statement_id": str(statement.id),
-                    "account_id": str(statement_in.account_id),
-                    "user_id": str(user_id),
-                    "transaction_count": len(statement_in.raw_statement.transactions),
-                }
-            )
-
             return statement
 
         except NotFoundError:
@@ -133,16 +117,6 @@ class StatementService:
                 has_previous=has_previous,
             )
 
-            logger.info(
-                f"Retrieved {len(statements)} statements for account {account_id}",
-                extra={
-                    "account_id": str(account_id),
-                    "user_id": str(user_id),
-                    "total_count": total_count,
-                    "page": filters.page,
-                }
-            )
-
             return StatementListResponse(data=statement_responses, meta=meta)
 
         except Exception as e:
@@ -160,12 +134,6 @@ class StatementService:
         return statement
 
     def _enrich_statement_data(self, statement_data: dict, raw_statement) -> None:
-        """
-        Extract structured data from raw BANK STATEMENT and add to statement_data.
-        
-        This method parses dates, balances, and other structured information
-        from the RawBankStatement format.
-        """
         try:
             # Parse period dates if available
             if hasattr(raw_statement, 'period') and raw_statement.period:
@@ -238,15 +206,6 @@ class StatementService:
                     message="Could not extract text from PDF. File may be corrupted or image-based.",
                     error_code="PDF_TEXT_EXTRACTION_FAILED"
                 )
-
-            logger.info(
-                f"PDF text extracted successfully",
-                extra={
-                    "text_length": len(pdf_text),
-                    "filename": filename,
-                }
-            )
-
             # Step 2: Parse with OpenAI GPT
             parsed_data = await self._parse_with_ai_client(pdf_text, filename)
             
@@ -268,16 +227,7 @@ class StatementService:
             
             # Use existing create_statement method
             statement = self.create_statement(statement_in, user_id)
-            
-            logger.info(
-                f"PDF parsing and statement creation completed successfully",
-                extra={
-                    "statement_id": str(statement.id),
-                    "filename": filename,
-                    "processing_time": "completed",  # Could add timing later
-                }
-            )
-            
+
             return statement
 
         except ValidationError:
@@ -399,8 +349,7 @@ class StatementService:
                     error_code="AI_EMPTY_RESPONSE"
                 )
             
-            # Convert FinancialData (legacy format) to RawBankStatement format
-            # The AI provider already converted BankStatementData -> FinancialData for compatibility
+            # Use FinancialData directly - no conversion needed since both use TransactionData
             financial_data = response.data
             
             # Build RawBankStatement compatible dict (NO credit card fields!)
@@ -408,26 +357,8 @@ class StatementService:
                 "period": financial_data.period,
                 "opening_balance": getattr(financial_data, 'opening_balance', "") or "",
                 "closing_balance": getattr(financial_data, 'closing_balance', "") or "",
-                "transactions": [
-                    {
-                        "date": tx.date,
-                        "description": tx.description,
-                        "amount": tx.amount,
-                        "category": tx.category
-                    }
-                    for tx in financial_data.transactions
-                ]
+                "transactions": financial_data.transactions  # Direct usage - no conversion needed!
             }
-            
-            logger.info(
-                f"Successfully converted AI response to RawBankStatement format",
-                extra={
-                    "period": parsed_data["period"],
-                    "opening_balance": parsed_data["opening_balance"],
-                    "closing_balance": parsed_data["closing_balance"],
-                    "transaction_count": len(parsed_data["transactions"])
-                }
-            )
             
             return parsed_data
             

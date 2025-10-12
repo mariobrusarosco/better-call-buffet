@@ -141,6 +141,7 @@ class OllamaProvider(BaseAIProvider):
                 date=transaction.get("date", ""),
                 description=transaction.get("description", ""),
                 amount=transaction.get("amount", ""),
+                movement_type=transaction.get("movement_type", "other"),
                 category=transaction.get("category", "")
             ))
         

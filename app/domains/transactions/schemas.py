@@ -2,8 +2,34 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
+
+# ============================================================================
+# AI PARSING SCHEMA (Shared between AI layer and statements/invoices)
+# ============================================================================
+
+class TransactionData(BaseModel):
+    """
+    Simplified transaction data for AI parsing and document processing.
+    
+    Used by:
+    - AI providers (OpenAI, Ollama) for structured output
+    - Statement and invoice processing
+    - Document parsing workflows
+    
+    This schema focuses on the raw extracted data before domain validation.
+    """
+    date: str = Field(description="Transaction date in ISO format")
+    description: str = Field(description="Complete transaction description")
+    amount: str = Field(description="Transaction amount (without sign, preserve precision)")
+    movement_type: str = Field(description="Movement type: 'income' | 'expense' | 'transfer' | 'investment' | 'other'")
+    category: str = Field(default="", description="Transaction category (empty if not explicit)")
+
+
+# ============================================================================
+# DOMAIN SCHEMAS (For business logic and database operations)
+# ============================================================================
 
 class TransactionBase(BaseModel):
     account_id: Optional[UUID] = None
