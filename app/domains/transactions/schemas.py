@@ -23,7 +23,7 @@ class TransactionData(BaseModel):
     date: str = Field(description="Transaction date in ISO format")
     description: str = Field(description="Complete transaction description")
     amount: str = Field(description="Transaction amount (without sign, preserve precision)")
-    movement_type: str = Field(description="Movement type: 'income' | 'expense' | 'transfer' | 'investment' | 'other'")
+    movement_type: str = Field(default="expense", description="Movement type: 'income' | 'expense' | 'transfer' | 'investment' | 'other'")
     category: str = Field(default="", description="Transaction category (empty if not explicit)")
 
 

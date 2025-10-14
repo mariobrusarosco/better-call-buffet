@@ -496,30 +496,22 @@ class InvoiceService:
             if not response.data:
                 raise InvoiceRawInvoiceEmptyError("AI returned empty response")
             
-            # Convert FinancialData model to dict format for compatibility
+            # Use FinancialData directly - convert nested objects to dicts for Pydantic validation
             financial_data = response.data
+            
+            # Build CreditCardRawInvoice compatible dict
             parsed_data = {
                 "total_due": financial_data.total_due,
                 "due_date": financial_data.due_date,
                 "period": financial_data.period,
                 "min_payment": financial_data.min_payment,
                 "installment_options": [
-                    {"months": opt.months, "total": opt.total}
-                    for opt in financial_data.installment_options
-                ],
+                    opt.model_dump() for opt in financial_data.installment_options
+                ],  # Convert Pydantic objects to dicts
                 "transactions": [
-                    {
-                        "date": tx.date,
-                        "description": tx.description,
-                        "amount": tx.amount,
-                        "category": tx.category
-                    }
-                    for tx in financial_data.transactions
-                ],
-                "next_due_info": {
-                    "amount": financial_data.next_due_info.amount,
-                    "balance": financial_data.next_due_info.balance
-                } if financial_data.next_due_info else None
+                    tx.model_dump() for tx in financial_data.transactions
+                ],  # Convert Pydantic objects to dicts - preserves all fields including movement_type!
+                "next_due_info": financial_data.next_due_info.model_dump() if financial_data.next_due_info else None
             }
             
             return parsed_data

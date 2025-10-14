@@ -4,14 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-
-# Credit Card Transaction
-class CreditCardTransaction(BaseModel):
-    id: Optional[str] = None
-    date: str
-    description: str
-    amount: str
-    category: str
+# Import unified transaction schema from transactions domain
+from app.domains.transactions.schemas import TransactionData
 
 
 # Credit Card Installment Option
@@ -26,44 +20,21 @@ class CreditCardNextDueInfo(BaseModel):
     balance: str
 
 
-# Credit Card Raw Invoice
+# Credit Card Raw Invoice (unified input/output)
 class CreditCardRawInvoice(BaseModel):
     total_due: str
     due_date: str
     period: str
     min_payment: str
     installment_options: List[CreditCardInstallmentOption]
-    transactions: List[CreditCardTransaction]
+    transactions: List[TransactionData]  # Use unified TransactionData
     next_due_info: Optional[CreditCardNextDueInfo] = None
 
 
-class CreditCardRawTransactionIn(BaseModel):
-    date: str
-    description: str
-    amount: str
-    category: Optional[str] = None
-
-
-class CreditCardRawInvoiceIn(BaseModel):
-    total_due: str
-    due_date: str
-    period: str
-    min_payment: str
-    installment_options: List[CreditCardInstallmentOption]
-    transactions: List[CreditCardRawTransactionIn]
-    next_due_info: Optional[CreditCardNextDueInfo] = None
-
-
-# Base schema with shared properties
-class InvoiceBase(BaseModel):
-    credit_card_id: UUID
-    raw_invoice: CreditCardRawInvoice
-
-
-# Schema for creating an invoice (what frontend sends)
+# Schema for creating an invoice (what frontend/AI sends)
 class InvoiceIn(BaseModel):
     credit_card_id: UUID
-    raw_invoice: CreditCardRawInvoiceIn
+    raw_invoice: CreditCardRawInvoice
 
 
 # Schema for updating an invoice (partial fields)
