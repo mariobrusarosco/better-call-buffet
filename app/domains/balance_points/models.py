@@ -1,19 +1,18 @@
 import uuid
 from datetime import datetime
-from decimal import Decimal
-
 from sqlalchemy import (
-    Column, 
-    DateTime, 
-    ForeignKey, 
-    Index, 
-    String, 
-    CheckConstraint,
-    DECIMAL,
     Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    DECIMAL,
+    ForeignKey,
+    Index,
+    String,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
-
 from app.db.connection_and_session import Base
 
 
@@ -23,31 +22,16 @@ class BalancePoint(Base):
     # Primary Key
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     
-    # Enhanced Balance Snapshot Data (DECIMAL precision for financial accuracy)
+    # Core Fields
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
+    date = Column(Date, nullable=False)
     balance = Column(DECIMAL(15, 2), nullable=False)
-    available_balance = Column(DECIMAL(15, 2), nullable=True)  # For accounts with holds/pending
     
-    # NEW: Enhanced Tracking Fields
-    snapshot_type = Column(String, nullable=False)  # "daily", "transaction", "manual", "reconciliation"
-    source_transaction_id = Column(UUID(as_uuid=True), ForeignKey("transactions.id", ondelete="CASCADE"), nullable=True)
-    is_verified = Column(Boolean, default=False, nullable=False)  # For reconciliation validation
+    # Status tracking
+    timeline_status = Column(String, default="current", nullable=False, server_default="current")
     
-    # Stale Tracking Fields
-    is_stale = Column(Boolean, default=False, nullable=False)  # True if balance needs recalculation
-    stale_reason = Column(String, nullable=True)  # Why this balance point became stale
-    last_validated = Column(DateTime, nullable=True)  # When this balance was last confirmed accurate
-    
-    # Balance Target (XOR: either account_id OR credit_card_id)
-    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=True)
-    credit_card_id = Column(UUID(as_uuid=True), ForeignKey("credit_cards.id", ondelete="CASCADE"), nullable=True)
-    
-    # Snapshot Information
-    date = Column(DateTime, nullable=False)
-    calculated_at = Column(DateTime, nullable=False, default=datetime.utcnow)  # When balance was calculated
-    note = Column(String, nullable=True)
-    
-    # Required Fields
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    # Gap filling
+    has_transactions = Column(Boolean, default=False, nullable=False, server_default="false")
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -55,39 +39,21 @@ class BalancePoint(Base):
 
     # Database Constraints and Indexes
     __table_args__ = (
+        # CRITICAL: One balance point per account per day
+        UniqueConstraint("account_id", "date", name="uix_balance_points_account_date"),
+        
         # Performance indexes
-        Index("ix_balance_points_account_id", "account_id"),
-        Index("ix_balance_points_credit_card_id", "credit_card_id"),
-        Index("ix_balance_points_date", "date"),
-        Index("ix_balance_points_calculated_at", "calculated_at"),
-        Index("ix_balance_points_snapshot_type", "snapshot_type"),
-        Index("ix_balance_points_user_date", "user_id", "date"),
-        Index("ix_balance_points_account_calculated_at", "account_id", "calculated_at"),
-        Index("ix_balance_points_verified", "is_verified"),
-        Index("ix_balance_points_source_transaction", "source_transaction_id"),
+        Index("ix_balance_points_account_date", "account_id", "date"),
+        Index("ix_balance_points_status", "timeline_status"),
+        Index("ix_balance_points_account_status", "account_id", "timeline_status"),
         
-        # Balance precision constraints
-        CheckConstraint('balance >= -999999999999999.99 AND balance <= 999999999999999.99', name='balance_precision'),
-        CheckConstraint('available_balance IS NULL OR (available_balance >= -999999999999999.99 AND available_balance <= 999999999999999.99)', name='available_balance_precision'),
-        
-        # XOR constraint: exactly one of account_id or credit_card_id must be set
+        # Data integrity constraints
         CheckConstraint(
-            '''(
-                CASE WHEN account_id IS NOT NULL THEN 1 ELSE 0 END +
-                CASE WHEN credit_card_id IS NOT NULL THEN 1 ELSE 0 END
-            ) = 1''',
-            name='single_balance_target'
+            "timeline_status IN ('current', 'updating', 'failed')", 
+            name="ck_balance_points_valid_status"
         ),
-        
-        # Valid snapshot types
         CheckConstraint(
-            "snapshot_type IN ('daily', 'transaction', 'manual', 'reconciliation')",
-            name='valid_snapshot_type'
+            "balance >= -999999999999999.99 AND balance <= 999999999999999.99", 
+            name="ck_balance_points_balance_precision"
         ),
     )
-
-    # Relationships - temporarily removed to avoid circular import issues
-    # TODO: Add back relationships after ensuring all models are properly registered
-    # account = relationship("Account", foreign_keys=[account_id])
-    # credit_card = relationship("CreditCard", foreign_keys=[credit_card_id])
-    # source_transaction = relationship("Transaction", foreign_keys=[source_transaction_id])
