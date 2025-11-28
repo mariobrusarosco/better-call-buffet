@@ -25,10 +25,10 @@ Refactor the balance_points domain to implement daily balance timeline tracking 
 
 ### Task 1.1: Model Design & Migration
 
-- [] Update BalancePoint model with final schema
-- [] Create database migration for new structure
-- [] Add proper constraints and indexes
-- [] Test migration on development database
+- [x] Update BalancePoint model with final schema
+- [x] Create database migration for new structure
+- [x] Add proper constraints and indexes
+- [x] Test migration on development database
 
 **Schema Design:**
 
@@ -61,10 +61,10 @@ class BalancePoint(Base):
 
 ### Task 1.2: Validation & Business Rules
 
-- [] Implement 2-year transaction limit validation
-- [] Add balance precision validation
-- [] Create account-date uniqueness enforcement
-- [] Add status validation (current/updating/failed)
+- [x] Implement 2-year transaction limit validation
+- [x] Add balance precision validation
+- [x] Create account-date uniqueness enforcement
+- [x] Add status validation (current/updating/failed)
 
 ## Phase 2: Core Repository Layer
 

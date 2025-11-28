@@ -1,6 +1,6 @@
-import enum
+from enum import Enum
 
-class TimelineStatus:
+class TimelineStatus(str, Enum):
     CURRENT = "current"
     UPDATING = "updating"
     FAILED = "failed"   

@@ -3,8 +3,10 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+from app.domains.balance_points.constants import TimelineStatus
 
+from app.domains.balance_points.validators import validate_date_range_within_two_years, validate_balance_precision
 
 # Response schema - what the API returns
 class BalancePoint(BaseModel):
@@ -13,12 +15,23 @@ class BalancePoint(BaseModel):
     account_id: UUID
     date: date
     balance: Decimal
-    timeline_status: str  # "current" | "updating" | "failed"
+    timeline_status: TimelineStatus
     has_transactions: bool
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    # Validators
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, v: date) -> date:
+        return validate_date_range_within_two_years(v)
+
+    @field_validator("balance")
+    @classmethod
+    def validate_balance(cls, v: Decimal) -> Decimal:
+        return validate_balance_precision(v)
 
 
 # Input schemas - LEGACY (keeping for compatibility, will remove later)
