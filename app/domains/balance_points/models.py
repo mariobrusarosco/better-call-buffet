@@ -43,4 +43,3 @@ class BalancePoint(Base):
 
     def __repr__(self):
         return f"<BalancePoint {self.id} for account {self.account_id} on {self.date}>"
-I

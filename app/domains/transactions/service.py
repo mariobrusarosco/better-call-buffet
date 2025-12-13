@@ -356,7 +356,7 @@ class TransactionService:
 
             # Calculate pagination metadata
             total_pages = (total_count + filters.per_page - 1) // filters.per_page
-            has_next = filters.page < total_pages
+            has_next = filters.page < total_pIages
             has_previous = filters.page > 1
 
             # Convert to response schemas

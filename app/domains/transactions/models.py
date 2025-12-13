@@ -4,7 +4,6 @@ from decimal import Decimal
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, CheckConstraint, DECIMAL
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
 
 from app.db.connection_and_session import Base
 
@@ -14,26 +13,34 @@ class Transaction(Base):
 
     # Primary Key
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    
+
+    # ==================== SIMPLE APPROACH FIELDS (Currently Active) ====================
     # Core Transaction Data
-    amount = Column(DECIMAL(15, 2), nullable=False)  # Changed from Float to DECIMAL for precision
+    amount = Column(DECIMAL(15, 2), nullable=False)  # Signed: positive for income, negative for expenses
     description = Column(String, nullable=False)
     date = Column(DateTime, nullable=False)
-    
-    # Movement Classification
+
+    # Movement Classification - for categorization (income/expense/transfer/etc)
     movement_type = Column(String, nullable=False)  # "income" | "expense" | "transfer" | "investment" | "reinbursement" | "other"
     category = Column(String, nullable=True)
-    
-    # NEW: Calculated Balance Impact (pre-calculated for performance)
-    balance_impact = Column(DECIMAL(15, 2), nullable=True)
-    
+
     # Transaction Targets (XOR + Transfer support)
     account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
     credit_card_id = Column(UUID(as_uuid=True), ForeignKey("credit_cards.id"), nullable=True)
-    
-    # NEW: Transfer Support
+    # ===================================================================================
+
+    # ============ COMPLEX APPROACH FIELDS (Reserved for Future Evolution) =============
+    # NOTE: These fields are from the old "clean-slate-balance-architecture" plan
+    # Currently UNUSED but kept for potential migration to pre-calculation approach
+    # See: /docs/plans/balance-timeline-simple-to-scale.md Phase 6
+
+    # Pre-calculated balance impact (unused - we calculate on-the-fly from amount + movement_type)
+    balance_impact = Column(DECIMAL(15, 2), nullable=True)
+
+    # Transfer support fields (unused - keeping simple for now)
     from_account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
     to_account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
+    # ===================================================================================
     
     # Payment Linking
     related_transaction_id = Column(UUID(as_uuid=True), ForeignKey("transactions.id"), nullable=True)
@@ -52,9 +59,6 @@ class Transaction(Base):
 
     # Database Constraints (matching our migration)
     __table_args__ = (
-        # Positive amounts only
-        CheckConstraint('amount > 0', name='positive_amount'),
-        
         # XOR constraint: exactly one target type
         CheckConstraint(
             '''(
