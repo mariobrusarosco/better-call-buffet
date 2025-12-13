@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, CheckConstraint, DECIMAL
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, CheckConstraint, DECIMAL, Index
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.db.connection_and_session import Base
@@ -74,6 +74,10 @@ class Transaction(Base):
             'from_account_id IS NULL OR to_account_id IS NULL OR from_account_id != to_account_id',
             name='no_self_transfer'
         ),
+
+        # Indexes
+        Index('idx_transactions_account_date', 'account_id', 'date'),
+        Index('idx_transactions_account_date_amount', 'account_id', 'date', 'amount'),
     )
 
     # Relationships - temporarily removed to avoid circular import issues
