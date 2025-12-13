@@ -70,7 +70,7 @@ class BalancePoint(Base):
 
 ### Task 2.1: Basic CRUD Operations
 
-- [] Implement create_balance_point method
+- [x] Implement create_balance_point method
 - [] Implement get_timeline method with date ranges
 - [] Implement update_balance method
 - [] Implement bulk operations for efficiency

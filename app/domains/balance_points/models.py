@@ -26,7 +26,7 @@ class BalancePoint(Base):
     # Core Data
     date = Column(Date, nullable=False)
     balance = Column(DECIMAL(15, 2), nullable=False)
-    timeline_status = Column(String, default=TimelineStatus.CURRENT, nullable=False)
+    timeline_status = Column(String, default=1 , nullable=False)
     has_transactions = Column(Boolean, default=False, nullable=False)
 
     # Timestamps
@@ -43,3 +43,4 @@ class BalancePoint(Base):
 
     def __repr__(self):
         return f"<BalancePoint {self.id} for account {self.account_id} on {self.date}>"
+I
