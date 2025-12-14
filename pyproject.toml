@@ -21,7 +21,7 @@ python-multipart = "0.0.18"
 psycopg2-binary = "2.9.9"
 alembic = "^1.15.2"
 starlette = "^0.47.2"
-urllib3 = "^2.5.0"
+urllib3 = "^2.6.0"
 python-json-logger = "^3.3.0"
 structlog = "^25.4.0"
 sentry-sdk = {extras = ["fastapi"], version = "^2.0.0"}
