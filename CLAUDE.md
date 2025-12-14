@@ -82,6 +82,44 @@ docker compose exec web poetry run pip-audit
 docker compose exec web python scripts/seed_db.py
 ```
 
+### Dependency Management (Poetry-Only)
+
+**Important**: This project uses Poetry for ALL dependency management (local AND Docker).
+
+```bash
+# Add a new dependency
+docker compose exec web poetry add <package-name>
+
+# Add a development dependency
+docker compose exec web poetry add --group dev <package-name>
+
+# Remove a dependency
+docker compose exec web poetry remove <package-name>
+
+# Update a specific package
+docker compose exec web poetry update <package-name>
+
+# Update all dependencies
+docker compose exec web poetry update
+
+# Show installed packages
+docker compose exec web poetry show
+
+# Lock dependencies (updates poetry.lock)
+docker compose exec web poetry lock
+```
+
+**After adding/removing dependencies**:
+1. Poetry automatically updates `pyproject.toml` and `poetry.lock`
+2. Rebuild Docker image: `docker compose build`
+3. Restart containers: `docker compose up`
+
+**Why Poetry everywhere?**
+- ✅ Single source of truth (no requirements.txt sync needed)
+- ✅ Reproducible builds with lock file
+- ✅ Local and Docker environments stay identical
+- ✅ Easier dependency resolution
+
 ## Architecture Overview
 
 **Domain-Driven Design** with clean architecture layers:
