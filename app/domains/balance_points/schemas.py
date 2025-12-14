@@ -3,64 +3,58 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_validator
-from app.domains.balance_points.constants import TimelineStatus
+from pydantic import BaseModel, ConfigDict
 
-from app.domains.balance_points.validators import validate_date_range_within_two_years, validate_balance_precision
+# ============================================================================
+# SIMPLE APPROACH SCHEMAS (Phase 1-3)
+# These schemas support calculated balance timelines (no database persistence)
+# ============================================================================
 
-# Response schema - what the API returns
 class BalancePoint(BaseModel):
-    """Schema for balance point responses"""
-    id: UUID
+    """
+    Calculated balance point response (Simple Approach).
+
+    This represents a balance at a specific date, calculated on-demand
+    from transactions. NOT saved to database.
+    """
     account_id: UUID
     date: date
     balance: Decimal
-    timeline_status: TimelineStatus
-    has_transactions: bool
-    created_at: datetime
-    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
-    # Validators
-    @field_validator("date")
-    @classmethod
-    def validate_date(cls, v: date) -> date:
-        return validate_date_range_within_two_years(v)
 
-    @field_validator("balance")
-    @classmethod
-    def validate_balance(cls, v: Decimal) -> Decimal:
-        return validate_balance_precision(v)
+# ============================================================================
+# COMPLEX APPROACH SCHEMAS (Phase 5-6 - Reserved for Future)
+# These will be used IF we migrate to pre-calculated, saved balance points
+# Currently UNUSED - keeping for potential future evolution
+# ============================================================================
 
-
-# Input schemas - LEGACY (keeping for compatibility, will remove later)
 class BalancePointIn(BaseModel):
-    """DEPRECATED: Kept for backward compatibility during refactor"""
+    """RESERVED: For future pre-calculation approach (Phase 5-6)"""
     account_id: UUID
     date: date
     balance: Decimal
 
 
 class BalancePointUpdateIn(BaseModel):
-    """DEPRECATED: Kept for backward compatibility during refactor"""
+    """RESERVED: For future pre-calculation approach (Phase 5-6)"""
     date: Optional[date] = None
     balance: Optional[Decimal] = None
 
 
 class BalancePointUpsertIn(BaseModel):
-    """DEPRECATED: Kept for backward compatibility during refactor"""
+    """RESERVED: For future pre-calculation approach (Phase 5-6)"""
     balance: Decimal
 
 
 class BalanceSnapshotIn(BaseModel):
-    """DEPRECATED: Kept for backward compatibility during refactor"""
+    """RESERVED: For future snapshot feature (Phase 5-6)"""
     note: Optional[str] = None
 
 
-# Monthly summary schema
 class MonthlyBalanceSummary(BaseModel):
-    """Summary of balance changes for a month"""
+    """RESERVED: For future monthly summary feature"""
     month: str  # Format: "2025-01"
     month_name: str  # Format: "Jan"
     started_with: Optional[Decimal] = None

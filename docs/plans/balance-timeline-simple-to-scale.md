@@ -1,4 +1,5 @@
 # Balance Timeline Implementation Plan
+
 ## Philosophy: Start Simple, Measure, Evolve
 
 ---
@@ -66,6 +67,7 @@ def get_transaction_count(self, account_id: UUID) -> int:
 ```
 
 **Learning Objectives:**
+
 - Understanding date range queries
 - Query ordering for performance
 - Aggregation queries (for initial balance)
@@ -85,11 +87,13 @@ ON transactions(account_id, date, amount);
 ```
 
 **Learning Objectives:**
+
 - Understanding compound indexes
 - Query performance optimization
 - Index selection strategies
 
 **Validation:**
+
 - [ ] Run EXPLAIN ANALYZE on timeline query
 - [ ] Verify index is being used
 - [ ] Benchmark query time with 1,200+ transactions
@@ -141,6 +145,7 @@ def get_balance_at_date(
 ```
 
 **Learning Objectives:**
+
 - Running balance calculation algorithms
 - Date range iteration
 - Transaction impact calculation
@@ -166,6 +171,7 @@ def _fill_timeline_gaps(
 ```
 
 **Learning Objectives:**
+
 - Efficient iteration strategies
 - Gap detection algorithms
 - Memory-efficient timeline building
@@ -208,6 +214,7 @@ def get_balance_at_date(
 ```
 
 **Learning Objectives:**
+
 - RESTful API design
 - Query parameter validation
 - Response schema design
@@ -259,11 +266,13 @@ def test_timeline_performance_2400_transactions():
 ```
 
 **Success Criteria:**
+
 - [ ] < 100ms for 1 month (100 transactions)
 - [ ] < 200ms for 1 year (1,200 transactions)
 - [ ] < 500ms for 2 years (2,400 transactions)
 
 **Learning Objectives:**
+
 - Performance testing methodology
 - Benchmarking best practices
 - Identifying bottlenecks with data
@@ -278,6 +287,7 @@ If benchmarks fail, optimize:
 - [ ] Consider query result pagination
 
 **Learning Objectives:**
+
 - Reading query execution plans
 - Index tuning
 - Query optimization techniques
@@ -305,6 +315,7 @@ def cache_timeline(ttl_seconds: int = 300):
 ```
 
 **Usage:**
+
 ```python
 @cache_timeline(ttl_seconds=300)
 def calculate_balance_timeline(self, account_id, start, end, user_id):
@@ -313,6 +324,7 @@ def calculate_balance_timeline(self, account_id, start, end, user_id):
 ```
 
 **Learning Objectives:**
+
 - Caching strategies (TTL, invalidation)
 - Cache key design
 - When to cache vs when to calculate
@@ -328,6 +340,7 @@ def invalidate_timeline_cache(account_id: UUID):
 ```
 
 **Learning Objectives:**
+
 - Cache invalidation patterns
 - Balancing freshness vs performance
 
@@ -375,6 +388,7 @@ def recalculate_balance_timeline_async(account_id: UUID):
 ```
 
 **Learning Objectives:**
+
 - Background job patterns
 - Async processing
 - Job queue management
@@ -405,6 +419,7 @@ def get_balance_timeline(self, account_id, start, end, user_id):
 ## 📊 Testing Strategy
 
 ### Unit Tests
+
 ```python
 tests/domains/balance_points/
 ├── test_repository.py         # Query methods
@@ -414,6 +429,7 @@ tests/domains/balance_points/
 ```
 
 ### Integration Tests
+
 ```python
 tests/integration/
 ├── test_timeline_api.py       # End-to-end API tests
@@ -422,6 +438,7 @@ tests/integration/
 ```
 
 ### Performance Tests
+
 ```python
 tests/performance/
 ├── test_query_performance.py  # Benchmark queries
@@ -434,31 +451,37 @@ tests/performance/
 ## 📋 Checklist Summary
 
 ### ✅ Phase 1: Foundation
-- [ ] Transaction repository query methods
-- [ ] Database indexes for timeline queries
+
+- [x] Transaction repository query methods
+- [x] Database indexes for timeline queries
 - [ ] Performance validation (EXPLAIN ANALYZE)
 
 ### ✅ Phase 2: Calculation
-- [ ] Timeline calculation service
-- [ ] Gap filling logic
-- [ ] Historical balance query (audit trail)
+
+- [x] Timeline calculation service
+- [x] Gap filling logic
+- [x] Historical balance query (audit trail)
 
 ### ✅ Phase 3: API
-- [ ] Timeline endpoint
-- [ ] Historical balance endpoint
-- [ ] Response schemas
+
+- [x] Timeline endpoint
+- [x] Historical balance endpoint
+- [x] Response schemas
 
 ### ✅ Phase 4: Measurement
+
 - [ ] Performance benchmarks
 - [ ] Query optimization
 - [ ] Document actual performance
 
 ### ⏸️ Phase 5: Caching (If needed)
+
 - [ ] In-memory caching layer
 - [ ] Cache invalidation logic
 - [ ] Measure cache hit rates
 
 ### ⏸️ Phase 6: Pre-calculation (If needed)
+
 - [ ] Activate balance_points table
 - [ ] Background calculation jobs
 - [ ] Migrate service layer (zero API changes!)
@@ -470,16 +493,19 @@ tests/performance/
 By completing this plan, you'll learn:
 
 1. **Database Fundamentals**
+
    - Query optimization
    - Index design and tuning
    - Understanding EXPLAIN ANALYZE
 
 2. **Performance Engineering**
+
    - How to measure (before optimizing!)
    - Identifying bottlenecks with data
    - When complexity is justified
 
 3. **Evolution Architecture**
+
    - Simple → Cached → Pre-calculated
    - Zero-downtime migrations
    - API stability during internal changes
@@ -494,16 +520,19 @@ By completing this plan, you'll learn:
 ## 🚀 Success Metrics
 
 **Phase 1-3 Complete:**
+
 - ✅ Working timeline API
 - ✅ Audit trail capability
 - ✅ Shipped to users!
 
 **Phase 4 Complete:**
+
 - ✅ Measured performance with real data
 - ✅ Know if optimization needed
 - ✅ Data-driven decisions
 
 **Phase 5+ (Optional):**
+
 - ✅ Optimized only if needed
 - ✅ Learned when complexity is justified
 

@@ -358,7 +358,7 @@ class TransactionRepository:
             .all()
         )
 
-    def get_initial_balance_from_transactions(self, account_id: UUID, user_id: UUID, start_date: date) -> Decimal:
+    def get_balance_before_date(self, account_id: UUID, user_id: UUID, start_date: date) -> Decimal:
         total = self.db.query(
             func.sum(Transaction.amount)).filter(
                 and_(

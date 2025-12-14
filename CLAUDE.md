@@ -116,6 +116,11 @@ app/
 2. **Service Layer** - Business logic, domain operations
 3. **Repository Layer** - Database queries, persistence
 
+## Layers
+
+- Service layer returns models (database objects)
+- Router layer returns schemas (API contracts)
+
 ## Key Configuration Files
 
 - `pyproject.toml` - Poetry dependencies and tool configurations
