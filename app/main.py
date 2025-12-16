@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1 import api_router
-from app.core.config import settings
+from app.core.config import get_settings
 from app.core.error_handlers import (
     AppException,
     app_exception_handler,
@@ -23,6 +23,8 @@ from app.core.middleware import (
 
 # Import model registration to register all models
 from app.db import model_registration
+
+settings = get_settings()
 
 # Initialize Sentry for error logging (production only)
 if settings.SENTRY_DSN and settings.is_production:

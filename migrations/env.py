@@ -9,7 +9,6 @@ from sqlalchemy import engine_from_config, pool
 # Add project root to sys.path
 sys.path.insert(0, Path(__file__).resolve().parents[1].as_posix())
 
-from app.core.config import settings
 from app.db.connection_and_session import Base
 
 # Import all models automatically via model registration

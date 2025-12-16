@@ -1,4 +1,5 @@
 import os
+from functools import lru_cache
 from typing import List, Dict, Any
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -109,4 +110,14 @@ class Settings(BaseSettings):
         }
 
 
-settings = Settings()
+@lru_cache
+def get_settings() -> Settings:
+    """
+    Get cached Settings instance.
+
+    Uses @lru_cache to ensure Settings is only instantiated once,
+    preventing redundant .env file reads and validation.
+
+    This is the recommended FastAPI pattern for settings management.
+    """
+    return Settings()
