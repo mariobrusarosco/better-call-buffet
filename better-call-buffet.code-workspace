@@ -1,11 +1,14 @@
 {
-	"folders": [
-		{
-			"path": "."
-		},
-		{
-			"path": "../financial-app"
-		}
-	],
-	"settings": {}
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "path": "../financial-app"
+    },
+    {
+      "path": "../garden"
+    }
+  ],
+  "settings": {}
 }

@@ -92,7 +92,8 @@
       "WebFetch(domain:docs.claude.com)",
       "WebFetch(domain:pypi.org)",
       "Bash(pip install:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Read(//media/mario/e5b46655-6381-4132-9b41-8d6a2f01d49b/**)"
     ],
     "deny": []
   }

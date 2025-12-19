@@ -58,7 +58,11 @@ jobs:
       - name: Security Scanning - Pip Audit
         run: |
           echo "🔍 Running dependency audit with pip-audit..."
-          poetry run pip-audit --ignore-vuln GHSA-wj6h-64fc-37mp
+          # GHSA-f83h-ghpp-7wcc: pdfminer-six pickle deserialization (High)
+          # - No fix available; requires local file system write access
+          # - Low risk for web API; not exposed via API endpoints
+          poetry run pip-audit \
+            --ignore-vuln GHSA-f83h-ghpp-7wcc
 
       - name: Database Setup & Migration Validation
         run: |

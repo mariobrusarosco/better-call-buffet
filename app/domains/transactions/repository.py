@@ -1,10 +1,10 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import and_, asc, desc, or_
+from sqlalchemy import and_, asc, desc, or_, func
 from sqlalchemy.orm import Session
-
+from decimal import Decimal
 from app.domains.transactions.models import Transaction
 from app.domains.transactions.schemas import TransactionFilters
 
@@ -210,7 +210,8 @@ class TransactionRepository:
             "category": Transaction.category,
         }
 
-        field = sort_fields.get(filters.sort_by or "date", Transaction.date)
+        default_field = Transaction.date
+        field = sort_fields.get(filters.sort_by or default_field, default_field)
 
         if filters.sort_order == "asc":
             query = query.order_by(asc(field))
@@ -258,38 +259,6 @@ class TransactionRepository:
 
         return query.all(), total_count
 
-    def get_account_transactions_since_timestamp(
-        self, account_id: UUID, user_id: UUID, since_timestamp: datetime
-    ) -> List[Transaction]:
-        """
-        Get all account transactions created after a specific timestamp.
-        
-        This method is optimized for balance calculation performance:
-        - Returns only transactions created after the given timestamp
-        - No pagination or complex filtering
-        - Ordered by created_at for consistent processing
-        
-        Args:
-            account_id: ID of the account
-            user_id: ID of the user (for security)
-            since_timestamp: Only return transactions created after this timestamp
-            
-        Returns:
-            List of transactions created after the timestamp
-        """
-        return (
-            self.db.query(Transaction)
-            .filter(
-                and_(
-                    Transaction.account_id == account_id,
-                    Transaction.user_id == user_id,
-                    Transaction.created_at > since_timestamp,
-                )
-            )
-            .order_by(Transaction.created_at.asc())
-            .all()
-        )
-
     def delete_by_id(self, transaction_id: UUID, user_id: UUID) -> bool:
         """
         Delete a single transaction by ID, ensuring user ownership.
@@ -334,86 +303,80 @@ class TransactionRepository:
     def bulk_delete_by_ids(self, transaction_ids: List[UUID], user_id: UUID) -> int:
         """
         Bulk delete transactions by IDs, ensuring user ownership.
-        
+
         Benefits:
         - ✅ User ownership validation for all transactions
         - ✅ High performance bulk delete via SQLAlchemy
-        - ✅ Proper foreign key reference cleanup
         - ✅ Consistent error handling with rollback
         - ✅ Returns count of deleted transactions
-        
+
         Args:
             transaction_ids: List of UUIDs to delete
             user_id: UUID of the user (for ownership validation)
-            
+
         Returns:
             int: Number of transactions actually deleted
-            
+
         Raises:
             Exception: If bulk delete fails, rolls back transaction
         """
         try:
-            # Get transaction details before deletion to determine affected accounts and dates
-            transactions_to_delete = self.db.query(Transaction).filter(
-                and_(
-                    Transaction.id.in_(transaction_ids),
-                    Transaction.user_id == user_id
-                )
-            ).all()
-            
-            if not transactions_to_delete:
-                self.db.commit()
-                return 0
-            
-            # Group transactions by account and find earliest date per account
-            from app.domains.balance_points.models import BalancePoint
-            from datetime import datetime
-            
-            account_earliest_dates = {}
-            for tx in transactions_to_delete:
-                if tx.account_id:  # Only process account transactions
-                    if tx.account_id not in account_earliest_dates:
-                        account_earliest_dates[tx.account_id] = tx.date
-                    else:
-                        if tx.date < account_earliest_dates[tx.account_id]:
-                            account_earliest_dates[tx.account_id] = tx.date
-            
-            # Mark balance points as stale for affected accounts (from earliest deletion date forward)
-            for account_id, earliest_date in account_earliest_dates.items():
-                self.db.query(BalancePoint).filter(
-                    and_(
-                        BalancePoint.account_id == account_id,
-                        BalancePoint.user_id == user_id,
-                        BalancePoint.date >= earliest_date
-                    )
-                ).update({
-                    "is_stale": True,
-                    "stale_reason": f"Transactions deleted affecting balance calculation",
-                    "last_validated": None
-                }, synchronize_session=False)
-            
-            # Clean up foreign key references to avoid constraint violations
-            self.db.query(BalancePoint).filter(
-                and_(
-                    BalancePoint.source_transaction_id.in_(transaction_ids),
-                    BalancePoint.user_id == user_id
-                )
-            ).update(
-                {"source_transaction_id": None},
-                synchronize_session=False
-            )
-            
-            # Now delete transactions with user ownership validation
+            # Delete transactions with user ownership validation
             deleted_count = self.db.query(Transaction).filter(
                 and_(
                     Transaction.id.in_(transaction_ids),
                     Transaction.user_id == user_id
                 )
             ).delete(synchronize_session=False)
-            
+
             self.db.commit()
             return deleted_count
-            
+
         except Exception as e:
             self.db.rollback()
             raise e
+
+    def get_transactions_for_timeline(
+        self,
+        account_id: UUID,
+        user_id: UUID,
+        start_date: date,
+        end_date: date
+    ) -> List[Transaction]:
+        return (
+            self.db.query(Transaction)
+            .filter(
+                and_(
+                    Transaction.account_id == account_id,
+                    Transaction.user_id == user_id,
+                    Transaction.date >= start_date,
+                    Transaction.date <= end_date,
+                    Transaction.is_deleted == False
+                )
+            )
+            .order_by(Transaction.date.asc())
+            .all()
+        )
+
+    def get_balance_before_date(self, account_id: UUID, user_id: UUID, start_date: date) -> Decimal:
+        total = self.db.query(
+            func.sum(Transaction.amount)).filter(
+                and_(
+                    Transaction.account_id == account_id,
+                    Transaction.user_id == user_id,
+                    Transaction.date <= start_date,
+                    Transaction.is_deleted == False
+                )
+            ).scalar()
+
+
+        return total or Decimal('0.00')
+
+    def get_transaction_count(self, account_id: UUID, user_id: UUID) -> int:
+        return self.db.query(Transaction).filter(
+            and_(
+                Transaction.account_id == account_id,
+                Transaction.user_id == user_id,
+                Transaction.is_deleted == False
+            )
+        ).count()

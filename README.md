@@ -202,7 +202,9 @@ docker-compose exec web poetry run pytest tests/test_accounts.py
 docker-compose exec web poetry run pytest --cov=app
 ```
 
-### **📦 Managing Dependencies**
+### **📦 Managing Dependencies (Poetry-Only)**
+
+**Important**: This project uses **Poetry for ALL dependency management** - both locally and in Docker. No `requirements.txt` needed!
 
 #### **Adding New Dependencies**
 
@@ -210,7 +212,7 @@ docker-compose exec web poetry run pytest --cov=app
 # Add a production dependency
 docker compose exec web poetry add package-name
 
-# Add a development dependency  
+# Add a development dependency
 docker compose exec web poetry add --group dev package-name
 
 # Add with version constraints
@@ -231,12 +233,13 @@ docker compose up --build
 docker compose exec web poetry show | grep package-name
 ```
 
-#### **Why This Process?**
+#### **Why Poetry Everywhere?**
 
-- **Poetry manages dependencies** in `pyproject.toml` with proper version resolution
-- **Docker rebuild** ensures container has new packages and no conflicts
-- **Reproducible builds** across development and production environments
-- **Lock file updates** ensure consistent versions for all team members
+- ✅ **Single source of truth** - `pyproject.toml` + `poetry.lock` only
+- ✅ **No manual syncing** - No need to export to requirements.txt
+- ✅ **Reproducible builds** - Lock file ensures exact versions
+- ✅ **Local = Docker = Production** - Identical environments everywhere
+- ✅ **Better dependency resolution** - Poetry handles conflicts automatically
 
 ---
 

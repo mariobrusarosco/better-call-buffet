@@ -20,6 +20,9 @@ wheels/
 .installed.cfg
 *.egg
 
+# Dependencies (Poetry-only project)
+requirements.txt  # We use Poetry, not pip requirements
+
 # Virtual Environment
 .venv/
 venv/

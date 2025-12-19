@@ -11,11 +11,12 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 
 from app.core.auth.schemas import TokenData
-from app.core.config import settings
+from app.core.config import get_settings
 
 
 class JWTHandler:
@@ -77,7 +78,7 @@ class JWTHandler:
         # Encode the token
         encoded_jwt = jwt.encode(
             to_encode,
-            settings.SECRET_KEY,  # Secret key from settings
+            get_settings().SECRET_KEY,  # Secret key from settings
             algorithm=cls.ALGORITHM
         )
         
@@ -103,7 +104,7 @@ class JWTHandler:
             # Decode the token
             payload = jwt.decode(
                 token,
-                settings.SECRET_KEY,
+                get_settings().SECRET_KEY,
                 algorithms=[cls.ALGORITHM]
             )
             
@@ -123,8 +124,8 @@ class JWTHandler:
             )
             
             return token_data
-            
-        except JWTError as e:
+
+        except InvalidTokenError as e:
             # Token is invalid (expired, wrong signature, malformed)
             # Log the error for debugging (in production)
             # print(f"JWT validation error: {e}")
@@ -163,7 +164,7 @@ class JWTHandler:
             # (useful for checking if token is close to expiring)
             payload = jwt.decode(
                 token,
-                settings.SECRET_KEY,
+                get_settings().SECRET_KEY,
                 algorithms=[cls.ALGORITHM]
             )
             
@@ -172,8 +173,8 @@ class JWTHandler:
                 return datetime.fromtimestamp(exp)
             
             return None
-            
-        except JWTError:
+
+        except InvalidTokenError:
             return None
     
     @classmethod
