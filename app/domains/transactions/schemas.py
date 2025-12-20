@@ -50,6 +50,32 @@ class TransactionBase(BaseModel):
 class TransactionIn(TransactionBase):
     pass
 
+class TransactionUpdate(BaseModel):
+    date: Optional[datetime] = None
+    
+    amount: Optional[float] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    is_paid: Optional[bool] = None
+    account_id: Optional[UUID] = None
+    credit_card_id: Optional[UUID] = None
+    movement_type: Optional[str] = None
+
+    @field_validator('amount')
+    @classmethod
+    def validate_amount(cls, v):
+        """Validate that the amount is greater than 0"""
+        if v is not None and v <= 0:
+            raise ValueError('amount must be greater than 0')
+        return v
+    
+    @field_validator('movement_type')
+    @classmethod
+    def validate_movement_type(cls, v):
+        """Validate that the movement type is "income" or "expense"""
+        if v is not None and v not in ['income', 'expense']:
+            raise ValueError('movement_type must be "income" or "expense"')
+        return v
 
 class TransactionResponse(TransactionBase):
     id: UUID

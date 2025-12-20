@@ -119,7 +119,7 @@ def setup_logging(environment: str = "development", log_level: str = "INFO") -> 
                 "()": EnhancedJSONFormatter,
             },
             "standard": {
-                "format": "[%(asctime)s] %(levelname)s in %(name)s: %(message)s"
+                "format": "%(message)s"
             },
         },
         "handlers": {
@@ -135,17 +135,11 @@ def setup_logging(environment: str = "development", log_level: str = "INFO") -> 
             "handlers": ["console"]
         },
         "loggers": {
-            # FastAPI and Uvicorn loggers
-            "uvicorn": {"level": "INFO", "propagate": True},
-            "uvicorn.access": {"level": "INFO", "propagate": True},
-            "fastapi": {"level": "INFO", "propagate": True},
-            # SQLAlchemy logging for database operations
-            "sqlalchemy.engine": {
-                "level": "INFO" if environment == "development" else "WARNING",
-                "propagate": True,
-            },
+            "uvicorn": {"level": "WARNING", "propagate": True},
+            "uvicorn.access": {"level": "WARNING", "propagate": True},
+            "fastapi": {"level": "WARNING", "propagate": True},
+            "sqlalchemy.engine": {"level": "WARNING", "propagate": True},
             "sqlalchemy.pool": {"level": "WARNING", "propagate": True},
-            # Application loggers
             "app": {"level": log_level.upper(), "propagate": True},
         },
     }
@@ -153,21 +147,15 @@ def setup_logging(environment: str = "development", log_level: str = "INFO") -> 
     # Apply logging configuration
     logging.config.dictConfig(logging_config)
 
-    # Configure structlog for enhanced logging
+    # Configure structlog
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
-            structlog.stdlib.add_logger_name,
-            structlog.stdlib.add_log_level,
             structlog.stdlib.PositionalArgumentsFormatter(),
-            structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
-            (
-                structlog.processors.JSONRenderer()
-                if environment == "production"
-                else structlog.dev.ConsoleRenderer(colors=True)
-            ),
+            structlog.processors.JSONRenderer() if environment == "production" 
+            else structlog.dev.ConsoleRenderer(colors=True),
         ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
@@ -175,14 +163,6 @@ def setup_logging(environment: str = "development", log_level: str = "INFO") -> 
         cache_logger_on_first_use=True,
     )
 
-    # Log the configuration setup
-    logger = structlog.get_logger("app.logging")
-    logger.info(
-        "Structured logging configured",
-        environment=environment,
-        log_level=log_level,
-        json_format=environment == "production",
-    )
 
 
 # ============================================================================

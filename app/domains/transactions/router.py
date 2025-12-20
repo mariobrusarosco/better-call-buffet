@@ -15,6 +15,7 @@ from app.domains.transactions.schemas import (
     TransactionIn,
     TransactionListResponse,
     TransactionResponse,
+    TransactionUpdate,
 )
 from app.domains.transactions.service import TransactionService
 
@@ -157,6 +158,64 @@ def delete_transactions_bulk_endpoint(
         "deleted_count": deleted_count,
         "requested_count": len(bulk_delete_request.transaction_ids)
     }
+
+
+@router.patch("/{transaction_id}", response_model=TransactionResponse)
+def update_transaction_endpoint(
+    transaction_id: UUID,
+    update_data: TransactionUpdate,
+    db: Session = Depends(get_db_session),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    ✏️ Update an existing transaction (PATCH - partial update)
+
+    Update one or more fields of an existing transaction.
+    Only include the fields you want to change in the request body.
+
+    Benefits:
+    - ✅ Flexible partial updates (update only what you need)
+    - ✅ User ownership validation
+    - ✅ Account/card ownership validation
+    - ✅ XOR constraint enforcement
+    - ✅ Clear error messages
+
+    Use Cases:
+    - Fix incorrect transaction amount
+    - Update transaction description
+    - Change transaction category
+    - Mark transaction as paid/unpaid
+    - Move transaction to different account/card
+
+    Request Body Examples:
+
+    1. Update description only:
+    {
+        "description": "Groceries from Whole Foods"
+    }
+
+    2. Update amount and category:
+    {
+        "amount": 150.00,
+        "category": "Food"
+    }
+
+    3. Switch from account to credit card:
+    {
+        "account_id": null,
+        "credit_card_id": "f9e8d7c6-5432-10ab-cdef-0987654321ba"
+    }
+
+    Validation:
+    - Transaction must exist and belong to user (404 if not)
+    - If changing account_id, user must own the new account (404 if not)
+    - If changing credit_card_id, user must own the new card (404 if not)
+    - Must maintain XOR constraint: account XOR credit card (400 if violated)
+    - Amount must be positive (422 if not)
+    - Movement type must be "income" or "expense" (422 if not)
+    """
+    service = TransactionService(db)
+    return service.update_transaction(transaction_id, user_id, update_data)
 
 
 @router.delete("/{transaction_id}")

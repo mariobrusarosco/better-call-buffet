@@ -8,31 +8,45 @@ packages = [{include = "app"}]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
-fastapi = "^0.125.0"
-uvicorn = "0.27.1"
-hypercorn = "^0.17.0"
-python-dotenv = "1.0.1"
-sqlalchemy = "2.0.27"
-pydantic = {extras = ["email"], version = "2.9.2"}
-pydantic-settings = "2.2.1"
-# python-jose = {extras = ["cryptography"], version = "^3.5.0"}  # Removed - not used yet, has ecdsa vulnerability
-passlib = {extras = ["bcrypt"], version = "1.7.4"}
-python-multipart = "0.0.18"
-psycopg2-binary = "2.9.9"
-alembic = "^1.15.2"
-# starlette managed by FastAPI (0.120.0+ supports 0.49.1+ with security fixes)
-urllib3 = "^2.6.0"
+
+# Web Framework (CRITICAL - test before upgrading)
+fastapi = "^0.125.0"  # Can use caret (stable API)
+# starlette managed by FastAPI (0.125.0+ supports 0.50.0 with security fixes)
+uvicorn = "0.27.1"  # ASGI server for development
+hypercorn = "^0.17.0"  # Production server (Railway)
+python-multipart = "0.0.18"  # File upload support
+
+# Database (CRITICAL - test migrations before upgrading)
+sqlalchemy = "2.0.27"  # ORM - exact pin, major version changes break code
+alembic = "^1.15.2"  # Migrations - caret OK within 1.x
+psycopg2-binary = "2.9.9"  # PostgreSQL adapter - exact pin
+
+# Configuration & Validation (CRITICAL - breaking changes in minor versions)
+pydantic = {extras = ["email"], version = "2.9.2"}  # Exact pin - v2.x has breaking changes between minors
+pydantic-settings = "2.2.1"  # Exact pin - must match pydantic version
+python-dotenv = "1.0.1"  # .env file loading
+
+# Authentication (CRITICAL - never auto-update)
+passlib = {extras = ["bcrypt"], version = "1.7.4"}  # Password hashing - exact pin
+bcrypt = ">=3.1.0,<4.0.0"  # MUST stay on 3.x for passlib compatibility
+pyjwt = "^2.10.1"  # JWT tokens - caret OK within 2.x
+
+# Logging & Monitoring (safe to upgrade)
 python-json-logger = "^3.3.0"
 structlog = "^25.4.0"
 sentry-sdk = {extras = ["fastapi"], version = "^2.0.0"}
-# AI Dependencies
+
+# Security (review before upgrading)
+urllib3 = "^2.6.0"  # HTTP client - caret OK for security patches
+h2 = ">=4.3.0"  # HTTP/2 - minimum for security fix
+
+# AI Dependencies (safe to upgrade)
 openai = "^1.0.0"
 httpx = "^0.25.0"  # For Ollama HTTP client
-h2 = ">=4.3.0"  # Fix security vulnerability GHSA-847f-9342-265h
-# PDF Processing Dependencies
+
+# PDF Processing (review before upgrading - can break parsing)
 pdfplumber = "^0.11.0"  # For PDF text extraction
 PyPDF2 = "^3.0.1"  # Alternative PDF parser
-pyjwt = "^2.10.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
