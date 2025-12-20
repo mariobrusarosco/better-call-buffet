@@ -151,42 +151,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def _log_request_start(
         self, request: Request, request_id: str, user_id: Optional[str]
     ) -> None:
-        """🎓 Log the start of a request with full context."""
-
-        # Extract client information
-        client_ip = self._get_client_ip(request)
-        user_agent = request.headers.get("user-agent", "Unknown")
-
-        # Prepare request headers (filtered for security)
-        headers = {}
-        if self.log_headers:
-            headers = self._filter_sensitive_headers(dict(request.headers))
-
-        # Log request start
-        self.logger.info(
-            "Request started",
-            request_id=request_id,
-            method=request.method,
-            path=request.url.path,
-            query_params=str(request.query_params) if request.query_params else None,
-            client_ip=client_ip,
-            user_agent=user_agent,
-            user_id=user_id,
-            headers=headers if headers else None,
-            content_type=request.headers.get("content-type"),
-            content_length=request.headers.get("content-length"),
-        )
-
-        # Log security events for sensitive endpoints
-        if self._is_sensitive_endpoint(request.url.path):
-            log_security_event(
-                "sensitive_endpoint_access",
-                severity="info",
-                user_id=user_id,
-                ip_address=client_ip,
-                endpoint=request.url.path,
-                method=request.method,
-            )
+        """Log request start."""
+        pass  # Don't log request start
 
     async def _log_request_success(
         self, request: Request, response: Response, start_time: float
@@ -214,22 +180,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             log_level = "info"
             performance_category = None
 
-        # Prepare log data
-        log_data = {
-            "method": request.method,
-            "path": request.url.path,
-            "status_code": response.status_code,
-            "duration_ms": duration_ms,
-            "response_size": response.headers.get("content-length"),
-            "content_type": response.headers.get("content-type"),
-        }
-
-        # Add performance category only if performance logging is enabled
-        if self.enable_performance_logging and performance_category:
-            log_data["performance_category"] = performance_category
-
-        # Log request completion
-        getattr(self.logger, log_level)("Request completed", **log_data)
+        getattr(self.logger, log_level)(f"{request.method} {request.url.path} {response.status_code}")
 
         # Log performance alerts for slow requests (only if performance logging is enabled)
         if self.enable_performance_logging and duration_ms > 2000:

@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from fastapi import HTTPException
 from app.core.error_handlers import NotFoundError, ValidationError
 from app.core.logging_config import get_logger
 from app.domains.accounts.service import AccountService
@@ -22,6 +23,7 @@ from app.domains.transactions.schemas import (
     TransactionListResponse,
     TransactionResponse,
     TransactionResult,
+    TransactionUpdate,
 )
 
 # Configure logger for this service
@@ -62,7 +64,7 @@ class TransactionService:
     ) -> TransactionBulkResponse:
         """
         Create multiple transactions with individual validation and detailed error reporting.
-        
+
         Returns success/failure status for each transaction individually.
         """
         # Validate XOR constraints upfront
@@ -70,119 +72,125 @@ class TransactionService:
             bulk_request.validate_all_constraints()
         except ValueError as e:
             logger.error(f"Bulk transaction validation failed: {str(e)}")
-            raise ValidationError(
-                message=str(e),
-                error_code="BULK_VALIDATION_FAILED"
-            )
+            raise ValidationError(message=str(e), error_code="BULK_VALIDATION_FAILED")
 
         results = []
         successful_transactions = []
-        
+
         for i, transaction_data in enumerate(bulk_request.transactions):
             try:
                 # Validate account/credit card ownership
                 self._validate_transaction_ownership(transaction_data, user_id)
-                
+
                 # Prepare transaction data for database
                 tx_dict = transaction_data.model_dump()
                 tx_dict["user_id"] = user_id
                 tx_dict["id"] = uuid.uuid4()  # Generate ID for bulk insert
-                
+
                 # Calculate balance impact based on movement type
                 amount = float(tx_dict["amount"])
                 movement_type = tx_dict["movement_type"]
-                
+
                 if movement_type == "income":
                     tx_dict["balance_impact"] = amount  # Positive impact
                 elif movement_type == "expense":
                     tx_dict["balance_impact"] = -amount  # Negative impact
                 elif movement_type == "transfer":
-                    tx_dict["balance_impact"] = -amount if tx_dict.get("from_account_id") else amount
+                    tx_dict["balance_impact"] = (
+                        -amount if tx_dict.get("from_account_id") else amount
+                    )
                 else:
                     tx_dict["balance_impact"] = 0  # Default case
-                
+
                 successful_transactions.append(tx_dict)
-                
-                results.append(TransactionResult(
-                    success=True,
-                    transaction_id=tx_dict["id"],
-                    original_data=transaction_data
-                ))
-                
+
+                results.append(
+                    TransactionResult(
+                        success=True,
+                        transaction_id=tx_dict["id"],
+                        original_data=transaction_data,
+                    )
+                )
+
                 logger.debug(f"Transaction {i} validated successfully")
-                
+
             except Exception as e:
                 error_message = str(e)
-                error_code = getattr(e, 'error_code', 'VALIDATION_ERROR')
-                
-                results.append(TransactionResult(
-                    success=False,
-                    error_message=error_message,
-                    error_code=error_code,
-                    original_data=transaction_data
-                ))
-                
+                error_code = getattr(e, "error_code", "VALIDATION_ERROR")
+
+                results.append(
+                    TransactionResult(
+                        success=False,
+                        error_message=error_message,
+                        error_code=error_code,
+                        original_data=transaction_data,
+                    )
+                )
+
                 logger.warning(
                     f"Transaction {i} validation failed",
                     extra={
                         "user_id": str(user_id),
                         "error": error_message,
                         "error_code": error_code,
-                        "transaction_index": i
-                    }
+                        "transaction_index": i,
+                    },
                 )
 
         # Bulk insert successful transactions using repository
         if successful_transactions:
             try:
                 created_ids = self.repository.bulk_create(successful_transactions)
-                
+
                 logger.info(
                     f"Bulk transaction insert completed",
                     extra={
                         "user_id": str(user_id),
                         "total_submitted": len(bulk_request.transactions),
                         "successful": len(successful_transactions),
-                        "failed": len(bulk_request.transactions) - len(successful_transactions),
-                        "created_transaction_ids": [str(id) for id in created_ids]
-                    }
+                        "failed": len(bulk_request.transactions)
+                        - len(successful_transactions),
+                        "created_transaction_ids": [str(id) for id in created_ids],
+                    },
                 )
-                
+
                 # Mark balance points as stale for all affected accounts
                 affected_accounts = {}  # account_id -> earliest transaction date
                 for tx_data in successful_transactions:
                     if tx_data.get("account_id"):
                         account_id = tx_data["account_id"]
                         tx_date = tx_data["date"]
-                        
+
                         if account_id not in affected_accounts:
                             affected_accounts[account_id] = tx_date
                         elif tx_date < affected_accounts[account_id]:
                             affected_accounts[account_id] = tx_date
-                
+
                 for account_id, earliest_date in affected_accounts.items():
                     try:
                         marked_count = self.balance_point_service.mark_balance_points_stale_after_transaction_change(
                             account_id=account_id,
                             transaction_date=earliest_date,
                             user_id=user_id,
-                            reason=f"Bulk transactions added affecting balance calculation"
+                            reason=f"Bulk transactions added affecting balance calculation",
                         )
-                        logger.info(f"Marked {marked_count} balance points as stale for account {account_id} after bulk creation")
-                        
+                        logger.info(
+                            f"Marked {marked_count} balance points as stale for account {account_id} after bulk creation"
+                        )
+
                     except Exception as e:
                         logger.error(
                             f"Failed to mark balance points as stale for account {account_id}: {str(e)}",
                             extra={
                                 "account_id": str(account_id),
                                 "user_id": str(user_id),
-                                "error": str(e)
-                            }
+                                "error": str(e),
+                            },
                         )
-                
+
             except Exception as e:
                 logger.error(f"Bulk insert failed: {str(e)}")
-                
+
                 # Mark all successful validations as failed due to database error
                 for result in results:
                     if result.success:
@@ -190,39 +198,45 @@ class TransactionService:
                         result.transaction_id = None
                         result.error_message = "Database insert failed"
                         result.error_code = "DATABASE_ERROR"
-                
+
                 successful_transactions = []
 
         # Calculate summary statistics
         total_successful = len(successful_transactions)
         total_failed = len(bulk_request.transactions) - total_successful
-        
+
         return TransactionBulkResponse(
             total_submitted=len(bulk_request.transactions),
             total_successful=total_successful,
             total_failed=total_failed,
-            results=results
+            results=results,
         )
 
     def _validate_transaction_ownership(self, transaction_data, user_id: UUID) -> None:
         """Validate that user owns the account or credit card specified in transaction"""
         if transaction_data.account_id:
             try:
-                self.account_service.get_account_by_id(transaction_data.account_id, user_id)
+                self.account_service.get_account_by_id(
+                    transaction_data.account_id, user_id
+                )
             except NotFoundError:
                 raise ValidationError(
                     message=f"Account {transaction_data.account_id} not found or not accessible",
-                    error_code="ACCOUNT_NOT_FOUND"
+                    error_code="ACCOUNT_NOT_FOUND",
                 )
-        
+
         if transaction_data.credit_card_id:
             try:
-                filters = CreditCardFilters(credit_card_id=transaction_data.credit_card_id)
-                self.credit_card_service.get_user_unique_credit_card_with_filters(user_id, filters)
+                filters = CreditCardFilters(
+                    credit_card_id=transaction_data.credit_card_id
+                )
+                self.credit_card_service.get_user_unique_credit_card_with_filters(
+                    user_id, filters
+                )
             except NotFoundError:
                 raise ValidationError(
                     message=f"Credit card {transaction_data.credit_card_id} not found or not accessible",
-                    error_code="CREDIT_CARD_NOT_FOUND"
+                    error_code="CREDIT_CARD_NOT_FOUND",
                 )
 
     def create_transaction(
@@ -230,11 +244,11 @@ class TransactionService:
     ) -> Transaction:
         transaction_data = transaction.model_dump()
         transaction_data["user_id"] = user_id
-        
+
         # Calculate balance impact based on movement type
         amount = float(transaction_data["amount"])
         movement_type = transaction_data["movement_type"]
-        
+
         if movement_type == "income":
             transaction_data["balance_impact"] = amount  # Positive impact
         elif movement_type == "expense":
@@ -242,13 +256,15 @@ class TransactionService:
         elif movement_type == "transfer":
             # For transfers, this logic might need to be more complex
             # For now, we'll handle basic transfers
-            transaction_data["balance_impact"] = -amount if transaction_data.get("from_account_id") else amount
+            transaction_data["balance_impact"] = (
+                -amount if transaction_data.get("from_account_id") else amount
+            )
         else:
             transaction_data["balance_impact"] = 0  # Default case
 
         # Create the transaction
         created_transaction = self.repository.create(transaction_data)
-        
+
         # Mark balance points as stale for the affected account
         if created_transaction.account_id:
             try:
@@ -256,9 +272,11 @@ class TransactionService:
                     account_id=created_transaction.account_id,
                     transaction_date=created_transaction.date,
                     user_id=user_id,
-                    reason=f"New transaction added: {created_transaction.id}"
+                    reason=f"New transaction added: {created_transaction.id}",
                 )
-                logger.info(f"Marked {marked_count} balance points as stale after transaction creation")
+                logger.info(
+                    f"Marked {marked_count} balance points as stale after transaction creation"
+                )
             except Exception as e:
                 # Log error but don't fail the transaction creation
                 logger.error(
@@ -266,10 +284,10 @@ class TransactionService:
                     extra={
                         "transaction_id": str(created_transaction.id),
                         "account_id": str(created_transaction.account_id),
-                        "error": str(e)
-                    }
+                        "error": str(e),
+                    },
                 )
-        
+
         return created_transaction
 
     def check_transaction_validity(
@@ -451,7 +469,7 @@ class TransactionService:
         Get all user transactions (from accounts and credit cards) using structured filters.
 
         Benefits:
-        - ✅ Single endpoint for all user transactions 
+        - ✅ Single endpoint for all user transactions
         - ✅ Consistent API across all transaction endpoints
         - ✅ Type-safe filter validation
         - ✅ Easy to add new filtering capabilities
@@ -501,50 +519,52 @@ class TransactionService:
             return TransactionListResponse(data=transaction_responses, meta=meta)
 
         except Exception as e:
-            logger.error(
-                f"Error retrieving transactions for user {user_id}: {str(e)}"
-            )
+            logger.error(f"Error retrieving transactions for user {user_id}: {str(e)}")
             raise
 
     def delete_transaction(self, transaction_id: UUID, user_id: UUID) -> bool:
         """
         Delete a single transaction by ID and auto-update balance.
-        
+
         Benefits:
         - ✅ User ownership validation
         - ✅ Safe deletion with rollback
         - ✅ Automatic balance recalculation
         - ✅ Logging for audit trail
-        
+
         Args:
             transaction_id: UUID of the transaction to delete
             user_id: UUID of the user (for ownership validation)
-            
+
         Returns:
             bool: True if deleted, False if not found or not owned
-            
+
         Raises:
             Exception: If deletion fails
         """
         try:
-            logger.info(f"Attempting to delete transaction {transaction_id} for user {user_id}")
-            
+            logger.info(
+                f"Attempting to delete transaction {transaction_id} for user {user_id}"
+            )
+
             # Get transaction details before deletion for balance update
             transaction = self.repository.get_by_id(transaction_id)
             if not transaction or transaction.user_id != user_id:
-                logger.warning(f"Transaction {transaction_id} not found or not owned by user {user_id}")
+                logger.warning(
+                    f"Transaction {transaction_id} not found or not owned by user {user_id}"
+                )
                 return False
-            
+
             # Store transaction details for balance update
             account_id = transaction.account_id
             transaction_date = transaction.date
-            
+
             # Delete the transaction
             result = self.repository.delete_by_id(transaction_id, user_id)
-            
+
             if result:
                 logger.info(f"Successfully deleted transaction {transaction_id}")
-                
+
                 # Mark balance points as stale if transaction was linked to an account
                 if account_id:
                     try:
@@ -553,49 +573,126 @@ class TransactionService:
                             account_id=account_id,
                             transaction_date=transaction_date,
                             user_id=user_id,
-                            reason=f"Transaction deleted: {transaction_id}"
+                            reason=f"Transaction deleted: {transaction_id}",
                         )
-                        logger.info(f"Marked {marked_count} balance points as stale after transaction deletion")
+                        logger.info(
+                            f"Marked {marked_count} balance points as stale after transaction deletion"
+                        )
                     except Exception as e:
-                        logger.error(f"Failed to mark balance points as stale after deleting transaction {transaction_id}: {str(e)}")
+                        logger.error(
+                            f"Failed to mark balance points as stale after deleting transaction {transaction_id}: {str(e)}"
+                        )
                         # Don't fail the deletion because of balance update issues
                         pass
-            
+
             return result
-            
+
         except Exception as e:
             logger.error(f"Error deleting transaction {transaction_id}: {str(e)}")
             raise
 
-    def bulk_delete_transactions(self, transaction_ids: List[UUID], user_id: UUID) -> int:
+    def bulk_delete_transactions(
+        self, transaction_ids: List[UUID], user_id: UUID
+    ) -> int:
         """
         Bulk delete transactions by IDs.
-        
+
         Benefits:
         - ✅ User ownership validation for all transactions
         - ✅ High performance bulk delete
         - ✅ Single database round-trip
         - ✅ Logging for audit trail
-        
+
         Args:
             transaction_ids: List of UUIDs to delete
             user_id: UUID of the user (for ownership validation)
-            
+
         Returns:
             int: Number of transactions actually deleted
-            
+
         Raises:
             Exception: If bulk delete fails
         """
         try:
-            logger.info(f"Attempting to bulk delete {len(transaction_ids)} transactions for user {user_id}")
-            
+            logger.info(
+                f"Attempting to bulk delete {len(transaction_ids)} transactions for user {user_id}"
+            )
+
             deleted_count = self.repository.bulk_delete_by_ids(transaction_ids, user_id)
-            
-            logger.info(f"Successfully deleted {deleted_count} out of {len(transaction_ids)} transactions")
-            
+
+            logger.info(
+                f"Successfully deleted {deleted_count} out of {len(transaction_ids)} transactions"
+            )
+
             return deleted_count
-            
+
         except Exception as e:
             logger.error(f"Error bulk deleting transactions: {str(e)}")
             raise
+
+    def update_transaction(
+        self,
+        transaction_id: UUID,
+        user_id: UUID,
+        update_data_as_schema: TransactionUpdate,
+    ) -> Transaction:
+
+        update_data = update_data_as_schema.model_dump(exclude_unset=True)
+        credit_card_id = update_data.get("credit_card_id")
+        account_id = update_data.get("account_id")
+
+        if not credit_card_id and not account_id:
+            raise HTTPException(status_code=400, detail="No data provided to update")
+
+        if account_id:
+            account = self.account_service.get_account_by_id(
+                account_id=update_data["account_id"], user_id=user_id
+            )
+            if not account:
+                raise HTTPException(status_code=404, detail="Account not found")
+
+        if credit_card_id:
+            # Validate credit card ownership first
+            card_filters = CreditCardFilters(
+                credit_card_id=update_data["credit_card_id"]
+            )
+            credit_card = (
+                self.credit_card_service.get_user_unique_credit_card_with_filters(
+                    user_id, card_filters
+                )
+            )
+
+            if not credit_card:
+                raise HTTPException(status_code=404, detail="Credit card not found")
+
+        if "account_id" in update_data or "credit_card_id" in update_data:
+            current_transaction = self.repository.get_by_id(transaction_id)
+            if not current_transaction:
+                raise HTTPException(status_code=404, detail="Transaction not found")
+
+            is_account_transaction = bool(
+                update_data.get("account_id", current_transaction.account_id)
+            )
+            is_credit_card_transaction = bool(
+                update_data.get("credit_card_id", current_transaction.credit_card_id)
+            )
+
+            if is_account_transaction and is_credit_card_transaction:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Transaction must have either account_id or credit_card_id, not both",
+                )
+
+            if not is_account_transaction and not is_credit_card_transaction:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Transaction must have either account_id or credit_card_id",
+                )
+
+        updated_transaction = self.repository.update_transaction(
+            transaction_id, user_id, update_data
+        )
+        if not updated_transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+
+        return updated_transaction

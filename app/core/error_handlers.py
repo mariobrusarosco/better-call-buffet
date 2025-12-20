@@ -365,11 +365,11 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     logger.warning(
         f"HTTP exception occurred",
         extra={
+            "path": str(request.url),
             "error_code": error_code,
             "status_code": exc.status_code,
             "detail": exc.detail,
             "request_id": request_id,
-            "path": str(request.url),
             "method": request.method,
         },
     )

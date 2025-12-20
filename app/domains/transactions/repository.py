@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 from uuid import UUID
 
 from sqlalchemy import and_, asc, desc, or_, func
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 from app.domains.transactions.models import Transaction
 from app.domains.transactions.schemas import TransactionFilters
+
 
 
 class TransactionRepository:
@@ -258,6 +259,87 @@ class TransactionRepository:
             total_count = query.count()
 
         return query.all(), total_count
+    
+    def get_transactions_for_timeline(
+            self,
+            account_id: UUID,
+            user_id: UUID,
+            start_date: date,
+            end_date: date
+        ) -> List[Transaction]:
+            return (
+                self.db.query(Transaction)
+                .filter(
+                    and_(
+                        Transaction.account_id == account_id,
+                        Transaction.user_id == user_id,
+                        Transaction.date >= start_date,
+                        Transaction.date <= end_date,
+                        Transaction.is_deleted == False
+                    )
+                )
+                .order_by(Transaction.date.asc())
+                .all()
+            )
+
+    def get_balance_before_date(self, account_id: UUID, user_id: UUID, start_date: date) -> Decimal:
+        total = self.db.query(
+            func.sum(Transaction.amount)).filter(
+                and_(
+                    Transaction.account_id == account_id,
+                    Transaction.user_id == user_id,
+                    Transaction.date <= start_date,
+                    Transaction.is_deleted == False
+                )
+            ).scalar()
+
+
+        return total or Decimal('0.00')
+
+    def get_transaction_count(self, account_id: UUID, user_id: UUID) -> int:
+        return self.db.query(Transaction).filter(
+            and_(
+                Transaction.account_id == account_id,
+                Transaction.user_id == user_id,
+                Transaction.is_deleted == False
+            )
+        ).count()
+
+    def bulk_delete_by_ids(self, transaction_ids: List[UUID], user_id: UUID) -> int:
+        """
+        Bulk delete transactions by IDs, ensuring user ownership.
+
+        Benefits:
+        - ✅ User ownership validation for all transactions
+        - ✅ High performance bulk delete via SQLAlchemy
+        - ✅ Consistent error handling with rollback
+        - ✅ Returns count of deleted transactions
+
+        Args:
+            transaction_ids: List of UUIDs to delete
+            user_id: UUID of the user (for ownership validation)
+
+        Returns:
+            int: Number of transactions actually deleted
+
+        Raises:
+            Exception: If bulk delete fails, rolls back transaction
+        """
+        try:
+            # Delete transactions with user ownership validation
+            deleted_count = self.db.query(Transaction).filter(
+                and_(
+                    Transaction.id.in_(transaction_ids),
+                    Transaction.user_id == user_id
+                )
+            ).delete(synchronize_session=False)
+
+            self.db.commit()
+            return deleted_count
+
+        except Exception as e:
+            self.db.rollback()
+            raise e
 
     def delete_by_id(self, transaction_id: UUID, user_id: UUID) -> bool:
         """
@@ -299,84 +381,29 @@ class TransactionRepository:
         except Exception as e:
             self.db.rollback()
             raise e
-
-    def bulk_delete_by_ids(self, transaction_ids: List[UUID], user_id: UUID) -> int:
-        """
-        Bulk delete transactions by IDs, ensuring user ownership.
-
-        Benefits:
-        - ✅ User ownership validation for all transactions
-        - ✅ High performance bulk delete via SQLAlchemy
-        - ✅ Consistent error handling with rollback
-        - ✅ Returns count of deleted transactions
-
-        Args:
-            transaction_ids: List of UUIDs to delete
-            user_id: UUID of the user (for ownership validation)
-
-        Returns:
-            int: Number of transactions actually deleted
-
-        Raises:
-            Exception: If bulk delete fails, rolls back transaction
-        """
+    
+    def update_transaction(self, transaction_id: UUID, user_id: UUID, update_data: Dict[str, Any]) -> Optional[Transaction]:
         try:
-            # Delete transactions with user ownership validation
-            deleted_count = self.db.query(Transaction).filter(
+            transaction = self.db.query(Transaction).filter(
                 and_(
-                    Transaction.id.in_(transaction_ids),
+                    Transaction.id == transaction_id,
                     Transaction.user_id == user_id
                 )
-            ).delete(synchronize_session=False)
+            ).first()
+
+            if not transaction:
+                return None
+
+            for key, value in update_data.items():
+                setattr(transaction, key, value)
+
+            transaction.updated_at = datetime.utcnow()
 
             self.db.commit()
-            return deleted_count
+            self.db.refresh(transaction)
+
+            return transaction
 
         except Exception as e:
             self.db.rollback()
             raise e
-
-    def get_transactions_for_timeline(
-        self,
-        account_id: UUID,
-        user_id: UUID,
-        start_date: date,
-        end_date: date
-    ) -> List[Transaction]:
-        return (
-            self.db.query(Transaction)
-            .filter(
-                and_(
-                    Transaction.account_id == account_id,
-                    Transaction.user_id == user_id,
-                    Transaction.date >= start_date,
-                    Transaction.date <= end_date,
-                    Transaction.is_deleted == False
-                )
-            )
-            .order_by(Transaction.date.asc())
-            .all()
-        )
-
-    def get_balance_before_date(self, account_id: UUID, user_id: UUID, start_date: date) -> Decimal:
-        total = self.db.query(
-            func.sum(Transaction.amount)).filter(
-                and_(
-                    Transaction.account_id == account_id,
-                    Transaction.user_id == user_id,
-                    Transaction.date <= start_date,
-                    Transaction.is_deleted == False
-                )
-            ).scalar()
-
-
-        return total or Decimal('0.00')
-
-    def get_transaction_count(self, account_id: UUID, user_id: UUID) -> int:
-        return self.db.query(Transaction).filter(
-            and_(
-                Transaction.account_id == account_id,
-                Transaction.user_id == user_id,
-                Transaction.is_deleted == False
-            )
-        ).count()
