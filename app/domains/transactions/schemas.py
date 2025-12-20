@@ -2,34 +2,44 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ============================================================================
 # AI PARSING SCHEMA (Shared between AI layer and statements/invoices)
 # ============================================================================
 
+
 class TransactionData(BaseModel):
     """
     Simplified transaction data for AI parsing and document processing.
-    
+
     Used by:
     - AI providers (OpenAI, Ollama) for structured output
     - Statement and invoice processing
     - Document parsing workflows
-    
+
     This schema focuses on the raw extracted data before domain validation.
     """
+
     date: str = Field(description="Transaction date in ISO format")
     description: str = Field(description="Complete transaction description")
-    amount: str = Field(description="Transaction amount (without sign, preserve precision)")
-    movement_type: str = Field(default="expense", description="Movement type: 'income' | 'expense' | 'transfer' | 'investment' | 'other'")
-    category: str = Field(default="", description="Transaction category (empty if not explicit)")
+    amount: str = Field(
+        description="Transaction amount (without sign, preserve precision)"
+    )
+    movement_type: str = Field(
+        default="expense",
+        description="Movement type: 'income' | 'expense' | 'transfer' | 'investment' | 'other'",
+    )
+    category: str = Field(
+        default="", description="Transaction category (empty if not explicit)"
+    )
 
 
 # ============================================================================
 # DOMAIN SCHEMAS (For business logic and database operations)
 # ============================================================================
+
 
 class TransactionBase(BaseModel):
     account_id: Optional[UUID] = None
@@ -45,14 +55,16 @@ class TransactionBase(BaseModel):
     description: str
     movement_type: str
     category: str
+    ignored: bool = False
 
 
 class TransactionIn(TransactionBase):
     pass
 
+
 class TransactionUpdate(BaseModel):
     date: Optional[datetime] = None
-    
+
     amount: Optional[float] = None
     description: Optional[str] = None
     category: Optional[str] = None
@@ -60,29 +72,63 @@ class TransactionUpdate(BaseModel):
     account_id: Optional[UUID] = None
     credit_card_id: Optional[UUID] = None
     movement_type: Optional[str] = None
+    ignored: Optional[bool] = None
 
-    @field_validator('amount')
+    @field_validator("amount")
     @classmethod
     def validate_amount(cls, v):
         """Validate that the amount is greater than 0"""
         if v is not None and v <= 0:
-            raise ValueError('amount must be greater than 0')
+            raise ValueError("amount must be greater than 0")
         return v
-    
-    @field_validator('movement_type')
+
+    @field_validator("movement_type")
     @classmethod
     def validate_movement_type(cls, v):
         """Validate that the movement type is "income" or "expense"""
-        if v is not None and v not in ['income', 'expense']:
+        if v is not None and v not in ["income", "expense"]:
             raise ValueError('movement_type must be "income" or "expense"')
         return v
+
 
 class TransactionResponse(TransactionBase):
     id: UUID
     user_id: UUID
-    is_deleted: bool = False  # Default to False for NULL values in database
+    is_deleted: bool = False
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_null_booleans(cls, data):
+        """
+        🎓 EDUCATIONAL: Handling NULL booleans from database
+
+        Problem: SQLAlchemy returns None for columns that:
+        - Were added after records existed (migration didn't backfill)
+        - Have nullable=True in the database
+
+        Solution: Pre-process the data before Pydantic validation,
+        converting None → False for boolean fields that should have defaults.
+
+        This is safer than making fields Optional[bool] because it:
+        - Preserves the API contract (always returns bool, never null)
+        - Handles legacy data gracefully
+        - Works with from_attributes = True (ORM mode)
+        """
+        if hasattr(data, "__dict__"):
+            # ORM object - convert to dict-like access
+            if getattr(data, "ignored", None) is None:
+                data.ignored = False
+            if getattr(data, "is_deleted", None) is None:
+                data.is_deleted = False
+        elif isinstance(data, dict):
+            # Dict input
+            if data.get("ignored") is None:
+                data["ignored"] = False
+            if data.get("is_deleted") is None:
+                data["is_deleted"] = False
+        return data
 
     class Config:
         from_attributes = True
@@ -92,7 +138,7 @@ class TransactionResponse(TransactionBase):
 class TransactionFilters(BaseModel):
     """
     Structured filter schema for transaction queries.
-    
+
     Benefits over individual parameters:
     - ✅ Type safety through Pydantic validation
     - ✅ Easy to extend without breaking existing code
@@ -100,26 +146,27 @@ class TransactionFilters(BaseModel):
     - ✅ Consistent with other domain filtering patterns
     - ✅ Reusable across multiple service methods
     """
+
     # Date range filters
     date_from: Optional[datetime] = None
     date_to: Optional[datetime] = None
-    
+
     # Content filters
     movement_type: Optional[str] = None  # "income" or "expense"
-    category: Optional[str] = None       # Partial match
+    category: Optional[str] = None  # Partial match
     description_contains: Optional[str] = None  # Partial match
-    
+
     # Amount filters
     amount_min: Optional[float] = None
     amount_max: Optional[float] = None
-    
+
     # Status filters
     is_paid: Optional[bool] = None
-    
+
     # Sorting options
-    sort_by: Optional[str] = "date"      # date, amount, created_at, category
-    sort_order: Optional[str] = "desc"   # desc (newest first) or asc
-    
+    sort_by: Optional[str] = "date"  # date, amount, created_at, category
+    sort_order: Optional[str] = "desc"  # desc (newest first) or asc
+
     # Pagination (embedded in filter for convenience)
     page: int = 1
     per_page: int = 20
@@ -143,6 +190,7 @@ class TransactionListResponse(BaseModel):
 # Bulk transaction schemas
 class TransactionBulkIn(BaseModel):
     """Individual transaction for bulk operations"""
+
     account_id: Optional[UUID] = None
     credit_card_id: Optional[UUID] = None
     # Transfer support (for account-to-account transfers)
@@ -156,7 +204,7 @@ class TransactionBulkIn(BaseModel):
     description: str
     movement_type: str
     category: str
-    
+
     def validate_xor_constraint(self) -> None:
         """Validate that exactly one of account_id or credit_card_id is provided"""
         if not self.account_id and not self.credit_card_id:
@@ -167,8 +215,9 @@ class TransactionBulkIn(BaseModel):
 
 class TransactionBulkRequest(BaseModel):
     """Request schema for bulk transaction creation"""
+
     transactions: List[TransactionBulkIn]
-    
+
     def validate_all_constraints(self) -> None:
         """Validate XOR constraints for all transactions"""
         for i, transaction in enumerate(self.transactions):
@@ -180,6 +229,7 @@ class TransactionBulkRequest(BaseModel):
 
 class TransactionResult(BaseModel):
     """Result of a single transaction creation attempt"""
+
     success: bool
     transaction_id: Optional[UUID] = None
     error_message: Optional[str] = None
@@ -189,6 +239,7 @@ class TransactionResult(BaseModel):
 
 class TransactionBulkResponse(BaseModel):
     """Response schema for bulk transaction operations"""
+
     total_submitted: int
     total_successful: int
     total_failed: int
@@ -197,15 +248,14 @@ class TransactionBulkResponse(BaseModel):
 
 class TransactionBulkDeleteRequest(BaseModel):
     """Request schema for bulk delete operations"""
+
     transaction_ids: List[UUID]
-    
+
     class Config:
         # Allow string UUIDs to be converted to UUID objects
-        json_encoders = {
-            UUID: str
-        }
-    
-    @field_validator('transaction_ids', mode='before')
+        json_encoders = {UUID: str}
+
+    @field_validator("transaction_ids", mode="before")
     @classmethod
     def parse_uuid_strings(cls, v):
         """Convert string UUIDs to UUID objects"""
@@ -215,7 +265,7 @@ class TransactionBulkDeleteRequest(BaseModel):
             except ValueError as e:
                 raise ValueError(f"Invalid UUID in list: {e}")
         return v
-    
+
     @property
     def success_rate(self) -> float:
         """Calculate success rate as percentage"""

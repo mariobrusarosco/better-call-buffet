@@ -2,7 +2,16 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, CheckConstraint, DECIMAL, Index
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    String,
+    CheckConstraint,
+    DECIMAL,
+    Index,
+)
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.db.connection_and_session import Base
@@ -16,17 +25,25 @@ class Transaction(Base):
 
     # ==================== SIMPLE APPROACH FIELDS (Currently Active) ====================
     # Core Transaction Data
-    amount = Column(DECIMAL(15, 2), nullable=False)  # Signed: positive for income, negative for expenses
+    amount = Column(
+        DECIMAL(15, 2), nullable=False
+    )  # Signed: positive for income, negative for expenses
     description = Column(String, nullable=False)
     date = Column(DateTime, nullable=False)
 
     # Movement Classification - for categorization (income/expense/transfer/etc)
-    movement_type = Column(String, nullable=False)  # "income" | "expense" | "transfer" | "investment" | "reinbursement" | "other"
+    movement_type = Column(
+        String, nullable=False
+    )  # "income" | "expense" | "transfer" | "investment" | "reinbursement" | "other"
     category = Column(String, nullable=True)
 
     # Transaction Targets (XOR + Transfer support)
     account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
-    credit_card_id = Column(UUID(as_uuid=True), ForeignKey("credit_cards.id"), nullable=True)
+    credit_card_id = Column(
+        UUID(as_uuid=True), ForeignKey("credit_cards.id"), nullable=True
+    )
+
+    ignored = Column(Boolean, default=False, server_default="false", nullable=False)
     # ===================================================================================
 
     # ============ COMPLEX APPROACH FIELDS (Reserved for Future Evolution) =============
@@ -38,46 +55,50 @@ class Transaction(Base):
     balance_impact = Column(DECIMAL(15, 2), nullable=True)
 
     # Transfer support fields (unused - keeping simple for now)
-    from_account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
+    from_account_id = Column(
+        UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True
+    )
     to_account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
     # ===================================================================================
-    
+
     # Payment Linking
-    related_transaction_id = Column(UUID(as_uuid=True), ForeignKey("transactions.id"), nullable=True)
-    
+    related_transaction_id = Column(
+        UUID(as_uuid=True), ForeignKey("transactions.id"), nullable=True
+    )
+
     # Required Fields
     broker_id = Column(UUID(as_uuid=True), ForeignKey("brokers.id"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    
+
     # Status Fields
     is_paid = Column(Boolean, default=True)  # Changed default to True for consistency
     is_deleted = Column(Boolean, default=False)  # Soft delete flag
-    
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Database Constraints (matching our migration)
     __table_args__ = (
         # XOR constraint: exactly one target type
         CheckConstraint(
-            '''(
+            """(
                 CASE WHEN account_id IS NOT NULL THEN 1 ELSE 0 END +
                 CASE WHEN credit_card_id IS NOT NULL THEN 1 ELSE 0 END +
                 CASE WHEN (from_account_id IS NOT NULL AND to_account_id IS NOT NULL) THEN 1 ELSE 0 END
-            ) = 1''',
-            name='single_transaction_target'
+            ) = 1""",
+            name="single_transaction_target",
         ),
-        
         # Prevent self-transfers
         CheckConstraint(
-            'from_account_id IS NULL OR to_account_id IS NULL OR from_account_id != to_account_id',
-            name='no_self_transfer'
+            "from_account_id IS NULL OR to_account_id IS NULL OR from_account_id != to_account_id",
+            name="no_self_transfer",
         ),
-
         # Indexes
-        Index('idx_transactions_account_date', 'account_id', 'date'),
-        Index('idx_transactions_account_date_amount', 'account_id', 'date', 'amount'),
+        Index("idx_transactions_account_date", "account_id", "date"),
+        Index("idx_transactions_account_date_amount", "account_id", "date", "amount"),
     )
 
     # Relationships - temporarily removed to avoid circular import issues
