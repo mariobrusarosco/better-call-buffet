@@ -5,23 +5,16 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-# ============================================================================
-# AI PARSING SCHEMA (Shared between AI layer and statements/invoices)
-# ============================================================================
+class CategoryTreeNode(BaseModel):
+    id: UUID
+    name: str
+    parent: Optional["CategoryTreeNode"] = None  # Self-referencing for parent
+
+    class Config:
+        from_attributes = True  # Allows Pydantic to read from ORM objects
 
 
 class TransactionData(BaseModel):
-    """
-    Simplified transaction data for AI parsing and document processing.
-
-    Used by:
-    - AI providers (OpenAI, Ollama) for structured output
-    - Statement and invoice processing
-    - Document parsing workflows
-
-    This schema focuses on the raw extracted data before domain validation.
-    """
-
     date: str = Field(description="Transaction date in ISO format")
     description: str = Field(description="Complete transaction description")
     amount: str = Field(
@@ -34,11 +27,6 @@ class TransactionData(BaseModel):
     category: str = Field(
         default="", description="Transaction category (empty if not explicit)"
     )
-
-
-# ============================================================================
-# DOMAIN SCHEMAS (For business logic and database operations)
-# ============================================================================
 
 
 class TransactionBase(BaseModel):
@@ -100,41 +88,18 @@ class TransactionResponse(TransactionBase):
     created_at: datetime
     updated_at: datetime
 
-    # Category JOIN fields
-    category_name: Optional[str] = None
-    parent_category_name: Optional[str] = None
+    # Nested category structure (replaces category_name/parent_category_name)
+    category_tree: Optional[CategoryTreeNode] = None
 
     @model_validator(mode="before")
     @classmethod
     def coerce_null_booleans(cls, data):
-        """
-        🎓 EDUCATIONAL: Handling NULL booleans from database
-
-        Problem: SQLAlchemy returns None for columns that:
-        - Were added after records existed (migration didn't backfill)
-        - Have nullable=True in the database
-
-        Solution: Pre-process the data before Pydantic validation,
-        converting None → False for boolean fields that should have defaults.
-
-        This is safer than making fields Optional[bool] because it:
-        - Preserves the API contract (always returns bool, never null)
-        - Handles legacy data gracefully
-        - Works with from_attributes = True (ORM mode)
-        """
         if hasattr(data, "__dict__"):
             # ORM object - convert to dict-like access
             if getattr(data, "ignored", None) is None:
                 data.ignored = False
             if getattr(data, "is_deleted", None) is None:
                 data.is_deleted = False
-
-            # Extract category names from JOIN relationship
-            if hasattr(data, 'category_obj') and data.category_obj:
-                data.category_name = data.category_obj.name
-                if hasattr(data.category_obj, 'parent') and data.category_obj.parent:
-                    data.parent_category_name = data.category_obj.parent.name
-
         elif isinstance(data, dict):
             # Dict input
             if data.get("ignored") is None:
