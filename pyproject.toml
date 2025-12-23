@@ -27,8 +27,8 @@ pydantic-settings = "2.2.1"  # Exact pin - must match pydantic version
 python-dotenv = "1.0.1"  # .env file loading
 
 # Authentication (CRITICAL - never auto-update)
-passlib = {extras = ["bcrypt"], version = "1.7.4"}  # Password hashing - exact pin
-bcrypt = ">=3.1.0,<4.0.0"  # MUST stay on 3.x for passlib compatibility
+passlib = {extras = ["bcrypt"], version = "^1.7.4", python = "^3.11"}  # Password hashing - exact pin
+bcrypt = ">=4.0.0"  # MUST stay on 3.x for passlib compatibility
 pyjwt = "^2.10.1"  # JWT tokens - caret OK within 2.x
 
 # Logging & Monitoring (safe to upgrade)

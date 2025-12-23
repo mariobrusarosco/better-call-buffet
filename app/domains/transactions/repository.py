@@ -3,10 +3,11 @@ from typing import List, Optional, Tuple, Dict, Any
 from uuid import UUID
 
 from sqlalchemy import and_, asc, desc, or_, func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from decimal import Decimal
 from app.domains.transactions.models import Transaction
 from app.domains.transactions.schemas import TransactionFilters
+from app.domains.categories.models import UserCategory
 
 
 
@@ -72,9 +73,11 @@ class TransactionRepository:
         - ✅ Type-safe filter validation
         - ✅ Embedded pagination handling
         """
-        # Base query
-        query = self.db.query(Transaction).filter(
-            and_(Transaction.account_id == account_id, Transaction.user_id == user_id)
+        # Base query with category JOIN
+        query = (
+            self.db.query(Transaction)
+            .options(joinedload(Transaction.category_obj).joinedload(UserCategory.parent))
+            .filter(and_(Transaction.account_id == account_id, Transaction.user_id == user_id))
         )
 
         # Apply structured filters
@@ -109,24 +112,28 @@ class TransactionRepository:
         - ✅ Better user experience
         """
         from app.domains.credit_cards.models import CreditCard
-        
-        # Base query for account transactions OR credit card transactions linked to this account
-        query = self.db.query(Transaction).filter(
-            and_(
-                Transaction.user_id == user_id,  # Always ensure user owns transactions
-                or_(
-                    # Direct account transactions
-                    Transaction.account_id == account_id,
-                    # Credit card transactions where the card belongs to this account
-                    Transaction.credit_card_id.in_(
-                        self.db.query(CreditCard.id)
-                        .filter(and_(
-                            CreditCard.account_id == account_id,
-                            CreditCard.user_id == user_id,
-                            CreditCard.is_active == True,
-                            CreditCard.is_deleted == False
-                        ))
-                        .subquery()
+
+        # Base query for account transactions OR credit card transactions linked to this account with category JOIN
+        query = (
+            self.db.query(Transaction)
+            .options(joinedload(Transaction.category_obj).joinedload(UserCategory.parent))
+            .filter(
+                and_(
+                    Transaction.user_id == user_id,  # Always ensure user owns transactions
+                    or_(
+                        # Direct account transactions
+                        Transaction.account_id == account_id,
+                        # Credit card transactions where the card belongs to this account
+                        Transaction.credit_card_id.in_(
+                            self.db.query(CreditCard.id)
+                            .filter(and_(
+                                CreditCard.account_id == account_id,
+                                CreditCard.user_id == user_id,
+                                CreditCard.is_active == True,
+                                CreditCard.is_deleted == False
+                            ))
+                            .subquery()
+                        )
                     )
                 )
             )
@@ -150,12 +157,16 @@ class TransactionRepository:
         user_id: UUID,
         filters: Optional[TransactionFilters] = None,
     ) -> Tuple[List[Transaction], int]:
-        # Base query
-        query = self.db.query(Transaction).filter(
-            and_(
-                Transaction.credit_card_id == credit_card_id,
-                Transaction.user_id == user_id,
-                Transaction.is_deleted == False
+        # Base query with category JOIN
+        query = (
+            self.db.query(Transaction)
+            .options(joinedload(Transaction.category_obj).joinedload(UserCategory.parent))
+            .filter(
+                and_(
+                    Transaction.credit_card_id == credit_card_id,
+                    Transaction.user_id == user_id,
+                    Transaction.is_deleted == False
+                )
             )
         )
 
@@ -242,10 +253,15 @@ class TransactionRepository:
         - ✅ Consistent filtering interface across domains
         - ✅ Type-safe filter validation
         - ✅ Embedded pagination handling
+        - ✅ Eager loads category relationship (JOIN)
         """
-        # Base query for all user transactions
-        query = self.db.query(Transaction).filter(
-            Transaction.user_id == user_id
+        # Base query for all user transactions with category JOIN
+        query = (
+            self.db.query(Transaction)
+            .options(
+                joinedload(Transaction.category_obj).joinedload(UserCategory.parent)
+            )
+            .filter(Transaction.user_id == user_id)
         )
 
         # Apply structured filters
@@ -384,17 +400,25 @@ class TransactionRepository:
     
     def update_transaction(self, transaction_id: UUID, user_id: UUID, update_data: Dict[str, Any]) -> Optional[Transaction]:
         try:
-            transaction = self.db.query(Transaction).filter(
-                and_(
-                    Transaction.id == transaction_id,
-                    Transaction.user_id == user_id
+            transaction = (
+                self.db.query(Transaction)
+                .options(joinedload(Transaction.category_obj).joinedload(UserCategory.parent))
+                .filter(
+                    and_(
+                        Transaction.id == transaction_id,
+                        Transaction.user_id == user_id
+                    )
                 )
-            ).first()
+                .first()
+            )
 
             if not transaction:
                 return None
 
-            for key, value in update_data.items():
+            # Filter out None values to prevent overwriting with NULL
+            filtered_data = {k: v for k, v in update_data.items() if v is not None}
+
+            for key, value in filtered_data.items():
                 setattr(transaction, key, value)
 
             transaction.updated_at = datetime.utcnow()
