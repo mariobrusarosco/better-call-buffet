@@ -16,8 +16,13 @@ class TransactionRepository:
         self.db = db
 
     def get_by_id(self, transaction_id: UUID) -> Optional[Transaction]:
-        """Get a transaction by its ID"""
-        return self.db.query(Transaction).filter(Transaction.id == transaction_id).first()
+        """Get a transaction by its ID with category relationship"""
+        return (
+            self.db.query(Transaction)
+            .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
+            .filter(Transaction.id == transaction_id)
+            .first()
+        )
 
     def create(self, transaction_data: dict):
         try:
@@ -25,6 +30,14 @@ class TransactionRepository:
             self.db.add(transaction)
             self.db.commit()
             self.db.refresh(transaction)
+
+            # Reload with category relationship
+            transaction = (
+                self.db.query(Transaction)
+                .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
+                .filter(Transaction.id == transaction.id)
+                .first()
+            )
             return transaction
         except Exception as e:
             self.db.rollback()
@@ -76,7 +89,7 @@ class TransactionRepository:
         # Base query with category JOIN
         query = (
             self.db.query(Transaction)
-            .options(joinedload(Transaction.category_obj).joinedload(UserCategory.parent))
+            .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
             .filter(and_(Transaction.account_id == account_id, Transaction.user_id == user_id))
         )
 
@@ -116,7 +129,7 @@ class TransactionRepository:
         # Base query for account transactions OR credit card transactions linked to this account with category JOIN
         query = (
             self.db.query(Transaction)
-            .options(joinedload(Transaction.category_obj).joinedload(UserCategory.parent))
+            .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
             .filter(
                 and_(
                     Transaction.user_id == user_id,  # Always ensure user owns transactions
@@ -160,7 +173,7 @@ class TransactionRepository:
         # Base query with category JOIN
         query = (
             self.db.query(Transaction)
-            .options(joinedload(Transaction.category_obj).joinedload(UserCategory.parent))
+            .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
             .filter(
                 and_(
                     Transaction.credit_card_id == credit_card_id,
@@ -259,7 +272,7 @@ class TransactionRepository:
         query = (
             self.db.query(Transaction)
             .options(
-                joinedload(Transaction.category_obj).joinedload(UserCategory.parent)
+                joinedload(Transaction.category_tree).joinedload(UserCategory.parent)
             )
             .filter(Transaction.user_id == user_id)
         )
@@ -285,6 +298,7 @@ class TransactionRepository:
         ) -> List[Transaction]:
             return (
                 self.db.query(Transaction)
+                .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
                 .filter(
                     and_(
                         Transaction.account_id == account_id,
@@ -402,7 +416,7 @@ class TransactionRepository:
         try:
             transaction = (
                 self.db.query(Transaction)
-                .options(joinedload(Transaction.category_obj).joinedload(UserCategory.parent))
+                .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
                 .filter(
                     and_(
                         Transaction.id == transaction_id,

@@ -47,7 +47,7 @@ class Transaction(Base):
     )
 
     # Relationships
-    category_obj = relationship("UserCategory", foreign_keys=[category_id])
+    category_tree = relationship("UserCategory", foreign_keys=[category_id])
     # ===================================================================================
 
     # ============ COMPLEX APPROACH FIELDS (Reserved for Future Evolution) =============
