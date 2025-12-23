@@ -23,6 +23,8 @@ from app.domains.refresh_tokens.models import RefreshToken
 from app.domains.statements.models import Statement
 from app.domains.transactions.models import Transaction
 from app.domains.users.models import User
+from app.domains.categories.models import UserCategory
+
 
 # Optional: Validate all models are properly registered
 def get_registered_models():
@@ -33,16 +35,23 @@ def get_registered_models():
 def validate_model_registration():
     """Validate that all expected models are registered"""
     expected_tables = {
-        'users', 'accounts', 'brokers', 'credit_cards', 
-        'invoices', 'statements', 'transactions', 'balance_points',
-        'refresh_tokens'
+        "users",
+        "accounts",
+        "brokers",
+        "credit_cards",
+        "invoices",
+        "statements",
+        "transactions",
+        "balance_points",
+        "refresh_tokens",
+        "user_categories",
     }
     registered_tables = set(get_registered_models())
-    
+
     missing = expected_tables - registered_tables
     if missing:
         raise RuntimeError(f"Missing model registrations: {missing}")
-    
+
     return True
 
 

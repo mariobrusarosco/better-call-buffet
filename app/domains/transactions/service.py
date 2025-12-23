@@ -638,11 +638,12 @@ class TransactionService:
     ) -> Transaction:
 
         update_data = update_data_as_schema.model_dump(exclude_unset=True)
+
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No data provided to update")
+
         credit_card_id = update_data.get("credit_card_id")
         account_id = update_data.get("account_id")
-
-        if not credit_card_id and not account_id:
-            raise HTTPException(status_code=400, detail="No data provided to update")
 
         if account_id:
             account = self.account_service.get_account_by_id(

@@ -10,13 +10,14 @@ from app.domains.reports.router import router as reports_router
 from app.domains.statements.router import router as statements_router
 from app.domains.transactions.router import router as transactions_router
 from app.domains.users.router import router as users_router
+from app.domains.categories.router import router as categories_router
 
 api_router = APIRouter(prefix="/api/v1")
 
 # Authentication routes (no auth required)
 api_router.include_router(auth_router, prefix="/auth", tags=["authentication"])
 
-# User management routes  
+# User management routes
 api_router.include_router(users_router, prefix="/users", tags=["users"])
 
 # Protected routes
@@ -30,9 +31,8 @@ api_router.include_router(brokers_router, prefix="/brokers", tags=["brokers"])
 api_router.include_router(
     credit_cards_router, prefix="/credit_cards", tags=["credit_cards"]
 )
-api_router.include_router(
-    statements_router, prefix="/statements", tags=["statements"]
-)
+api_router.include_router(statements_router, prefix="/statements", tags=["statements"])
 api_router.include_router(
     transactions_router, prefix="/transactions", tags=["transactions"]
 )
+api_router.include_router(categories_router, prefix="/categories", tags=["categories"])

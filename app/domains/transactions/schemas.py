@@ -54,7 +54,8 @@ class TransactionBase(BaseModel):
     amount: float
     description: str
     movement_type: str
-    category: str
+    category: str  # Legacy string field (being phased out)
+    category_id: Optional[UUID] = None  # New foreign key to user_categories
     ignored: bool = False
 
 
@@ -67,7 +68,8 @@ class TransactionUpdate(BaseModel):
 
     amount: Optional[float] = None
     description: Optional[str] = None
-    category: Optional[str] = None
+    category: Optional[str] = None  # Legacy field
+    category_id: Optional[UUID] = None  # New foreign key
     is_paid: Optional[bool] = None
     account_id: Optional[UUID] = None
     credit_card_id: Optional[UUID] = None
@@ -98,6 +100,10 @@ class TransactionResponse(TransactionBase):
     created_at: datetime
     updated_at: datetime
 
+    # Category JOIN fields
+    category_name: Optional[str] = None
+    parent_category_name: Optional[str] = None
+
     @model_validator(mode="before")
     @classmethod
     def coerce_null_booleans(cls, data):
@@ -122,6 +128,13 @@ class TransactionResponse(TransactionBase):
                 data.ignored = False
             if getattr(data, "is_deleted", None) is None:
                 data.is_deleted = False
+
+            # Extract category names from JOIN relationship
+            if hasattr(data, 'category_obj') and data.category_obj:
+                data.category_name = data.category_obj.name
+                if hasattr(data.category_obj, 'parent') and data.category_obj.parent:
+                    data.parent_category_name = data.category_obj.parent.name
+
         elif isinstance(data, dict):
             # Dict input
             if data.get("ignored") is None:

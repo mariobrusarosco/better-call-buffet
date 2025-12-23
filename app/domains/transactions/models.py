@@ -13,7 +13,7 @@ from sqlalchemy import (
     Index,
 )
 from sqlalchemy.dialects.postgresql import UUID
-
+from sqlalchemy.orm import relationship
 from app.db.connection_and_session import Base
 
 
@@ -24,26 +24,30 @@ class Transaction(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
 
     # ==================== SIMPLE APPROACH FIELDS (Currently Active) ====================
-    # Core Transaction Data
-    amount = Column(
-        DECIMAL(15, 2), nullable=False
-    )  # Signed: positive for income, negative for expenses
+    amount = Column(DECIMAL(15, 2), nullable=False)
     description = Column(String, nullable=False)
     date = Column(DateTime, nullable=False)
-
-    # Movement Classification - for categorization (income/expense/transfer/etc)
-    movement_type = Column(
-        String, nullable=False
-    )  # "income" | "expense" | "transfer" | "investment" | "reinbursement" | "other"
+    movement_type = Column(String, nullable=False)
     category = Column(String, nullable=True)
-
-    # Transaction Targets (XOR + Transfer support)
+    category_id = Column(
+        UUID(as_uuid=True), ForeignKey("user_categories.id"), nullable=True
+    )
     account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
     credit_card_id = Column(
         UUID(as_uuid=True), ForeignKey("credit_cards.id"), nullable=True
     )
-
     ignored = Column(Boolean, default=False, server_default="false", nullable=False)
+    broker_id = Column(UUID(as_uuid=True), ForeignKey("brokers.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    is_paid = Column(Boolean, default=True)  # Changed default to True for consistency
+    is_deleted = Column(Boolean, default=False)  # Soft delete flag
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    # Relationships
+    category_obj = relationship("UserCategory", foreign_keys=[category_id])
     # ===================================================================================
 
     # ============ COMPLEX APPROACH FIELDS (Reserved for Future Evolution) =============
@@ -53,31 +57,15 @@ class Transaction(Base):
 
     # Pre-calculated balance impact (unused - we calculate on-the-fly from amount + movement_type)
     balance_impact = Column(DECIMAL(15, 2), nullable=True)
-
     # Transfer support fields (unused - keeping simple for now)
     from_account_id = Column(
         UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True
     )
     to_account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
     # ===================================================================================
-
     # Payment Linking
     related_transaction_id = Column(
         UUID(as_uuid=True), ForeignKey("transactions.id"), nullable=True
-    )
-
-    # Required Fields
-    broker_id = Column(UUID(as_uuid=True), ForeignKey("brokers.id"), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-
-    # Status Fields
-    is_paid = Column(Boolean, default=True)  # Changed default to True for consistency
-    is_deleted = Column(Boolean, default=False)  # Soft delete flag
-
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
 
     # Database Constraints (matching our migration)
