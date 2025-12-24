@@ -31,7 +31,12 @@ Analise a fatura fornecida e extraia as seguintes informações:
 - Próximo vencimento: valor e saldo atual
 
 **REGRAS IMPORTANTES:**
-- Todos os valores monetários devem ser strings (preserve formatação original)
+- Todos os valores monetários devem ser strings no formato internacional (use ponto como separador decimal, SEM separador de milhares)
+  Exemplos de conversão:
+  * R$ 5.000,00 → "5000.00"
+  * R$ 1.234,56 → "1234.56"
+  * R$ 42,99 → "42.99"
+  * R$ 0,01 → "0.01"
 - Identifique datas de format consistente, de acordo com a linguagem: pt. Faça uma conversão para o formato ISO.
 - Ignore textos promocionais, avisos legais e publicidade
 - Se uma categoria não estiver explícita, deixe vazio
@@ -69,7 +74,12 @@ Analyze the provided invoice and extract the following information:
 - Next due: amount and current balance
 
 **IMPORTANT RULES:**
-- All monetary values must be strings (preserve original formatting)
+- All monetary values must be strings in international format (use period as decimal separator, NO thousands separator)
+  Conversion examples:
+  * $5,000.00 → "5000.00"
+  * $1,234.56 → "1234.56"
+  * $42.99 → "42.99"
+  * $0.01 → "0.01"
 - Dates in consistent format. After identify the date, convert it to ISO format.
 - Ignore promotional text, legal notices, and advertisements
 - If a category is not explicit, leave empty
