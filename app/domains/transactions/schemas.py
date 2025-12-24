@@ -183,6 +183,48 @@ class TransactionBulkIn(BaseModel):
     movement_type: str
     category: str
 
+    @field_validator("amount", mode="before")
+    @classmethod
+    def parse_amount(cls, v):
+        """
+        Parse amount from various formats to float.
+
+        Handles:
+        - International format: "5000.00" → 5000.0
+        - Brazilian format: "5.000,00" → 5000.0 (legacy/safety)
+        - Already float: 5000.0 → 5000.0
+        """
+        if isinstance(v, (int, float)):
+            return float(v)
+
+        if isinstance(v, str):
+            # Detect format by checking if comma appears after period
+            # Brazilian: "5.000,00" (period before comma)
+            # International: "5,000.00" (comma before period)
+
+            has_period = '.' in v
+            has_comma = ',' in v
+
+            if has_period and has_comma:
+                # Both separators present - determine which is decimal
+                period_pos = v.rfind('.')
+                comma_pos = v.rfind(',')
+
+                if comma_pos > period_pos:
+                    # Brazilian: "1.234,56" → comma is decimal
+                    v = v.replace(".", "").replace(",", ".")
+                else:
+                    # International: "1,234.56" → period is decimal
+                    v = v.replace(",", "")
+            elif has_comma:
+                # Only comma - assume Brazilian decimal: "42,50"
+                v = v.replace(",", ".")
+            # If only period or neither, use as-is
+
+            return float(v)
+
+        return v
+
     def validate_xor_constraint(self) -> None:
         """Validate that exactly one of account_id or credit_card_id is provided"""
         if not self.account_id and not self.credit_card_id:
