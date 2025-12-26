@@ -75,9 +75,13 @@ class TransactionUpdate(BaseModel):
     @field_validator("movement_type")
     @classmethod
     def validate_movement_type(cls, v):
-        """Validate that the movement type is "income" or "expense"""
-        if v is not None and v not in ["income", "expense"]:
-            raise ValueError('movement_type must be "income" or "expense"')
+        if v is not None and v not in [
+            "income",
+            "expense",
+            "investment",
+            "transfer",
+        ]:
+            raise ValueError("Invalid movement type.")
         return v
 
 
@@ -202,13 +206,13 @@ class TransactionBulkIn(BaseModel):
             # Brazilian: "5.000,00" (period before comma)
             # International: "5,000.00" (comma before period)
 
-            has_period = '.' in v
-            has_comma = ',' in v
+            has_period = "." in v
+            has_comma = "," in v
 
             if has_period and has_comma:
                 # Both separators present - determine which is decimal
-                period_pos = v.rfind('.')
-                comma_pos = v.rfind(',')
+                period_pos = v.rfind(".")
+                comma_pos = v.rfind(",")
 
                 if comma_pos > period_pos:
                     # Brazilian: "1.234,56" → comma is decimal
