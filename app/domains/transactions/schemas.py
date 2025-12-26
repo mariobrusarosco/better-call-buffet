@@ -97,19 +97,36 @@ class TransactionResponse(TransactionBase):
 
     @model_validator(mode="before")
     @classmethod
-    def coerce_null_booleans(cls, data):
+    def prepare_transaction_data(cls, data):
+        """
+        Prepare transaction data from ORM objects or dicts.
+
+        Responsibilities:
+        1. Set default values for nullable boolean fields
+        2. Extract account_id from credit_card relationship (for credit card transactions)
+        """
         if hasattr(data, "__dict__"):
-            # ORM object - convert to dict-like access
+            # ORM object from database query
+
+            # 1. Set default boolean values
             if getattr(data, "ignored", None) is None:
                 data.ignored = False
             if getattr(data, "is_deleted", None) is None:
                 data.is_deleted = False
+
+            # 2. Extract account_id from credit_card JOIN
+            if hasattr(data, "credit_card") and data.credit_card:
+                data.account_id = data.credit_card.account_id
+
         elif isinstance(data, dict):
-            # Dict input
+            # Dict input (for testing or manual construction)
+
+            # 1. Set default boolean values
             if data.get("ignored") is None:
                 data["ignored"] = False
             if data.get("is_deleted") is None:
                 data["is_deleted"] = False
+
         return data
 
     class Config:

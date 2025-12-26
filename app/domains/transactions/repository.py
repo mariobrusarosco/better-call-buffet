@@ -8,7 +8,7 @@ from decimal import Decimal
 from app.domains.transactions.models import Transaction
 from app.domains.transactions.schemas import TransactionFilters
 from app.domains.categories.models import UserCategory
-
+from app.domains.credit_cards.models import CreditCard
 
 
 class TransactionRepository:
@@ -19,7 +19,10 @@ class TransactionRepository:
         """Get a transaction by its ID with category relationship"""
         return (
             self.db.query(Transaction)
-            .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
+            .options(
+                joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
+                joinedload(Transaction.credit_card),
+            )
             .filter(Transaction.id == transaction_id)
             .first()
         )
@@ -31,10 +34,15 @@ class TransactionRepository:
             self.db.commit()
             self.db.refresh(transaction)
 
-            # Reload with category relationship
+            # Reload with category and credit_card relationships
             transaction = (
                 self.db.query(Transaction)
-                .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
+                .options(
+                    joinedload(Transaction.category_tree).joinedload(
+                        UserCategory.parent
+                    ),
+                    joinedload(Transaction.credit_card),
+                )
                 .filter(Transaction.id == transaction.id)
                 .first()
             )
@@ -46,20 +54,20 @@ class TransactionRepository:
     def bulk_create(self, transactions_data: List[dict]) -> List[UUID]:
         """
         Bulk insert transactions with repository pattern consistency.
-        
+
         Benefits:
         - ✅ Maintains repository abstraction layer
         - ✅ High performance bulk insert via SQLAlchemy
         - ✅ Single database round-trip
         - ✅ Consistent error handling with rollback
         - ✅ Returns list of created transaction IDs
-        
+
         Args:
             transactions_data: List of dictionaries containing transaction data
-            
+
         Returns:
             List of UUIDs for the created transactions
-            
+
         Raises:
             Exception: If bulk insert fails, rolls back transaction
         """
@@ -86,11 +94,18 @@ class TransactionRepository:
         - ✅ Type-safe filter validation
         - ✅ Embedded pagination handling
         """
-        # Base query with category JOIN
+        # Base query with category and credit_card JOINs
         query = (
             self.db.query(Transaction)
-            .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
-            .filter(and_(Transaction.account_id == account_id, Transaction.user_id == user_id))
+            .options(
+                joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
+                joinedload(Transaction.credit_card),
+            )
+            .filter(
+                and_(
+                    Transaction.account_id == account_id, Transaction.user_id == user_id
+                )
+            )
         )
 
         # Apply structured filters
@@ -113,41 +128,45 @@ class TransactionRepository:
     ) -> Tuple[List[Transaction], int]:
         """
         🎓 ENHANCED: Get account transactions AND credit card transactions for cards linked to the account.
-        
+
         This method provides a unified view of all financial activity related to an account:
         - Direct account transactions (account_id = account_id)
         - Credit card transactions where credit_card belongs to this account
-        
+
         Benefits:
         - ✅ Complete financial picture for account
         - ✅ Unified transaction history
         - ✅ Same filtering and pagination interface
         - ✅ Better user experience
         """
-        from app.domains.credit_cards.models import CreditCard
-
-        # Base query for account transactions OR credit card transactions linked to this account with category JOIN
+        # Base query for account transactions OR credit card transactions linked to this account with category and credit_card JOINs
         query = (
             self.db.query(Transaction)
-            .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
+            .options(
+                joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
+                joinedload(Transaction.credit_card),
+            )
             .filter(
                 and_(
-                    Transaction.user_id == user_id,  # Always ensure user owns transactions
+                    Transaction.user_id
+                    == user_id,  # Always ensure user owns transactions
                     or_(
                         # Direct account transactions
                         Transaction.account_id == account_id,
                         # Credit card transactions where the card belongs to this account
                         Transaction.credit_card_id.in_(
                             self.db.query(CreditCard.id)
-                            .filter(and_(
-                                CreditCard.account_id == account_id,
-                                CreditCard.user_id == user_id,
-                                CreditCard.is_active == True,
-                                CreditCard.is_deleted == False
-                            ))
+                            .filter(
+                                and_(
+                                    CreditCard.account_id == account_id,
+                                    CreditCard.user_id == user_id,
+                                    CreditCard.is_active == True,
+                                    CreditCard.is_deleted == False,
+                                )
+                            )
                             .subquery()
-                        )
-                    )
+                        ),
+                    ),
                 )
             )
         )
@@ -170,15 +189,18 @@ class TransactionRepository:
         user_id: UUID,
         filters: Optional[TransactionFilters] = None,
     ) -> Tuple[List[Transaction], int]:
-        # Base query with category JOIN
+        # Base query with category and credit_card JOINs
         query = (
             self.db.query(Transaction)
-            .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
+            .options(
+                joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
+                joinedload(Transaction.credit_card),
+            )
             .filter(
                 and_(
                     Transaction.credit_card_id == credit_card_id,
                     Transaction.user_id == user_id,
-                    Transaction.is_deleted == False
+                    Transaction.is_deleted == False,
                 )
             )
         )
@@ -268,11 +290,12 @@ class TransactionRepository:
         - ✅ Embedded pagination handling
         - ✅ Eager loads category relationship (JOIN)
         """
-        # Base query for all user transactions with category JOIN
+        # Base query for all user transactions with category and credit_card JOINs
         query = (
             self.db.query(Transaction)
             .options(
-                joinedload(Transaction.category_tree).joinedload(UserCategory.parent)
+                joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
+                joinedload(Transaction.credit_card),
             )
             .filter(Transaction.user_id == user_id)
         )
@@ -288,52 +311,78 @@ class TransactionRepository:
             total_count = query.count()
 
         return query.all(), total_count
-    
-    def get_transactions_for_timeline(
-            self,
-            account_id: UUID,
-            user_id: UUID,
-            start_date: date,
-            end_date: date
-        ) -> List[Transaction]:
-            return (
-                self.db.query(Transaction)
-                .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
-                .filter(
-                    and_(
-                        Transaction.account_id == account_id,
-                        Transaction.user_id == user_id,
-                        Transaction.date >= start_date,
-                        Transaction.date <= end_date,
-                        Transaction.is_deleted == False
-                    )
-                )
-                .order_by(Transaction.date.asc())
-                .all()
-            )
 
-    def get_balance_before_date(self, account_id: UUID, user_id: UUID, start_date: date) -> Decimal:
-        total = self.db.query(
-            func.sum(Transaction.amount)).filter(
+    def get_transactions_for_timeline(
+        self, account_id: UUID, user_id: UUID, start_date: date, end_date: date
+    ) -> List[Transaction]:
+        return (
+            self.db.query(Transaction)
+            .options(
+                joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
+                joinedload(Transaction.credit_card),
+            )
+            .filter(
                 and_(
                     Transaction.account_id == account_id,
                     Transaction.user_id == user_id,
-                    Transaction.date <= start_date,
-                    Transaction.is_deleted == False
+                    Transaction.date >= start_date,
+                    Transaction.date <= end_date,
+                    Transaction.is_deleted == False,
+                    Transaction.ignored == False,  # Exclude ignored transactions from balance
                 )
-            ).scalar()
+            )
+            .order_by(Transaction.date.asc())
+            .all()
+        )
 
+    def get_balance_before_date(
+        self, account_id: UUID, user_id: UUID, start_date: date
+    ) -> Decimal:
+        """
+        Calculate balance before a given date.
 
-        return total or Decimal('0.00')
+        IMPORTANT: Respects movement_type:
+        - income: adds to balance
+        - expense: subtracts from balance
+        """
+        from sqlalchemy import case
+
+        # Sum with conditional: add income, subtract expense
+        total = (
+            self.db.query(
+                func.sum(
+                    case(
+                        (Transaction.movement_type == "income", Transaction.amount),
+                        else_=-Transaction.amount
+                    )
+                )
+            )
+            .filter(
+                and_(
+                    Transaction.account_id == account_id,
+                    Transaction.user_id == user_id,
+                    Transaction.date < start_date,  # Changed from <= to < (before the start date)
+                    Transaction.is_deleted == False,
+                    Transaction.ignored == False,  # Exclude ignored transactions from balance
+                )
+            )
+            .scalar()
+        )
+
+        return total or Decimal("0.00")
 
     def get_transaction_count(self, account_id: UUID, user_id: UUID) -> int:
-        return self.db.query(Transaction).filter(
-            and_(
-                Transaction.account_id == account_id,
-                Transaction.user_id == user_id,
-                Transaction.is_deleted == False
+        return (
+            self.db.query(Transaction)
+            .filter(
+                and_(
+                    Transaction.account_id == account_id,
+                    Transaction.user_id == user_id,
+                    Transaction.is_deleted == False,
+                )
             )
-        ).count()
+            .count()
+        )
 
     def bulk_delete_by_ids(self, transaction_ids: List[UUID], user_id: UUID) -> int:
         """
@@ -357,12 +406,16 @@ class TransactionRepository:
         """
         try:
             # Delete transactions with user ownership validation
-            deleted_count = self.db.query(Transaction).filter(
-                and_(
-                    Transaction.id.in_(transaction_ids),
-                    Transaction.user_id == user_id
+            deleted_count = (
+                self.db.query(Transaction)
+                .filter(
+                    and_(
+                        Transaction.id.in_(transaction_ids),
+                        Transaction.user_id == user_id,
+                    )
                 )
-            ).delete(synchronize_session=False)
+                .delete(synchronize_session=False)
+            )
 
             self.db.commit()
             return deleted_count
@@ -374,53 +427,62 @@ class TransactionRepository:
     def delete_by_id(self, transaction_id: UUID, user_id: UUID) -> bool:
         """
         Delete a single transaction by ID, ensuring user ownership.
-        
+
         Benefits:
         - ✅ User ownership validation
         - ✅ Safe deletion with rollback
         - ✅ CASCADE delete handles related records
         - ✅ Returns success status
-        
+
         Args:
             transaction_id: UUID of the transaction to delete
             user_id: UUID of the user (for ownership validation)
-            
+
         Returns:
             bool: True if deleted, False if not found or not owned
-            
+
         Raises:
             Exception: If deletion fails, rolls back transaction
         """
         try:
             # Find transaction and verify ownership
-            transaction = self.db.query(Transaction).filter(
-                and_(
-                    Transaction.id == transaction_id,
-                    Transaction.user_id == user_id
+            transaction = (
+                self.db.query(Transaction)
+                .filter(
+                    and_(
+                        Transaction.id == transaction_id, Transaction.user_id == user_id
+                    )
                 )
-            ).first()
-            
+                .first()
+            )
+
             if not transaction:
                 return False
-                
+
             # Delete the transaction (CASCADE will handle related records)
             self.db.delete(transaction)
             self.db.commit()
             return True
-            
+
         except Exception as e:
             self.db.rollback()
             raise e
-    
-    def update_transaction(self, transaction_id: UUID, user_id: UUID, update_data: Dict[str, Any]) -> Optional[Transaction]:
+
+    def update_transaction(
+        self, transaction_id: UUID, user_id: UUID, update_data: Dict[str, Any]
+    ) -> Optional[Transaction]:
         try:
             transaction = (
                 self.db.query(Transaction)
-                .options(joinedload(Transaction.category_tree).joinedload(UserCategory.parent))
+                .options(
+                    joinedload(Transaction.category_tree).joinedload(
+                        UserCategory.parent
+                    ),
+                    joinedload(Transaction.credit_card),
+                )
                 .filter(
                     and_(
-                        Transaction.id == transaction_id,
-                        Transaction.user_id == user_id
+                        Transaction.id == transaction_id, Transaction.user_id == user_id
                     )
                 )
                 .first()

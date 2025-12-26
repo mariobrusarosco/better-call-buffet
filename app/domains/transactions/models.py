@@ -48,6 +48,7 @@ class Transaction(Base):
 
     # Relationships
     category_tree = relationship("UserCategory", foreign_keys=[category_id])
+    credit_card = relationship("CreditCard", foreign_keys=[credit_card_id])
     # ===================================================================================
 
     # ============ COMPLEX APPROACH FIELDS (Reserved for Future Evolution) =============
