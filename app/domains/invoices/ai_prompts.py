@@ -16,12 +16,12 @@ Analise a fatura fornecida e extraia as seguintes informações:
 
 **Transações:**
 - Liste todas as transações do extrato
-- Para cada transação extraia: 
+- Para cada transação extraia:
   * data: "date"
   * descrição completa: "description"
   * tipo de movimentação: "movement_type"
-    ** Reembolsos: "reimbursement" - valores positivos, depositos, recebimentos, entradas
-    ** Saidas: "expense" - valores negativos, saques, pagamentos, saídas
+    ** Créditos/Reembolsos: "income" - valores positivos, depositos, recebimentos, entradas, cashback
+    ** Débitos/Compras: "expense" - valores negativos, saques, pagamentos, saídas, compras
   * valor: "amount"
     * Remover o sinal do valor e manter precisão do valor.
   * categoria: "category"
@@ -61,14 +61,12 @@ Analyze the provided invoice and extract the following information:
 - For each transaction extract:
   * date
   * complete description
-  * amount
+  * amount (without sign, preserve precision)
   * movement_type
-    ** Reinbursements: "reimbursement" - valores positivos, depositos, recebimentos, entradas
-    ** Expense: "expense" - valores negativos, saques, pagamentos, saídas
-  * valor
-    * Remover o sinal do valor e manter precisão do valor.
-  * categoria
-    ** Se não houver categoria explícita, deixe vazio
+    ** Credits/Refunds: "income" - positive values, deposits, receipts, cashback
+    ** Debits/Purchases: "expense" - negative values, withdrawals, payments, purchases
+  * category
+    ** If no explicit category, leave empty
 
 **Additional Information (if available):**
 - Next due: amount and current balance
