@@ -60,7 +60,10 @@ class BalancePointService:
         balance_points = []
         for date in self.date_range_iterator(start_date, end_date):
             transactions_of_day = transactions_by_date.get(date, [])
-            summed_transactions_of_day = sum(transaction.amount for transaction in transactions_of_day)
+            summed_transactions_of_day = sum(
+                transaction.amount if transaction.movement_type == "income" else -transaction.amount
+                for transaction in transactions_of_day
+            )
             current_balance += summed_transactions_of_day
 
             # Return plain dict - FastAPI will convert to Pydantic schema
