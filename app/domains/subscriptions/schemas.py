@@ -1,0 +1,73 @@
+from datetime import date, datetime
+from enum import Enum
+from typing import List, Optional
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict
+
+
+class BillingCycle(str, Enum):
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    QUARTERLY = "quarterly"
+    YEARLY = "yearly"
+
+
+class SubscriptionBase(BaseModel):
+    name: str
+    amount: float
+    billing_cycle: BillingCycle
+    next_due_date: date
+    vendor_id: Optional[UUID] = None
+    category_id: Optional[UUID] = None
+    is_active: bool = True
+
+
+class SubscriptionCreate(SubscriptionBase):
+    pass
+
+
+class SubscriptionUpdate(BaseModel):
+    name: Optional[str] = None
+    amount: Optional[float] = None
+    billing_cycle: Optional[BillingCycle] = None
+    next_due_date: Optional[date] = None
+    vendor_id: Optional[UUID] = None
+    category_id: Optional[UUID] = None
+    is_active: Optional[bool] = None
+
+
+class SubscriptionResponse(SubscriptionBase):
+    id: UUID
+    user_id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SubscriptionFilters(BaseModel):
+    is_active: Optional[bool] = None
+    vendor_id: Optional[UUID] = None
+    category_id: Optional[UUID] = None
+    
+    # Pagination
+    page: int = 1
+    per_page: int = 20
+
+
+class SubscriptionListMeta(BaseModel):
+    total: int
+    page: int = 1
+    per_page: int = 20
+    has_next: bool = False
+    has_previous: bool = False
+
+
+class SubscriptionListResponse(BaseModel):
+    data: List[SubscriptionResponse]
+    meta: SubscriptionListMeta
+
+    class Config:
+        from_attributes = True
