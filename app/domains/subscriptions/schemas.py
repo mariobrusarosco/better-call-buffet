@@ -3,7 +3,9 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
+from app.domains.vendors.schemas import VendorResponse
+from app.domains.categories.schemas import CategoryResponse
 
 
 class BillingCycle(str, Enum):
@@ -42,6 +44,10 @@ class SubscriptionResponse(SubscriptionBase):
     user_id: UUID
     created_at: datetime
     updated_at: datetime
+    
+    # Nested objects
+    vendor: Optional[VendorResponse] = None
+    category: Optional[CategoryResponse] = None
 
     class Config:
         from_attributes = True

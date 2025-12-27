@@ -3,6 +3,8 @@ from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from app.domains.vendors.schemas import VendorResponse
+from app.domains.subscriptions.schemas import SubscriptionResponse
 
 
 class CategoryTreeNode(BaseModel):
@@ -45,6 +47,8 @@ class TransactionBase(BaseModel):
     category: str  # Legacy string field (being phased out)
     category_id: Optional[UUID] = None  # New foreign key to user_categories
     ignored: bool = False
+    vendor_id: Optional[UUID] = None
+    subscription_id: Optional[UUID] = None
 
 
 class TransactionIn(TransactionBase):
@@ -63,6 +67,8 @@ class TransactionUpdate(BaseModel):
     credit_card_id: Optional[UUID] = None
     movement_type: Optional[str] = None
     ignored: Optional[bool] = None
+    vendor_id: Optional[UUID] = None
+    subscription_id: Optional[UUID] = None
 
     @field_validator("amount")
     @classmethod
@@ -94,6 +100,8 @@ class TransactionResponse(TransactionBase):
 
     # Nested category structure (replaces category_name/parent_category_name)
     category_tree: Optional[CategoryTreeNode] = None
+    vendor: Optional[VendorResponse] = None
+    subscription: Optional[SubscriptionResponse] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -161,6 +169,10 @@ class TransactionFilters(BaseModel):
 
     # Status filters
     is_paid: Optional[bool] = None
+
+    # Vendor & Subscription filters
+    vendor_id: Optional[UUID] = None
+    subscription_id: Optional[UUID] = None
 
     # Sorting options
     sort_by: Optional[str] = "date"  # date, amount, created_at, category

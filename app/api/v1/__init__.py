@@ -12,6 +12,7 @@ from app.domains.transactions.router import router as transactions_router
 from app.domains.users.router import router as users_router
 from app.domains.categories.router import router as categories_router
 from app.domains.vendors.router import router as vendors_router
+from app.domains.subscriptions.router import router as subscriptions_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -38,3 +39,6 @@ api_router.include_router(
 )
 api_router.include_router(categories_router, prefix="/categories", tags=["categories"])
 api_router.include_router(vendors_router, prefix="/vendors", tags=["vendors"])
+api_router.include_router(
+    subscriptions_router, prefix="/subscriptions", tags=["subscriptions"]
+)

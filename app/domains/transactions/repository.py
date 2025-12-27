@@ -22,6 +22,8 @@ class TransactionRepository:
             .options(
                 joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
                 joinedload(Transaction.credit_card),
+                joinedload(Transaction.vendor),
+                joinedload(Transaction.subscription),
             )
             .filter(
                 and_(Transaction.id == transaction_id, Transaction.user_id == user_id)
@@ -44,6 +46,8 @@ class TransactionRepository:
                         UserCategory.parent
                     ),
                     joinedload(Transaction.credit_card),
+                    joinedload(Transaction.vendor),
+                    joinedload(Transaction.subscription),
                 )
                 .filter(Transaction.id == transaction.id)
                 .first()
@@ -102,6 +106,8 @@ class TransactionRepository:
             .options(
                 joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
                 joinedload(Transaction.credit_card),
+                joinedload(Transaction.vendor),
+                joinedload(Transaction.subscription),
             )
             .filter(
                 and_(
@@ -147,6 +153,8 @@ class TransactionRepository:
             .options(
                 joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
                 joinedload(Transaction.credit_card),
+                joinedload(Transaction.vendor),
+                joinedload(Transaction.subscription),
             )
             .filter(
                 and_(
@@ -197,6 +205,8 @@ class TransactionRepository:
             .options(
                 joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
                 joinedload(Transaction.credit_card),
+                joinedload(Transaction.vendor),
+                joinedload(Transaction.subscription),
             )
             .filter(
                 and_(
@@ -249,6 +259,12 @@ class TransactionRepository:
         if filters.is_paid is not None:
             query = query.filter(Transaction.is_paid == filters.is_paid)
 
+        # Vendor & Subscription filters
+        if filters.vendor_id:
+            query = query.filter(Transaction.vendor_id == filters.vendor_id)
+        if filters.subscription_id:
+            query = query.filter(Transaction.subscription_id == filters.subscription_id)
+
         return query
 
     def _apply_sorting(self, query, filters: TransactionFilters):
@@ -298,6 +314,8 @@ class TransactionRepository:
             .options(
                 joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
                 joinedload(Transaction.credit_card),
+                joinedload(Transaction.vendor),
+                joinedload(Transaction.subscription),
             )
             .filter(Transaction.user_id == user_id)
         )
@@ -322,6 +340,8 @@ class TransactionRepository:
             .options(
                 joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
                 joinedload(Transaction.credit_card),
+                joinedload(Transaction.vendor),
+                joinedload(Transaction.subscription),
             )
             .filter(
                 and_(
@@ -484,6 +504,8 @@ class TransactionRepository:
                         UserCategory.parent
                     ),
                     joinedload(Transaction.credit_card),
+                    joinedload(Transaction.vendor),
+                    joinedload(Transaction.subscription),
                 )
                 .filter(
                     and_(
