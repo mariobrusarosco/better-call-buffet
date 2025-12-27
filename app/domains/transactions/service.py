@@ -330,6 +330,16 @@ class TransactionService:
         except Exception as e:
             raise e
 
+    def get_account_transaction_by_id(
+        self, transaction_id: UUID, user_id: UUID
+    ) -> Transaction:
+        transaction = self.repository.get_by_id(transaction_id, user_id)
+
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+
+        return transaction
+
     def get_account_transactions_with_filters(
         self,
         account_id: UUID,

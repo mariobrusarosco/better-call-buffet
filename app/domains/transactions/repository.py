@@ -15,7 +15,7 @@ class TransactionRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_by_id(self, transaction_id: UUID) -> Optional[Transaction]:
+    def get_by_id(self, transaction_id: UUID, user_id: UUID) -> Optional[Transaction]:
         """Get a transaction by its ID with category relationship"""
         return (
             self.db.query(Transaction)
@@ -23,7 +23,9 @@ class TransactionRepository:
                 joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
                 joinedload(Transaction.credit_card),
             )
-            .filter(Transaction.id == transaction_id)
+            .filter(
+                and_(Transaction.id == transaction_id, Transaction.user_id == user_id)
+            )
             .first()
         )
 
@@ -328,7 +330,8 @@ class TransactionRepository:
                     Transaction.date >= start_date,
                     Transaction.date <= end_date,
                     Transaction.is_deleted == False,
-                    Transaction.ignored == False,  # Exclude ignored transactions from balance
+                    Transaction.ignored
+                    == False,  # Exclude ignored transactions from balance
                 )
             )
             .order_by(Transaction.date.asc())
@@ -353,7 +356,7 @@ class TransactionRepository:
                 func.sum(
                     case(
                         (Transaction.movement_type == "income", Transaction.amount),
-                        else_=-Transaction.amount
+                        else_=-Transaction.amount,
                     )
                 )
             )
@@ -361,9 +364,11 @@ class TransactionRepository:
                 and_(
                     Transaction.account_id == account_id,
                     Transaction.user_id == user_id,
-                    Transaction.date < start_date,  # Changed from <= to < (before the start date)
+                    Transaction.date
+                    < start_date,  # Changed from <= to < (before the start date)
                     Transaction.is_deleted == False,
-                    Transaction.ignored == False,  # Exclude ignored transactions from balance
+                    Transaction.ignored
+                    == False,  # Exclude ignored transactions from balance
                 )
             )
             .scalar()
