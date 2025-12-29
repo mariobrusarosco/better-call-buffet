@@ -20,10 +20,10 @@ from app.db.connection_and_session import Base
 
 
 class BillingCycle(enum.Enum):
-    WEEKLY = "weekly"
-    MONTHLY = "monthly"
-    QUARTERLY = "quarterly"
-    YEARLY = "yearly"
+    weekly = "weekly"
+    monthly = "monthly"
+    quarterly = "quarterly"
+    yearly = "yearly"
 
 
 class Subscription(Base):
@@ -39,7 +39,7 @@ class Subscription(Base):
     # Core Subscription Data
     name = Column(String, nullable=False)  # User's name for this sub (e.g. "Netflix Family")
     amount = Column(DECIMAL(10, 2), nullable=False)
-    billing_cycle = Column(Enum(BillingCycle), nullable=False, default=BillingCycle.MONTHLY)
+    billing_cycle = Column(Enum(BillingCycle), nullable=False, default=BillingCycle.monthly)
     next_due_date = Column(Date, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
 

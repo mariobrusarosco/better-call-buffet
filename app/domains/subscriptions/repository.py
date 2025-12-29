@@ -66,7 +66,7 @@ class SubscriptionRepository:
             query = query.filter(Subscription.category_id == filters.category_id)
         return query
 
-    def _apply_sorting(self, query):
+    def _apply_sorting(self, query, filters: SubscriptionFilters):
         # Default sort by next_due_date (upcoming first)
         query = query.order_by(asc(Subscription.next_due_date))
         return query

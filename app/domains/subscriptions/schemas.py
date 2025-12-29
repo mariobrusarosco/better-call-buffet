@@ -9,10 +9,10 @@ from app.domains.categories.schemas import CategoryResponse
 
 
 class BillingCycle(str, Enum):
-    WEEKLY = "weekly"
-    MONTHLY = "monthly"
-    QUARTERLY = "quarterly"
-    YEARLY = "yearly"
+    weekly = "weekly"
+    monthly = "monthly"
+    quarterly = "quarterly"
+    yearly = "yearly"
 
 
 class SubscriptionBase(BaseModel):
@@ -44,6 +44,9 @@ class SubscriptionResponse(SubscriptionBase):
     user_id: UUID
     created_at: datetime
     updated_at: datetime
+    
+    # Computed status
+    is_paid_this_cycle: bool = False
     
     # Nested objects
     vendor: Optional[VendorResponse] = None
@@ -77,3 +80,7 @@ class SubscriptionListResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class LinkPaymentRequest(BaseModel):
+    transaction_id: UUID
