@@ -25,7 +25,7 @@ def upgrade() -> None:
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('amount', sa.DECIMAL(precision=10, scale=2), nullable=False),
-    sa.Column('billing_cycle', sa.Enum('WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', name='billingcycle'), nullable=False),
+    sa.Column('billing_cycle', sa.Enum('weekly', 'monthly', 'quarterly', 'yearly', name='billingcycle'), nullable=False),
     sa.Column('next_due_date', sa.Date(), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
