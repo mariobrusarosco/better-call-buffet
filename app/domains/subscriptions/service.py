@@ -16,6 +16,8 @@ from app.domains.subscriptions.schemas import (
     SubscriptionListResponse,
     SubscriptionResponse,
     SubscriptionUpdate,
+    UpcomingPaymentResponse,
+    UpcomingPaymentsListResponse,
 )
 from app.domains.vendors.service import VendorService
 from app.domains.categories.service import CategoryService
@@ -154,6 +156,35 @@ class SubscriptionService:
         )
 
         return SubscriptionListResponse(data=subscription_responses, meta=meta)
+
+    def get_upcoming_bills(
+        self, user_id: UUID, start_date: date, end_date: date
+    ) -> UpcomingPaymentsListResponse:
+        """Projects all upcoming subscription payments within a given timeframe."""
+        projected_payments = []
+        
+        # 1. Fetch all active subscriptions
+        active_subscriptions = self.repository.get_all_active_by_user(user_id)
+
+        for sub in active_subscriptions:
+            is_subscripiton_in_date_range = sub.next_due_date >= start_date and sub.next_due_date <= end_date
+            if not is_subscripiton_in_date_range:
+                continue
+
+            projected_payments.append(
+                UpcomingPaymentResponse(
+                    subscription_id=sub.id,
+                    subscription_name=sub.name,
+                    vendor=sub.vendor,
+                    amount=float(sub.amount),
+                    due_date=sub.next_due_date,
+                )
+            )
+  
+        return UpcomingPaymentsListResponse(
+            data=projected_payments,
+            total=len(projected_payments)
+        )
 
     def link_payment(self, subscription_id: UUID, transaction_id: UUID, user_id: UUID) -> Subscription:
         """

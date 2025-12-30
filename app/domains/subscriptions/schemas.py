@@ -84,3 +84,18 @@ class SubscriptionListResponse(BaseModel):
 
 class LinkPaymentRequest(BaseModel):
     transaction_id: UUID
+
+
+class UpcomingPaymentResponse(BaseModel):
+    """Represents a single projected future subscription payment."""
+    subscription_id: UUID
+    subscription_name: str
+    vendor: Optional[VendorResponse] = None # Changed from vendor_name to nested VendorResponse
+    amount: float
+    due_date: date
+
+
+class UpcomingPaymentsListResponse(BaseModel):
+    """List of all projected future subscription payments."""
+    data: List[UpcomingPaymentResponse]
+    total: int

@@ -35,6 +35,15 @@ class SubscriptionRepository:
         self.db.delete(subscription)
         self.db.commit()
 
+    def get_all_active_by_user(self, user_id: UUID) -> List[Subscription]:
+        """Fetches all active subscriptions for a user, with relationships."""
+        return (
+            self.db.query(Subscription)
+            .options(joinedload(Subscription.vendor), joinedload(Subscription.category))
+            .filter(and_(Subscription.user_id == user_id, Subscription.is_active == True))
+            .all()
+        )
+
     def get_all_with_filters(
         self, user_id: UUID, filters: Optional[SubscriptionFilters] = None
     ) -> Tuple[List[Subscription], int]:
