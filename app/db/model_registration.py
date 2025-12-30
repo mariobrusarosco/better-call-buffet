@@ -24,6 +24,8 @@ from app.domains.statements.models import Statement
 from app.domains.transactions.models import Transaction
 from app.domains.users.models import User
 from app.domains.categories.models import UserCategory
+from app.domains.vendors.models import Vendor
+from app.domains.subscriptions.models import Subscription
 
 
 # Optional: Validate all models are properly registered
@@ -45,6 +47,8 @@ def validate_model_registration():
         "balance_points",
         "refresh_tokens",
         "user_categories",
+        "vendors",
+        "subscriptions",
     }
     registered_tables = set(get_registered_models())
 

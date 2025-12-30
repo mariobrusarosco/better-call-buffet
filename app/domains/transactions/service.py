@@ -12,6 +12,8 @@ from app.domains.accounts.service import AccountService
 from app.domains.balance_points.service import BalancePointService
 from app.domains.credit_cards.schemas import CreditCardFilters
 from app.domains.credit_cards.service import CreditCardService
+from app.domains.vendors.service import VendorService
+from app.domains.subscriptions.service import SubscriptionService
 from app.domains.transactions.models import Transaction
 from app.domains.transactions.repository import TransactionRepository
 from app.domains.transactions.schemas import (
@@ -37,6 +39,8 @@ class TransactionService:
         self.account_service = AccountService(db)
         self.credit_card_service = CreditCardService(db)
         self.balance_point_service = BalancePointService(db)
+        self.vendor_service = VendorService(db)
+        self.subscription_service = SubscriptionService(db)
 
     def create_transactions_bulk(
         self, transactions_data: List[Dict[str, Any]]
@@ -86,6 +90,9 @@ class TransactionService:
                 tx_dict = transaction_data.model_dump()
                 tx_dict["user_id"] = user_id
                 tx_dict["id"] = uuid.uuid4()  # Generate ID for bulk insert
+
+                # Validate vendor and subscription
+                self._validate_vendor_and_subscription(tx_dict, user_id)
 
                 # Calculate balance impact based on movement type
                 amount = float(tx_dict["amount"])
@@ -239,11 +246,41 @@ class TransactionService:
                     error_code="CREDIT_CARD_NOT_FOUND",
                 )
 
+    def _validate_vendor_and_subscription(self, data: Dict[str, Any], user_id: UUID) -> None:
+        subscription_id = data.get("subscription_id")
+        vendor_id = data.get("vendor_id")
+
+        if subscription_id:
+            try:
+                subscription = self.subscription_service.get_subscription(subscription_id, user_id)
+                # Auto-assign vendor from subscription if it exists
+                if subscription.vendor_id:
+                    data["vendor_id"] = subscription.vendor_id
+            except NotFoundError:
+                raise ValidationError(
+                    message=f"Subscription {subscription_id} not found or not accessible",
+                    error_code="SUBSCRIPTION_NOT_FOUND",
+                )
+
+        # Re-check vendor_id in case it was auto-assigned or provided
+        vendor_id = data.get("vendor_id")
+        if vendor_id:
+            try:
+                self.vendor_service.get_vendor(vendor_id, user_id)
+            except NotFoundError:
+                raise ValidationError(
+                    message=f"Vendor {vendor_id} not found or not accessible",
+                    error_code="VENDOR_NOT_FOUND",
+                )
+
     def create_transaction(
         self, transaction: TransactionIn, user_id: UUID
     ) -> Transaction:
         transaction_data = transaction.model_dump()
         transaction_data["user_id"] = user_id
+
+        # Validate vendor and subscription
+        self._validate_vendor_and_subscription(transaction_data, user_id)
 
         # Calculate balance impact based on movement type
         amount = float(transaction_data["amount"])
@@ -675,6 +712,9 @@ class TransactionService:
 
             if not credit_card:
                 raise HTTPException(status_code=404, detail="Credit card not found")
+
+        # Validate vendor and subscription
+        self._validate_vendor_and_subscription(update_data, user_id)
 
         if "account_id" in update_data or "credit_card_id" in update_data:
             current_transaction = self.repository.get_by_id(transaction_id)
