@@ -1,5 +1,7 @@
 from datetime import date, datetime, timedelta
 from app.core.utils.date import add_months
+from uuid import UUID
+from typing import Optional
 from app.core.logging_config import get_logger
 from app.domains.subscriptions.models import Subscription, BillingCycle
 from app.domains.subscriptions.repository import SubscriptionRepository
@@ -16,6 +18,7 @@ from app.domains.subscriptions.schemas import (
 from app.domains.vendors.service import VendorService
 from app.domains.categories.service import CategoryService
 # Import TransactionUpdate for type checking if needed, but we'll use local import for Service
+from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 

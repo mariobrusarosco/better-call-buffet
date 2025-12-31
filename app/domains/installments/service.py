@@ -1,6 +1,6 @@
 from decimal import Decimal
 from typing import List, Optional
-from uuid import UUID
+from uuid import UUID   
 from datetime import date, datetime
 
 from sqlalchemy.orm import Session
@@ -23,6 +23,7 @@ from app.domains.vendors.service import VendorService
 from app.domains.categories.service import CategoryService
 from app.domains.credit_cards.service import CreditCardService
 from app.domains.credit_cards.schemas import CreditCardFilters
+from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 
@@ -142,3 +143,36 @@ class InstallmentService:
         data = [InstallmentPlanResponse.from_orm(p) for p in plans]
         
         return InstallmentPlanListResponse(data=data, meta=meta)
+
+    def link_transaction(self, installment_id: UUID, transaction_id: UUID, user_id: UUID) -> Installment:
+        """
+        Links a real transaction to a projected installment.
+        """
+        # Local import to avoid circular dependency
+        from app.domains.transactions.service import TransactionService
+        from app.domains.transactions.schemas import TransactionUpdate
+        
+        transaction_service = TransactionService(self.db)
+        
+        # 1. Get and Validate Installment
+        installment = self.repository.get_installment_by_id(installment_id, user_id)
+        if not installment:
+            raise NotFoundError(message="Installment not found", error_code="INSTALLMENT_NOT_FOUND")
+            
+        # 2. Verify Transaction ownership
+        transaction_service.get_account_transaction_by_id(transaction_id, user_id)
+        
+        # 3. Update Transaction (Link to installment, assign vendor, mark paid)
+        plan = installment.plan
+        update_data = TransactionUpdate(
+            installment_id=installment_id,
+            vendor_id=plan.vendor_id, # Inherit vendor from plan
+            is_paid=True
+        )
+        transaction_service.update_transaction(transaction_id, user_id, update_data)
+        
+        # 4. Update Installment Status
+        installment.status = InstallmentStatus.linked
+        installment.transaction_id = transaction_id # Redundant but good for One-to-One easy lookup
+        
+        return self.repository.update_installment(installment)

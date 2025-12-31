@@ -87,13 +87,13 @@ Expose the installments management to the frontend and implement the reconciliat
 
 ## Tasks
 
-### Task 1 - API Router [~]
-#### Task 1.1 - Implement CRUD endpoints for `InstallmentPlan` [ ]
-#### Task 1.2 - Implement list endpoints with pagination [ ]
+### Task 1 - API Router [x]
+#### Task 1.1 - Implement CRUD endpoints for `InstallmentPlan` [x]
+#### Task 1.2 - Implement list endpoints with pagination [x]
 
-### Task 2 - Reconciliation Logic [ ]
-#### Task 2.1 - Implement `link_transaction` endpoint [ ]
-#### Task 2.2 - Logic: Find `Transaction` -> Update `installment_id` -> Mark `Installment` as `LINKED` [ ]
+### Task 2 - Reconciliation Logic [x]
+#### Task 2.1 - Implement `link_transaction` endpoint [x]
+#### Task 2.2 - Logic: Find `Transaction` -> Update `installment_id` -> Mark `Installment` as `LINKED` [x]
 
 ## Dependencies
 - Phase 3 service logic.
@@ -111,7 +111,7 @@ Integrate installment projections into the unified "Forecast" view.
 
 ## Tasks
 
-### Task 1 - Data Aggregation [ ]
+### Task 1 - Data Aggregation [~]
 #### Task 1.1 - Implement `get_upcoming_installments` in service [ ]
 #### Task 1.2 - Ensure output matches the `UpcomingPaymentResponse` format [ ]
 

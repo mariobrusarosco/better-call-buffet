@@ -105,3 +105,8 @@ class InstallmentPlanListResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class LinkInstallmentRequest(BaseModel):
+    """Payload for linking a transaction to a specific installment."""
+    transaction_id: UUID
