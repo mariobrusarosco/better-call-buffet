@@ -37,14 +37,14 @@ Define Pydantic schemas for the API and implement the Repository layer for datab
 
 ## Tasks
 
-### Task 1 - Pydantic Schemas [ ]
-#### Task 1.1 - Define `InstallmentPlanCreate`, `InstallmentPlanUpdate` [ ]
-#### Task 1.2 - Define `InstallmentPlanResponse`, `InstallmentResponse` [ ]
-#### Task 1.3 - Define `InstallmentFilters` for pagination and searching [ ]
+### Task 1 - Pydantic Schemas [x]
+#### Task 1.1 - Define `InstallmentPlanCreate`, `InstallmentPlanUpdate` [x]
+#### Task 1.2 - Define `InstallmentPlanResponse`, `InstallmentResponse` [x]
+#### Task 1.3 - Define `InstallmentFilters` for pagination and searching [x]
 
-### Task 2 - Repository Layer [ ]
-#### Task 2.1 - Implement `InstallmentRepository` with CRUD for Plans and individual Installments [ ]
-#### Task 2.2 - Add specialized queries (e.g., `get_by_plan_id`, `get_active_plans`) [ ]
+### Task 2 - Repository Layer [~]
+#### Task 2.1 - Implement `InstallmentRepository` with CRUD for Plans and individual Installments [x]
+#### Task 2.2 - Add specialized queries (e.g., `get_by_plan_id`, `get_active_plans`) [x]
 
 ## Dependencies
 - Phase 1 database models.
@@ -103,3 +103,17 @@ Expose the installments management to the frontend and implement the reconciliat
 
 ## Next Steps
 - Phase 5: Forecast Integration.
+
+# Phase 5: Forecast Integration
+
+## Goal
+Integrate installment projections into the unified "Forecast" view.
+
+## Tasks
+
+### Task 1 - Data Aggregation [ ]
+#### Task 1.1 - Implement `get_upcoming_installments` in service [ ]
+#### Task 1.2 - Ensure output matches the `UpcomingPaymentResponse` format [ ]
+
+## Expected Result
+- Future installments appear alongside subscriptions in the cash flow forecast.
