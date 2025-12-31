@@ -199,10 +199,11 @@ class SubscriptionService:
         subscription = self.get_subscription(subscription_id, user_id)
         # 2. Verify Transaction ownership and existence
         transaction = transaction_service.get_account_transaction_by_id(transaction_id, user_id)
-        # 3. Update Transaction (Link to sub, assign vendor)
+        # 3. Update Transaction (Link to sub, assign vendor, mark as paid)
         update_data = TransactionUpdate(
             subscription_id=subscription_id,
-            vendor_id=subscription.vendor_id # Ensure vendor consistency
+            vendor_id=subscription.vendor_id, # Ensure vendor consistency
+            is_paid=True # Auto-mark as paid upon linking
         )
         transaction_service.update_transaction(transaction_id, user_id, update_data)
         
@@ -218,16 +219,16 @@ class SubscriptionService:
 
     def _calculate_next_due_date(self, current_date: date, cycle: BillingCycle) -> date:
         """Calculate the next due date based on the billing cycle."""
-        if cycle == BillingCycle.WEEKLY:
+        if cycle == BillingCycle.weekly:
             return current_date + timedelta(weeks=1)
         
-        elif cycle == BillingCycle.MONTHLY:
+        elif cycle == BillingCycle.monthly:
             return self._add_months(current_date, 1)
             
-        elif cycle == BillingCycle.QUARTERLY:
+        elif cycle == BillingCycle.quarterly:
             return self._add_months(current_date, 3)
             
-        elif cycle == BillingCycle.YEARLY:
+        elif cycle == BillingCycle.yearly:
             return self._add_months(current_date, 12)
             
         return current_date

@@ -1,6 +1,6 @@
 # Context: Better Call Buffet
 
-## 1. Project Overview
+##  Project Overview
 **Better Call Buffet** is a modern financial management and analysis platform built with **FastAPI**. It features domain-driven design, AI-powered insights (OpenAI/Ollama), and a professional-grade architecture (PostgreSQL, Docker, Railway).
 
 **Key Technologies:**
@@ -11,7 +11,54 @@
 - **Infrastructure:** Docker Compose (Local), Railway (Production)
 - **AI:** OpenAI API, Ollama
 
-## 2. Architecture: Domain-Driven Design
+### AI Agent Guidelines
+* It's MANDATORY that you don't rush into fixes and implementations. Always ask for clarifications and ask for the context before proceeding. Only if the prompt is very specific about you fixing and coding right away, then proceed.
+* Reason. Your goal is to provide the best possible code to the user, and to do that, you need to understand the context of the project and the user's needs.
+
+#### Planner Mode
+* Breakdown the feature into Phases and provide a clear plan of action.
+* Breakdown Phases into small tasks and provide a clear plan of action.
+* Consider break tasks into subtasks.
+* Create a `.md` file for the plan. Store in the `/docs/plans` folder.
+* Fprmat
+```
+# Phase 1
+
+## Goal
+
+## Tasks
+
+### Task 1 - lorem ipsum dolor sit amet []
+#### Task 1.1 - lorem ipsum dolor sit amet []
+#### Task 1.2 - lorem ipsum dolor sit amet []
+
+...
+
+
+## Dependencies
+
+## Expected Result
+
+## Next Steps
+
+```
+* Once you finish a task, ask user to review your work. 
+* Wait for user's confirmation before proceeding to the next task. 
+* Be patient and don't rush into fixes and implementations.
+* Be ready to do fixes.
+* Once confirmed by the user, mark the current sub-task or task as done.
+* If you need to do a fix, mark the current sub-task or task as in progress.
+
+###  Educational Mode
+This project is used for learning. When assisting:
+
+1.  **Explain "Why"**: Don't just provide code. Explain the architectural decision (e.g., "We put this in the Repository layer because...").
+2.  **Adhere to DDD**: Strictly respect domain boundaries. Do not cross-import repositories between domains if avoidable; use Services.
+3.  **Safety**: Always check `git status` before big changes.
+4.  **Documentation**: If creating a new architectural pattern, suggest creating an ADR in `docs/decisions/`.
+
+
+##  Architecture: Domain-Driven Design
 The project follows a **Clean Architecture** pattern organized by business domains.
 
 ### Directory Structure
@@ -39,7 +86,7 @@ app/
 4.  **Models (`models.py`)**: SQLAlchemy definitions (DB Tables).
 5.  **Schemas (`schemas.py`)**: Pydantic definitions (API Contracts).
 
-## 3. Development Workflow (CRITICAL)
+##  Development Workflow (CRITICAL)
 
 ### 🐳 Docker First
 **Always** use Docker Compose for local development. The environment is containerized to ensure consistency.
@@ -53,7 +100,7 @@ Since the app runs in Docker, dependencies must be managed there:
 *   **Update Lockfile:** `docker compose exec web poetry lock`
 *   **Rebuild:** After adding dependencies, run `docker compose up --build`.
 
-## 4. Essential Commands
+##  Essential Commands
 
 | Action | Command |
 | :--- | :--- |
@@ -66,7 +113,7 @@ Since the app runs in Docker, dependencies must be managed there:
 | **Apply Migration** | `docker compose exec web alembic upgrade head` |
 | **Seed DB** | `docker compose exec web python scripts/seed_db.py` |
 
-## 5. Coding Standards
+##  Coding Standards
 
 *   **File Naming**: Use `kebab-case` for files (e.g., `user-categories.md`) but standard Python `snake_case` for modules.
 *   **Pydantic Naming**:
@@ -76,10 +123,3 @@ Since the app runs in Docker, dependencies must be managed there:
     *   `{Domain}ListResponse` (Paginated outputs)
 *   **Imports**: Use absolute imports (e.g., `from app.core.config import settings`).
 
-## 6. AI Agent Guidelines (Educational Mode)
-This project is used for learning. When assisting:
-
-1.  **Explain "Why"**: Don't just provide code. Explain the architectural decision (e.g., "We put this in the Repository layer because...").
-2.  **Adhere to DDD**: Strictly respect domain boundaries. Do not cross-import repositories between domains if avoidable; use Services.
-3.  **Safety**: Always check `git status` before big changes.
-4.  **Documentation**: If creating a new architectural pattern, suggest creating an ADR in `docs/decisions/`.
