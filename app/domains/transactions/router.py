@@ -49,6 +49,9 @@ def get_user_transactions(
     amount_max: Optional[float] = Query(None, description="Filter by maximum amount"),
     # Status filters
     is_paid: Optional[bool] = Query(None, description="Filter by payment status"),
+    # Vendor & Subscription filters
+    vendor_id: Optional[UUID] = Query(None, description="Filter by vendor"),
+    subscription_id: Optional[UUID] = Query(None, description="Filter by subscription"),
     # Sorting options
     sort_by: Optional[str] = Query(
         "date", description="Sort field: date, amount, created_at, category"
@@ -90,6 +93,8 @@ def get_user_transactions(
         amount_min=amount_min,
         amount_max=amount_max,
         is_paid=is_paid,
+        vendor_id=vendor_id,
+        subscription_id=subscription_id,
         sort_by=sort_by,
         sort_order=sort_order,
     )
