@@ -42,7 +42,7 @@ Define Pydantic schemas for the API and implement the Repository layer for datab
 #### Task 1.2 - Define `InstallmentPlanResponse`, `InstallmentResponse` [x]
 #### Task 1.3 - Define `InstallmentFilters` for pagination and searching [x]
 
-### Task 2 - Repository Layer [~]
+### Task 2 - Repository Layer [x]
 #### Task 2.1 - Implement `InstallmentRepository` with CRUD for Plans and individual Installments [x]
 #### Task 2.2 - Add specialized queries (e.g., `get_by_plan_id`, `get_active_plans`) [x]
 
@@ -63,13 +63,13 @@ Implement the service logic to automatically generate the full series of install
 
 ## Tasks
 
-### Task 1 - Generation Engine [ ]
-#### Task 1.1 - Implement `_generate_installments` helper (math for split, handling rounding remainders) [ ]
-#### Task 1.2 - Implement date rollover logic (e.g., Jan 31 -> Feb 28) using existing utils [ ]
+### Task 1 - Generation Engine [x]
+#### Task 1.1 - Implement `_generate_installments` helper (math for split, handling rounding remainders) [x]
+#### Task 1.2 - Implement date rollover logic (e.g., Jan 31 -> Feb 28) using existing utils [x]
 
-### Task 2 - Service Layer [ ]
-#### Task 2.1 - Implement `InstallmentService.create_plan` (Atomic creation of Plan + $N$ Installments) [ ]
-#### Task 2.2 - Implement ownership validation for `vendor`, `category`, and `credit_card` [ ]
+### Task 2 - Service Layer [x]
+#### Task 2.1 - Implement `InstallmentService.create_plan` (Atomic creation of Plan + $N$ Installments) [x]
+#### Task 2.2 - Implement ownership validation for `vendor`, `category`, and `credit_card` [x]
 
 ## Dependencies
 - Phase 2 schemas and repository.
@@ -87,7 +87,7 @@ Expose the installments management to the frontend and implement the reconciliat
 
 ## Tasks
 
-### Task 1 - API Router [ ]
+### Task 1 - API Router [~]
 #### Task 1.1 - Implement CRUD endpoints for `InstallmentPlan` [ ]
 #### Task 1.2 - Implement list endpoints with pagination [ ]
 
