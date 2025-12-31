@@ -49,12 +49,15 @@ class Transaction(Base):
     # New Fields for Vendors & Subscriptions
     vendor_id = Column(UUID(as_uuid=True), ForeignKey("vendors.id"), nullable=True)
     subscription_id = Column(UUID(as_uuid=True), ForeignKey("subscriptions.id"), nullable=True)
+    # New Fields for Installments
+    installment_id = Column(UUID(as_uuid=True), ForeignKey("installments.id"), nullable=True)
 
     # Relationships
     category_tree = relationship("UserCategory", foreign_keys=[category_id])
     credit_card = relationship("CreditCard", foreign_keys=[credit_card_id])
     vendor = relationship("Vendor", foreign_keys=[vendor_id])
     subscription = relationship("Subscription", foreign_keys=[subscription_id])
+    installment = relationship("Installment", foreign_keys=[installment_id], back_populates="transaction")
     # ===================================================================================
 
     # ============ COMPLEX APPROACH FIELDS (Reserved for Future Evolution) =============
@@ -96,6 +99,7 @@ class Transaction(Base):
         Index("idx_transactions_account_date_amount", "account_id", "date", "amount"),
         Index("idx_transactions_vendor_id", "vendor_id"),
         Index("idx_transactions_subscription_id", "subscription_id"),
+        Index("idx_transactions_installment_id", "installment_id"),
     )
 
     # Relationships - temporarily removed to avoid circular import issues
