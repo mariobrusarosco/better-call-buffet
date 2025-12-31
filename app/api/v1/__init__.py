@@ -47,3 +47,4 @@ api_router.include_router(
 api_router.include_router(
     installments_router, prefix="/installments", tags=["installments"]
 )
+api_router.include_router(forecast_router, prefix="/forecast", tags=["forecast"])

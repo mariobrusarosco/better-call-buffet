@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple
 from uuid import UUID
-
+from datetime import date
 from sqlalchemy import and_, asc, desc
 from sqlalchemy.orm import Session, joinedload
 

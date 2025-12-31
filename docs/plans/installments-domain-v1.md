@@ -115,9 +115,9 @@ Integrate installment projections into the unified "Forecast" view.
 
 ## Tasks
 
-### Task 1 - Data Aggregation [~]
-#### Task 1.1 - Implement `get_upcoming_installments` in service [ ]
-#### Task 1.2 - Ensure output matches the `UpcomingPaymentResponse` format [ ]
+### Task 1 - Data Aggregation [x]
+#### Task 1.1 - Implement `get_upcoming_installments` in service [x]
+#### Task 1.2 - Ensure output matches the `UpcomingPaymentResponse` format [x]
 
 ## Expected Result
 - Future installments appear alongside subscriptions in the cash flow forecast.
