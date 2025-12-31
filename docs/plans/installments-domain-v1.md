@@ -95,6 +95,10 @@ Expose the installments management to the frontend and implement the reconciliat
 #### Task 2.1 - Implement `link_transaction` endpoint [x]
 #### Task 2.2 - Logic: Find `Transaction` -> Update `installment_id` -> Mark `Installment` as `LINKED` [x]
 
+### Task 3 - Installment Flexibility [x]
+#### Task 3.1 - Implement `PATCH /installments/{id}` for manual corrections [x]
+#### Task 3.2 - Update `link_transaction` service logic to sync amounts automatically [x]
+
 ## Dependencies
 - Phase 3 service logic.
 

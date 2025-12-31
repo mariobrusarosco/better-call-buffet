@@ -170,11 +170,12 @@ class SubscriptionService:
 
             projected_payments.append(
                 UpcomingPaymentResponse(
-                    subscription_id=sub.id,
-                    subscription_name=sub.name,
+                    id=sub.id,
+                    name=sub.name,
                     vendor=sub.vendor,
                     amount=float(sub.amount),
                     due_date=sub.next_due_date,
+                    source_type="subscription"
                 )
             )
   

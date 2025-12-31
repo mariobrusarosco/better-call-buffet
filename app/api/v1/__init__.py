@@ -14,6 +14,7 @@ from app.domains.categories.router import router as categories_router
 from app.domains.vendors.router import router as vendors_router
 from app.domains.subscriptions.router import router as subscriptions_router
 from app.domains.installments.router import router as installments_router
+from app.domains.forecast.router import router as forecast_router
 
 api_router = APIRouter(prefix="/api/v1")
 

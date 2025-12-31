@@ -104,3 +104,25 @@ class InstallmentRepository:
         self.db.commit()
         self.db.refresh(installment)
         return installment
+
+    def get_pending_installments_in_range(
+        self, user_id: UUID, start_date: date, end_date: date
+    ) -> List[Installment]:
+        """Fetches all pending installments within a date range for a specific user."""
+        from app.domains.installments.models import InstallmentStatus
+        
+        return (
+            self.db.query(Installment)
+            .join(InstallmentPlan)
+            .options(joinedload(Installment.plan).joinedload(InstallmentPlan.vendor))
+            .filter(
+                and_(
+                    InstallmentPlan.user_id == user_id,
+                    Installment.status == InstallmentStatus.pending,
+                    Installment.due_date >= start_date,
+                    Installment.due_date <= end_date,
+                )
+            )
+            .order_by(asc(Installment.due_date))
+            .all()
+        )

@@ -17,8 +17,10 @@ from app.domains.installments.schemas import (
     InstallmentPlanResponse,
     InstallmentPlanUpdate,
     InstallmentResponse,
-    InstallmentPlanListMeta
+    InstallmentPlanListMeta,
+    InstallmentUpdate,
 )
+from app.domains.subscriptions.schemas import UpcomingPaymentResponse, UpcomingPaymentsListResponse
 from app.domains.vendors.service import VendorService
 from app.domains.categories.service import CategoryService
 from app.domains.credit_cards.service import CreditCardService
@@ -118,6 +120,21 @@ class InstallmentService:
             raise NotFoundError(message="Installment Plan not found", error_code="INSTALLMENT_PLAN_NOT_FOUND")
         return plan
 
+    def get_installment(self, installment_id: UUID, user_id: UUID) -> Installment:
+        installment = self.repository.get_installment_by_id(installment_id, user_id)
+        if not installment:
+            raise NotFoundError(message="Installment not found", error_code="INSTALLMENT_NOT_FOUND")
+        return installment
+
+    def update_installment(self, installment_id: UUID, data: InstallmentUpdate, user_id: UUID) -> Installment:
+        installment = self.get_installment(installment_id, user_id)
+        
+        update_data = data.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(installment, key, value)
+            
+        return self.repository.update_installment(installment)
+
     def delete_plan(self, plan_id: UUID, user_id: UUID) -> None:
         plan = self.get_plan(plan_id, user_id)
         # SQLAlchemy Cascade handles the deletion of individual installments
@@ -160,7 +177,7 @@ class InstallmentService:
             raise NotFoundError(message="Installment not found", error_code="INSTALLMENT_NOT_FOUND")
             
         # 2. Verify Transaction ownership
-        transaction_service.get_account_transaction_by_id(transaction_id, user_id)
+        transaction = transaction_service.get_account_transaction_by_id(transaction_id, user_id)
         
         # 3. Update Transaction (Link to installment, assign vendor, mark paid)
         plan = installment.plan
@@ -171,8 +188,29 @@ class InstallmentService:
         )
         transaction_service.update_transaction(transaction_id, user_id, update_data)
         
-        # 4. Update Installment Status
+        # 4. Update Installment Status and Sync Amount
         installment.status = InstallmentStatus.linked
-        installment.transaction_id = transaction_id # Redundant but good for One-to-One easy lookup
+        installment.transaction_id = transaction_id 
+        installment.amount = transaction.amount # Sync with reality
         
         return self.repository.update_installment(installment)
+
+    def get_upcoming_installments(
+        self, user_id: UUID, start_date: date, end_date: date
+    ) -> UpcomingPaymentsListResponse:
+        """Projects all pending installments within a given timeframe."""
+        installments = self.repository.get_pending_installments_in_range(user_id, start_date, end_date)
+        
+        projected = [
+            UpcomingPaymentResponse(
+                id=i.id,
+                name=f"{i.plan.name} ({i.number}/{i.plan.installment_count})",
+                vendor=i.plan.vendor,
+                amount=float(i.amount),
+                due_date=i.due_date,
+                source_type="installment"
+            )
+            for i in installments
+        ]
+        
+        return UpcomingPaymentsListResponse(data=projected, total=len(projected))
