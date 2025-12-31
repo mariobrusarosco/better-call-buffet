@@ -26,6 +26,13 @@ class InstallmentBase(BaseModel):
     status: InstallmentStatus = InstallmentStatus.pending
 
 
+class InstallmentUpdate(BaseModel):
+    """Payload for updating an individual installment's projected data."""
+    amount: Optional[float] = None
+    due_date: Optional[date] = None
+    status: Optional[InstallmentStatus] = None
+
+
 class InstallmentResponse(InstallmentBase):
     id: UUID
     plan_id: UUID
