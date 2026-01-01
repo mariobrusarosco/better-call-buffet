@@ -87,12 +87,13 @@ class LinkPaymentRequest(BaseModel):
 
 
 class UpcomingPaymentResponse(BaseModel):
-    """Represents a single projected future subscription payment."""
-    subscription_id: UUID
-    subscription_name: str
-    vendor: Optional[VendorResponse] = None # Changed from vendor_name to nested VendorResponse
+    """Represents a single projected future payment (Subscription or Installment)."""
+    id: UUID # Original Subscription ID or Installment ID
+    name: str # Subscription name or Plan name
+    vendor: Optional[VendorResponse] = None 
     amount: float
     due_date: date
+    source_type: str = "subscription" # "subscription" or "installment"
 
 
 class UpcomingPaymentsListResponse(BaseModel):

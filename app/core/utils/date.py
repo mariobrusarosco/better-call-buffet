@@ -1,5 +1,28 @@
-from datetime import datetime
+import calendar
+from datetime import date, datetime, timedelta
 from typing import Optional
+
+
+def add_months(source_date: date, months: int) -> date:
+    """
+    Add months to a date, handling end-of-month overflow.
+    
+    Logic:
+    1. Calculate the target year and month.
+    2. Determine the number of days in that target month.
+    3. Clamp the day: use the original day unless it exceeds the target month's length.
+    """
+    # 1. Calculate target year and month
+    new_year = source_date.year + (source_date.month + months - 1) // 12
+    new_month = (source_date.month + months - 1) % 12 + 1
+    
+    # 2. Get the last valid day of that new month
+    _, last_day_of_month = calendar.monthrange(new_year, new_month)
+    
+    # 3. Determine the new day
+    new_day = min(source_date.day, last_day_of_month)
+    
+    return date(new_year, new_month, new_day)
 
 
 def safe_parse_date(

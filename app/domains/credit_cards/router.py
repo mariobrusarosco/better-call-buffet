@@ -117,13 +117,6 @@ def get_credit_cards_endpoint(
     - ✅ Same performance optimizations everywhere
     """
     try:
-        # For now, require account_id (can be made optional later for "all cards" scenarios)
-        if not account_id:
-            raise HTTPException(
-                status_code=400,
-                detail="account_id is required for filtering credit cards",
-            )
-
         filters = CreditCardFilters(
             is_active=is_active,
             is_deleted=is_deleted,

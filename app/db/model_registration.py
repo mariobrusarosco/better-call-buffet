@@ -26,6 +26,7 @@ from app.domains.users.models import User
 from app.domains.categories.models import UserCategory
 from app.domains.vendors.models import Vendor
 from app.domains.subscriptions.models import Subscription
+from app.domains.installments.models import Installment, InstallmentPlan
 
 
 # Optional: Validate all models are properly registered
@@ -49,6 +50,8 @@ def validate_model_registration():
         "user_categories",
         "vendors",
         "subscriptions",
+        "installment_plans",
+        "installments",
     }
     registered_tables = set(get_registered_models())
 

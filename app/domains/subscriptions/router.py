@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from app.domains.subscriptions.schemas import (
     SubscriptionListResponse,
     SubscriptionResponse,
     SubscriptionUpdate,
+    UpcomingPaymentsListResponse,
 )
 from app.domains.subscriptions.service import SubscriptionService
 
@@ -108,12 +110,6 @@ def link_payment(
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id),
 ):
-    """
-    Link a transaction to a subscription.
-    
-    This marks the current period as paid and advances the due date.
-    The transaction's vendor will also be updated to match the subscription.
-    """
     service = SubscriptionService(db)
     try:
         service.link_payment(
@@ -121,6 +117,34 @@ def link_payment(
             transaction_id=link_request.transaction_id,
             user_id=current_user_id
         )
+
         return service.get_subscription_response(subscription_id, current_user_id)
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/upcoming-bills", response_model=UpcomingPaymentsListResponse)
+def get_upcoming_bills(
+    start_date: Optional[date] = Query(None, description="Start date for projection (defaults to today)"),
+    end_date: Optional[date] = Query(None, description="End date for projection (defaults to 30 days from today)"),
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    Project future subscription payments within a timeframe.
+    Useful for cash flow forecasting and upcoming bill dashboards.
+    """
+    service = SubscriptionService(db)
+
+    # Default to 30-day window
+    if not start_date:
+        start_date = date.today()
+
+    if not end_date:
+        end_date = start_date + timedelta(days=30)
+    try:
+        return service.get_upcoming_bills(current_user_id, start_date, end_date)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
