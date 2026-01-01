@@ -66,12 +66,32 @@ class SubscriptionFilters(BaseModel):
     per_page: int = 20
 
 
+class CategoryBreakdownItem(BaseModel):
+    name: str
+    amount: float
+
+
+class MonthlyForecastItem(BaseModel):
+    month: str
+    amount: float
+
+
+class SubscriptionSummary(BaseModel):
+    monthly_burn_rate: float
+    yearly_projection: float
+    due_next_30_days: float
+    active_count: int
+    category_breakdown: List[CategoryBreakdownItem]
+    monthly_forecast: List[MonthlyForecastItem]
+
+
 class SubscriptionListMeta(BaseModel):
     total: int
     page: int = 1
     per_page: int = 20
     has_next: bool = False
     has_previous: bool = False
+    summary: Optional[SubscriptionSummary] = None
 
 
 class SubscriptionListResponse(BaseModel):

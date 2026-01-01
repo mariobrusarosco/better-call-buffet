@@ -41,6 +41,7 @@ def get_subscriptions(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     vendor_id: Optional[UUID] = Query(None, description="Filter by vendor"),
     category_id: Optional[UUID] = Query(None, description="Filter by category"),
+    include_summary: bool = Query(False, description="Include financial dashboard summary in meta"),
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db_session),
@@ -55,7 +56,7 @@ def get_subscriptions(
         page=page,
         per_page=per_page,
     )
-    return service.get_subscriptions(current_user_id, filters)
+    return service.get_subscriptions(current_user_id, filters, include_summary)
 
 
 @router.get("/{subscription_id}", response_model=SubscriptionResponse)
