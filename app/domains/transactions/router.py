@@ -35,11 +35,14 @@ def get_user_transactions(
         None, description="Filter transactions to this date"
     ),
     # Content filters
-    movement_type: Optional[str] = Query(
-        None, description="Filter by movement type: income or expense"
+    movement_type: Optional[List[str]] = Query(
+        None, description="Filter by movement type (e.g., income, expense)"
     ),
     category: Optional[str] = Query(
         None, description="Filter by category (partial match)"
+    ),
+    category_id: Optional[List[str]] = Query(
+        None, description="Filter by specific category IDs (comma-separated or repeated)"
     ),
     description_contains: Optional[str] = Query(
         None, description="Filter by description (partial match)"
@@ -81,14 +84,40 @@ def get_user_transactions(
     - Search and filter transactions
     - Export transaction data
     """
+    # Handle comma-separated values for movement_type if passed as a single string in a list
+    # Example: ?movement_type=income,expense -> ["income,expense"] -> ["income", "expense"]
+    final_movement_type = None
+    if movement_type:
+        final_movement_type = []
+        for mt in movement_type:
+            final_movement_type.extend([t.strip() for t in mt.split(",")])
+
+    # Handle comma-separated values for category_id and convert to UUIDs
+    final_category_id = None
+    if category_id:
+        final_category_id = []
+        for cid_str in category_id:
+            # Split by comma and strip whitespace
+            for uuid_str in cid_str.split(","):
+                try:
+                    uuid_obj = UUID(uuid_str.strip())
+                    final_category_id.append(uuid_obj)
+                except ValueError:
+                    # Invalid UUID format - we can either raise 422 or ignore
+                    # For filtering, ignoring invalid values or raising 422 is standard.
+                    # Let's raise 422 to be strict/helpful.
+                    from fastapi import HTTPException
+                    raise HTTPException(status_code=422, detail=f"Invalid UUID format: {uuid_str}")
+
     # Create structured filters from query parameters
     filters = TransactionFilters(
         page=page,
         per_page=per_page,
         date_from=date_from,
         date_to=date_to,
-        movement_type=movement_type,
+        movement_type=final_movement_type,
         category=category,
+        category_id=final_category_id,
         description_contains=description_contains,
         amount_min=amount_min,
         amount_max=amount_max,

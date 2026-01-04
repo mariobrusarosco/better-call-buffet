@@ -595,7 +595,7 @@ class TransactionService:
             )
 
             # Get transaction details before deletion for balance update
-            transaction = self.repository.get_by_id(transaction_id)
+            transaction = self.repository.get_by_id(transaction_id, user_id)
             if not transaction or transaction.user_id != user_id:
                 logger.warning(
                     f"Transaction {transaction_id} not found or not owned by user {user_id}"
@@ -717,7 +717,7 @@ class TransactionService:
         self._validate_vendor_and_subscription(update_data, user_id)
 
         if "account_id" in update_data or "credit_card_id" in update_data:
-            current_transaction = self.repository.get_by_id(transaction_id)
+            current_transaction = self.repository.get_by_id(transaction_id, user_id)
             if not current_transaction:
                 raise HTTPException(status_code=404, detail="Transaction not found")
 

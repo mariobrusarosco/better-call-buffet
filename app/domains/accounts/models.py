@@ -38,23 +38,25 @@ class Account(Base):
 
     # Primary Key
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    
+
     # Core Account Data
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
     type = Column(String, nullable=False)
     currency = Column(String, default="BRL", nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    
+
     # Balance is now calculated from balance_points, not stored here
-    
+
     # Foreign Keys
     broker_id = Column(UUID(as_uuid=True), ForeignKey("brokers.id"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relationships
     broker = relationship("Broker", foreign_keys=[broker_id])

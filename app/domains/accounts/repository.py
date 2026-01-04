@@ -65,7 +65,7 @@ class AccountRepository:
         self.db.add(db_account)
         self.db.commit()
         self.db.refresh(db_account)
-        
+
         # Reload with broker relationship
         return (
             self.db.query(Account)

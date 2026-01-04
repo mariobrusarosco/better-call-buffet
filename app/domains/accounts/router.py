@@ -7,11 +7,20 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user_id, get_ai_client
 from app.db.connection_and_session import get_db_session
-from app.domains.accounts.schemas import Account, AccountCreateIn, AccountType, AccountWithBalance   
+from app.domains.accounts.schemas import (
+    Account,
+    AccountCreateIn,
+    AccountType,
+    AccountWithBalance,
+)
 from app.domains.accounts.service import AccountService
 from app.domains.balance_points.schemas import BalancePoint, BalanceSnapshotIn
 from app.domains.balance_points.service import BalancePointService
-from app.domains.statements.schemas import StatementIn, StatementResponse, StatementListResponse
+from app.domains.statements.schemas import (
+    StatementIn,
+    StatementResponse,
+    StatementListResponse,
+)
 from app.domains.statements.service import StatementService
 from app.domains.transactions.schemas import TransactionFilters, TransactionListResponse
 from app.domains.transactions.service import TransactionService
@@ -123,23 +132,23 @@ def create_balance_snapshot_endpoint(
 ):
     """
     Create today's balance snapshot by calculating balance from transactions.
-    
+
     This endpoint provides the "Update Balance" button functionality:
     - Automatically calculates current balance from all account transactions
     - Creates or updates today's balance point with the calculated balance
     - No manual balance input needed - everything is calculated from transaction history
-    
+
     **Perfect for the balance tracking button that:**
     - First call today: Creates new balance point with calculated balance
     - Subsequent calls today: Updates existing balance point
     - Next day: Creates new balance point (maintains daily history)
-    
+
     **Frontend Usage:**
     ```javascript
     POST /api/v1/accounts/{accountId}/update-balance?note=End%20of%20day%20snapshot
     // No body required - note is optional query parameter
     ```
-    
+
     **Response:** Complete balance point object with calculated balance
     """
     balance_service = BalancePointService(db)
@@ -147,7 +156,7 @@ def create_balance_snapshot_endpoint(
         balance_point = balance_service.create_balance_snapshot_from_transactions(
             account_id=account_id,
             user_id=current_user_id,
-            note=balance_snapshot_in.note if balance_snapshot_in else None
+            note=balance_snapshot_in.note if balance_snapshot_in else None,
         )
         return balance_point
     except ValueError as e:
@@ -160,8 +169,8 @@ def get_account_transactions_endpoint(
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
     include_credit_cards: bool = Query(
-        False, 
-        description="Include transactions from credit cards linked to this account"
+        False,
+        description="Include transactions from credit cards linked to this account",
     ),
     date_from: Optional[datetime] = Query(
         None, description="Filter transactions from this date"
@@ -169,7 +178,7 @@ def get_account_transactions_endpoint(
     date_to: Optional[datetime] = Query(
         None, description="Filter transactions to this date"
     ),
-    movement_type: Optional[str] = Query(
+    movement_type: Optional[List[str]] = Query(
         None, description="Filter by movement type (income/expense)"
     ),
     category: Optional[str] = Query(
@@ -215,12 +224,19 @@ def get_account_transactions_endpoint(
         raise HTTPException(status_code=404, detail="Account not found")
 
     try:
+        # Handle comma-separated values for movement_type if passed as a single string in a list
+        final_movement_type = None
+        if movement_type:
+            final_movement_type = []
+            for mt in movement_type:
+                final_movement_type.extend([t.strip() for t in mt.split(",")])
+
         transaction_filters = TransactionFilters(
             page=page,
             per_page=per_page,
             date_from=date_from,
             date_to=date_to,
-            movement_type=movement_type,
+            movement_type=final_movement_type,
             category=category,
             description_contains=description_contains,
             amount_min=amount_min,
@@ -261,7 +277,9 @@ def get_account_statements_endpoint(
     account_id: UUID,
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
-    is_processed: Optional[bool] = Query(None, description="Filter by processing status"),
+    is_processed: Optional[bool] = Query(
+        None, description="Filter by processing status"
+    ),
     is_deleted: Optional[bool] = Query(False, description="Include deleted statements"),
     date_from: Optional[datetime] = Query(None, description="Filter from this date"),
     date_to: Optional[datetime] = Query(None, description="Filter to this date"),
@@ -272,7 +290,7 @@ def get_account_statements_endpoint(
 ):
     """
     Get paginated statements for a specific account.
-    
+
     Can filter by processing status, date range, and more.
     """
     # First verify the account exists and belongs to the user
@@ -285,7 +303,7 @@ def get_account_statements_endpoint(
 
     try:
         from app.domains.statements.schemas import StatementFilters
-        
+
         filters = StatementFilters(
             account_id=account_id,
             is_processed=is_processed,
@@ -310,7 +328,9 @@ def get_account_statements_endpoint(
         )
 
 
-@router.post("/{account_id}/statements", response_model=StatementResponse, status_code=201)
+@router.post(
+    "/{account_id}/statements", response_model=StatementResponse, status_code=201
+)
 def create_account_statement_endpoint(
     account_id: UUID,
     statement_in: StatementIn,
@@ -319,14 +339,14 @@ def create_account_statement_endpoint(
 ):
     """
     Create a new statement for a specific account.
-    
+
     Processes raw statement data including transactions, balances, and due dates.
     The account_id from the URL path takes precedence over the one in the request body.
     """
     try:
         # Override account_id from path parameter to ensure consistency
         statement_in.account_id = account_id
-        
+
         service = StatementService(db)
         statement = service.create_statement(statement_in, current_user_id)
         return StatementResponse.model_validate(statement)
@@ -336,7 +356,11 @@ def create_account_statement_endpoint(
         raise HTTPException(status_code=500, detail="Error creating statement")
 
 
-@router.post("/{account_id}/statements/parse-pdf", response_model=StatementResponse, status_code=201)
+@router.post(
+    "/{account_id}/statements/parse-pdf",
+    response_model=StatementResponse,
+    status_code=201,
+)
 async def parse_account_statement_pdf_endpoint(
     account_id: UUID,
     file: UploadFile = File(...),
@@ -346,21 +370,21 @@ async def parse_account_statement_pdf_endpoint(
 ):
     try:
         # Validate file type
-        if not file.filename or not file.filename.lower().endswith('.pdf'):
+        if not file.filename or not file.filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail="File must be a PDF")
-        
-        if not file.content_type or file.content_type != 'application/pdf':
+
+        if not file.content_type or file.content_type != "application/pdf":
             raise HTTPException(status_code=400, detail="Invalid file type")
-        
+
         # Validate account ownership
         account_service = AccountService(db)
         account = account_service.get_account_by_id(account_id, user_id)
         if not account:
             raise HTTPException(status_code=404, detail="Account not found")
-        
+
         # Read PDF file
         pdf_content = await file.read()
-        
+
         # Process PDF and create statement (with transactions!)
         service = StatementService(db, ai_client)
         statement = await service.parse_pdf_and_create_statement(
@@ -369,13 +393,14 @@ async def parse_account_statement_pdf_endpoint(
             account_id=account_id,
             user_id=user_id,
         )
-        
+
         return StatementResponse.model_validate(statement)
-        
+
     except HTTPException:
         raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
         from app.core.logging_config import get_logger
+
         logger = get_logger(__name__)
         logger.error(
             f"PDF parsing failed: {str(e)}",
@@ -383,10 +408,7 @@ async def parse_account_statement_pdf_endpoint(
                 "user_id": str(user_id),
                 "account_id": str(account_id),
                 "filename": file.filename if file.filename else "unknown",
-                "error": str(e)
-            }
+                "error": str(e),
+            },
         )
-        raise HTTPException(
-            status_code=500, 
-            detail=f"PDF parsing failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"PDF parsing failed: {str(e)}")

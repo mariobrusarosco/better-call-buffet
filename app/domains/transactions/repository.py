@@ -241,9 +241,11 @@ class TransactionRepository:
 
         # Content filters
         if filters.movement_type:
-            query = query.filter(Transaction.movement_type == filters.movement_type)
+            query = query.filter(Transaction.movement_type.in_(filters.movement_type))
         if filters.category:
             query = query.filter(Transaction.category.ilike(f"%{filters.category}%"))
+        if filters.category_id:
+            query = query.filter(Transaction.category_id.in_(filters.category_id))
         if filters.description_contains:
             query = query.filter(
                 Transaction.description.ilike(f"%{filters.description_contains}%")

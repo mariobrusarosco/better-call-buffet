@@ -3,7 +3,16 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Path,
+    Query,
+    UploadFile,
+)
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user_id, get_ai_client
@@ -225,7 +234,9 @@ def create_invoice(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.post("/{credit_card_id}/invoices/parse-pdf", response_model=Invoice, status_code=201)
+@router.post(
+    "/{credit_card_id}/invoices/parse-pdf", response_model=Invoice, status_code=201
+)
 async def parse_credit_card_invoice_pdf_endpoint(
     file: UploadFile = File(...),
     credit_card_id: UUID = Path(..., description="The ID of the credit card"),
@@ -235,16 +246,16 @@ async def parse_credit_card_invoice_pdf_endpoint(
 ):
     """
     🎯 Parse credit card invoice PDF - NO TIMEOUT LIMITS!
-    
+
     This endpoint replaces the Netlify function that was timing out after 10 seconds.
-    
+
     Benefits:
     - ✅ No serverless timeout constraints (can run as long as needed)
-    - ✅ Direct database access (no API round-trips) 
+    - ✅ Direct database access (no API round-trips)
     - ✅ More CPU/memory available on Railway
     - ✅ Consistent error handling with backend architecture
     - ✅ Better logging and monitoring
-    
+
     Process:
     1. Validate PDF file and credit card ownership
     2. Extract text from PDF using pdf parsing libraries
@@ -254,12 +265,12 @@ async def parse_credit_card_invoice_pdf_endpoint(
     """
     try:
         # Validate file type
-        if not file.filename or not file.filename.lower().endswith('.pdf'):
+        if not file.filename or not file.filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail="File must be a PDF")
-        
-        if not file.content_type or file.content_type != 'application/pdf':
+
+        if not file.content_type or file.content_type != "application/pdf":
             raise HTTPException(status_code=400, detail="Invalid file type")
-        
+
         # Validate credit card ownership
         credit_card_service = CreditCardService(db)
         try:
@@ -271,10 +282,10 @@ async def parse_credit_card_invoice_pdf_endpoint(
                 raise HTTPException(status_code=404, detail="Credit card not found")
         except Exception:
             raise HTTPException(status_code=404, detail="Credit card not found")
-        
+
         # Read PDF file
         pdf_content = await file.read()
-        
+
         # Process PDF and create invoice
         invoice_service = InvoiceService(db, ai_client)
         invoice = await invoice_service.parse_pdf_and_create_invoice(
@@ -283,18 +294,17 @@ async def parse_credit_card_invoice_pdf_endpoint(
             credit_card_id=credit_card_id,
             user_id=user_id,
         )
-        
-        logger.info(f"✅ Invoice PDF parsed successfully for credit card {credit_card_id}")
+
+        logger.info(
+            f"✅ Invoice PDF parsed successfully for credit card {credit_card_id}"
+        )
         return Invoice.model_validate(invoice)
-        
+
     except HTTPException:
         raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
         logger.error(f"❌ PDF parsing failed: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"PDF parsing failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"PDF parsing failed: {str(e)}")
 
 
 @router.get("/{credit_card_id}/invoices", response_model=InvoiceListResponse)
@@ -394,15 +404,15 @@ def delete_invoice_endpoint(
 ):
     """
     🗑️ Delete an invoice by ID (NESTED RESOURCE PATTERN)
-    
+
     This endpoint demonstrates RESTful nested resource deletion:
     - DELETE /credit_cards/{id}/invoices/{invoice_id} deletes a specific invoice
     - Validates both credit card and invoice ownership
     - Uses soft delete to preserve data integrity
-    
+
     Benefits:
     - ✅ User ownership validation
-    - ✅ Credit card ownership validation  
+    - ✅ Credit card ownership validation
     - ✅ Soft delete (preserves data)
     - ✅ Proper audit logging
     - ✅ Consistent with other delete endpoints
@@ -423,14 +433,16 @@ def delete_invoice_endpoint(
         # Delete the invoice
         invoice_service = InvoiceService(db)
         success = invoice_service.delete_invoice(invoice_id, current_user_id)
-        
+
         if not success:
             raise HTTPException(status_code=404, detail="Invoice not found")
-            
-        logger.info(f"✅ Invoice {invoice_id} deleted successfully for credit card {credit_card_id}")
+
+        logger.info(
+            f"✅ Invoice {invoice_id} deleted successfully for credit card {credit_card_id}"
+        )
         # 204 No Content - successful deletion
         return None
-        
+
     except HTTPException:
         raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
@@ -452,7 +464,7 @@ def get_credit_card_transactions_endpoint(
         None, description="Filter transactions to this date"
     ),
     # Content filters
-    movement_type: Optional[str] = Query(
+    movement_type: Optional[List[str]] = Query(
         None, description="Filter by movement type (income/expense)"
     ),
     category: Optional[str] = Query(
@@ -515,13 +527,20 @@ def get_credit_card_transactions_endpoint(
         logger.error(f"❌ Error validating credit card {credit_card_id}: {e}")
         raise HTTPException(status_code=404, detail="Credit card not found")
 
+    # Handle comma-separated values for movement_type if passed as a single string in a list
+    final_movement_type = None
+    if movement_type:
+        final_movement_type = []
+        for mt in movement_type:
+            final_movement_type.extend([t.strip() for t in mt.split(",")])
+
     # Create structured filters from query parameters
     transaction_filters = TransactionFilters(
         page=page,
         per_page=per_page,
         date_from=date_from,
         date_to=date_to,
-        movement_type=movement_type,
+        movement_type=final_movement_type,
         category=category,
         description_contains=description_contains,
         amount_min=amount_min,

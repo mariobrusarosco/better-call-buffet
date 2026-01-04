@@ -8,7 +8,12 @@ from sqlalchemy import func, and_
 
 from app.domains.accounts.models import Account
 from app.domains.accounts.repository import AccountRepository
-from app.domains.accounts.schemas import AccountCreateIn, AccountType, AccountWithBroker, AccountWithBalance
+from app.domains.accounts.schemas import (
+    AccountCreateIn,
+    AccountType,
+    AccountWithBroker,
+    AccountWithBalance,
+)
 from app.domains.balance_points.service import BalancePointService
 
 logger = logging.getLogger(__name__)
@@ -20,11 +25,15 @@ class AccountService:
         self.repository = AccountRepository(db)
         self.balance_point_service = BalancePointService(db)
 
-    def get_account_by_id(self, account_id: UUID, user_id: UUID) -> Optional[AccountWithBalance]:
+    def get_account_by_id(
+        self, account_id: UUID, user_id: UUID
+    ) -> Optional[AccountWithBalance]:
         account = self.repository.get_by_id_and_user(account_id, user_id)
         if account:
-            balance = self.balance_point_service.calculate_account_balance_from_transactions(
-                account_id, user_id
+            balance = (
+                self.balance_point_service.calculate_account_balance_from_transactions(
+                    account_id, user_id
+                )
             )
             # Set the calculated balance
             account.balance = balance
@@ -36,65 +45,69 @@ class AccountService:
             raise ValueError(f"Account with name '{account_in.name}' already exists")
 
         initial_balance = account_in.balance
-        
+
         # Prepare account data (excluding balance)
-        account_data = account_in.model_dump(exclude={'balance'})
-        account_data["user_id"] = user_id   
+        account_data = account_in.model_dump(exclude={"balance"})
+        account_data["user_id"] = user_id
         # Create account through repository
         created_account = self.repository.create(account_data)
-        
+
         # Create opening balance point with the provided balance
         try:
             balance_data = {
                 "balance": initial_balance,
                 "snapshot_type": "opening",
-                "note": f"Opening balance for account '{created_account.name}'"
+                "note": f"Opening balance for account '{created_account.name}'",
             }
-            
+
             self.balance_point_service.upsert_balance_point(
                 account_id=created_account.id,
                 target_date=datetime.utcnow(),
                 balance_data=balance_data,
-                user_id=user_id
+                user_id=user_id,
             )
-            
+
             logger.info(
                 f"Created opening balance point for account {created_account.id} "
                 f"with balance {initial_balance}"
             )
-            
+
         except Exception as e:
             logger.error(
                 f"Failed to create opening balance point for account {created_account.id}: {str(e)}"
             )
-        
+
         return created_account
 
     ## ------- REVISION THRESHOLD -------
     def get_all_user_active_accounts(self, user_id: UUID) -> List[AccountWithBalance]:
         """Get all active accounts for a user with calculated balances"""
         accounts = self.repository.get_active_accounts_by_user(user_id)
-        
+
         # Calculate balance for each account
         for account in accounts:
-            balance = self.balance_point_service.calculate_account_balance_from_transactions(
-                account.id, user_id
+            balance = (
+                self.balance_point_service.calculate_account_balance_from_transactions(
+                    account.id, user_id
+                )
             )
             account.balance = balance
-            
+
         return accounts
 
     def get_all_user_inactive_accounts(self, user_id: UUID) -> List[AccountWithBalance]:
         """Get all inactive accounts for a user with calculated balances"""
         accounts = self.repository.get_inactive_accounts_by_user(user_id)
-        
+
         # Calculate balance for each account
         for account in accounts:
-            calculated_balance = self.balance_point_service.calculate_account_balance_from_transactions(
-                account.id, user_id
+            calculated_balance = (
+                self.balance_point_service.calculate_account_balance_from_transactions(
+                    account.id, user_id
+                )
             )
             account.balance = calculated_balance
-            
+
         return accounts
 
     def get_accounts_by_type(

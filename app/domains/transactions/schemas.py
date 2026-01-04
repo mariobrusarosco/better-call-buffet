@@ -159,8 +159,9 @@ class TransactionFilters(BaseModel):
     date_to: Optional[datetime] = None
 
     # Content filters
-    movement_type: Optional[str] = None  # "income" or "expense"
+    movement_type: Optional[List[str]] = None  # "income", "expense", etc.
     category: Optional[str] = None  # Partial match
+    category_id: Optional[List[UUID]] = None  # Exact match (multi-value)
     description_contains: Optional[str] = None  # Partial match
 
     # Amount filters
