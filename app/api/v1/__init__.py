@@ -13,6 +13,7 @@ from app.domains.users.router import router as users_router
 from app.domains.categories.router import router as categories_router
 from app.domains.vendors.router import router as vendors_router
 from app.domains.subscriptions.router import router as subscriptions_router
+from app.domains.analytics.router import router as analytics_router
 from app.domains.installments.router import router as installments_router
 from app.domains.forecast.router import router as forecast_router
 
@@ -44,6 +45,7 @@ api_router.include_router(vendors_router, prefix="/vendors", tags=["vendors"])
 api_router.include_router(
     subscriptions_router, prefix="/subscriptions", tags=["subscriptions"]
 )
+api_router.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(
     installments_router, prefix="/installments", tags=["installments"]
 )
