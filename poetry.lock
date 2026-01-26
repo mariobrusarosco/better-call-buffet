@@ -2310,14 +2310,14 @@ dev = ["backports.zoneinfo ; python_version < \"3.9\"", "black", "build", "freez
 
 [[package]]
 name = "python-multipart"
-version = "0.0.18"
+version = "0.0.22"
 description = "A streaming multipart parser for Python"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "python_multipart-0.0.18-py3-none-any.whl", hash = "sha256:efe91480f485f6a361427a541db4796f9e1591afc0fb8e7a4ba06bfbc6708996"},
-    {file = "python_multipart-0.0.18.tar.gz", hash = "sha256:7a68db60c8bfb82e460637fa4750727b45af1d5e2ed215593f917f64694d34fe"},
+    {file = "python_multipart-0.0.22-py3-none-any.whl", hash = "sha256:2b2cd894c83d21bf49d702499531c7bafd057d730c201782048f7945d82de155"},
+    {file = "python_multipart-0.0.22.tar.gz", hash = "sha256:7340bef99a7e0032613f56dc36027b959fd3b30a787ed62d310e951f7c3a3a58"},
 ]
 
 [[package]]
@@ -3050,4 +3050,4 @@ h11 = ">=0.16.0,<1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "d28e3820c3fdaf398653a75c90282a035fbd2530acb1163f42f1fabb0d1c0131"
+content-hash = "ae45c8bca81198f4cb46c84c62be988ec541f6c9631d4965cc2c4b15fdcf05e5"
