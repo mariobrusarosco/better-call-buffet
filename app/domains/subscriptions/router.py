@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
+from app.core.error_handlers import NotFoundError
 from app.domains.subscriptions.schemas import (
     LinkPaymentRequest,
     SubscriptionCreate,
@@ -85,6 +86,8 @@ def update_subscription(
     try:
         service.update_subscription(subscription_id, subscription_update, current_user_id)
         return service.get_subscription_response(subscription_id, current_user_id)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

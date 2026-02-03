@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user_id, get_ai_client
 from app.core.logging_config import get_logger
+from app.core.error_handlers import NotFoundError
 from app.db.connection_and_session import get_db_session
 from app.core.ai import AIClient
 from app.domains.statements.schemas import (
@@ -106,6 +107,8 @@ def get_statement_by_id_endpoint(
         statement = service.get_statement_by_id(statement_id, user_id)
         return StatementResponse.model_validate(statement)
     except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error retrieving statement")

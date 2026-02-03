@@ -125,4 +125,7 @@ class CategoryService:
         return self.repository.update_category(category, update_data)
 
     def delete_category(self, category_id: UUID, user_id: UUID) -> None:
-        return self.repository.soft_delete_category(category_id, user_id)
+        success = self.repository.soft_delete_category(category_id, user_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Category not found")
+

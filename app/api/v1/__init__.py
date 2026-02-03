@@ -16,6 +16,7 @@ from app.domains.subscriptions.router import router as subscriptions_router
 from app.domains.analytics.router import router as analytics_router
 from app.domains.installments.router import router as installments_router
 from app.domains.forecast.router import router as forecast_router
+from app.domains.data_transfer.router import router as data_transfer_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -50,3 +51,6 @@ api_router.include_router(
     installments_router, prefix="/installments", tags=["installments"]
 )
 api_router.include_router(forecast_router, prefix="/forecast", tags=["forecast"])
+api_router.include_router(
+    data_transfer_router, prefix="/data_transfer", tags=["data_transfer"]
+)

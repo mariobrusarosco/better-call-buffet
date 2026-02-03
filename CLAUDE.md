@@ -14,6 +14,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Monitoring:** Sentry, structured logging with structlog
 **Production Server:** Hypercorn
 
+## Database
+Models are defined inside 'models.py' for each domain. Reference to one them anytime you need to understand the
+structure of data stored on database
+
+e.g. '@app/domains/accounts/models.py'
+
+
+
 ## Essential Development Commands
 
 ### Local Development (Docker-based - REQUIRED)
