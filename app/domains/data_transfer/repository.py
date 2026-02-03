@@ -127,10 +127,10 @@ class DataTransferRepository:
             transaction_query = transaction_query.filter(Transaction.is_deleted == False)
 
         # Load with relationships for efficient access
+        # Note: account relationship is not defined in model, will fetch separately if needed
         transaction_query = transaction_query.options(
-            joinedload(Transaction.account),
             joinedload(Transaction.credit_card),
-            joinedload(Transaction.category_rel),
+            joinedload(Transaction.category_tree),
             joinedload(Transaction.vendor),
             joinedload(Transaction.subscription),
             joinedload(Transaction.installment)
@@ -228,7 +228,7 @@ class DataTransferRepository:
         user_id: UUID,
         broker_id: UUID,
         name: str,
-        account_type: str = "OTHER",
+        account_type: str = "other",
         currency: str = "USD",
         description: Optional[str] = None
     ) -> Account:
@@ -264,7 +264,7 @@ class DataTransferRepository:
             broker_id=broker_id,
             name=name,
             description=description or "",
-            type=account_type,
+            type=account_type.lower(),  # Convert to lowercase to match accounts domain enum
             currency=currency,
             is_active=True
         )
@@ -418,7 +418,8 @@ class DataTransferRepository:
         category_id: Optional[UUID] = None,
         amount: Optional[Decimal] = None,
         billing_cycle: Optional[str] = None,
-        next_due_date: Optional[date] = None
+        next_due_date: Optional[date] = None,
+        default_next_due_date: Optional[date] = None
     ) -> Subscription:
         """
         Find existing subscription or create new one.
@@ -445,6 +446,16 @@ class DataTransferRepository:
         if existing:
             logger.debug(f"Found existing subscription: {name}")
             return existing
+
+        # Determine next_due_date - required field
+        if next_due_date is None:
+            if default_next_due_date:
+                next_due_date = default_next_due_date
+            else:
+                # Default to today if not provided
+                from datetime import date as date_class
+                next_due_date = date_class.today()
+                logger.warning(f"No next_due_date provided for subscription '{name}', using today's date")
 
         # Create new subscription
         subscription = Subscription(
@@ -605,7 +616,7 @@ class DataTransferRepository:
             is_paid=is_paid,
             is_deleted=False,
             ignored=ignored,
-            balance_impact=True  # Default to true
+            balance_impact=None  # Currently unused field, set to NULL
         )
         self.db.add(transaction)
         logger.debug(f"Created new transaction: {date} {amount} {description}")

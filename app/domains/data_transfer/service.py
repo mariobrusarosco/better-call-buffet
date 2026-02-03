@@ -11,7 +11,7 @@ import os
 from typing import List, Dict, Any, Optional, Tuple
 from uuid import UUID, uuid4
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from sqlalchemy.orm import Session
@@ -232,7 +232,8 @@ class DataTransferService:
                 subscription = subscription_map[transaction.subscription_id]
                 row["subscription_name"] = subscription.name
                 row["subscription_amount"] = subscription.amount
-                row["subscription_billing_cycle"] = subscription.billing_cycle
+                # Extract enum value (not the enum object itself)
+                row["subscription_billing_cycle"] = subscription.billing_cycle.value if hasattr(subscription.billing_cycle, 'value') else subscription.billing_cycle
                 row["subscription_next_due_date"] = subscription.next_due_date
 
             # Add installment information
@@ -511,12 +512,41 @@ class DataTransferService:
                 entity_map["stats"].vendors += 1
 
         # Create subscriptions
-        for sub_name, vendor_name in entities.get("subscriptions", set()):
-            vendor_id = entity_map["vendors"].get(vendor_name)
+        for sub_data in entities.get("subscriptions", set()):
+            # Unpack subscription tuple: (name, vendor_name, amount, billing_cycle, next_due_date)
+            sub_name = sub_data[0]
+            vendor_name = sub_data[1] if len(sub_data) > 1 else ""
+            sub_amount_str = sub_data[2] if len(sub_data) > 2 else "0"
+            sub_cycle = sub_data[3] if len(sub_data) > 3 else "monthly"
+            sub_next_due_str = sub_data[4] if len(sub_data) > 4 else None
+
+            vendor_id = entity_map["vendors"].get(vendor_name) if vendor_name else None
+
+            # Parse amount
+            try:
+                sub_amount = Decimal(sub_amount_str)
+            except (ValueError, InvalidOperation):
+                sub_amount = Decimal("0")
+                logger.warning(f"Invalid subscription amount for '{sub_name}', using 0")
+
+            # Parse next_due_date
+            sub_next_due = None
+            if sub_next_due_str:
+                try:
+                    if isinstance(sub_next_due_str, str):
+                        sub_next_due = datetime.fromisoformat(sub_next_due_str).date()
+                    else:
+                        sub_next_due = sub_next_due_str
+                except (ValueError, AttributeError) as e:
+                    logger.warning(f"Invalid subscription next_due_date for '{sub_name}': {e}")
+
             subscription = self.repository.find_or_create_subscription(
                 user_id,
                 sub_name,
-                vendor_id
+                vendor_id=vendor_id,
+                amount=sub_amount,
+                billing_cycle=sub_cycle,
+                next_due_date=sub_next_due
             )
             entity_map["subscriptions"][sub_name] = subscription.id
             if self.db.new and subscription in self.db.new:

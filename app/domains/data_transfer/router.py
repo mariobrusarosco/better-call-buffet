@@ -84,16 +84,24 @@ def export_financial_data(
         result = service.export_user_data(current_user_id, request)
 
         if result.status == "failed":
+            # Log detailed error but return generic message
+            logger.error(f"Export failed for user {current_user_id}: {result.error_message}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Export failed: {result.error_message}"
+                detail="Export failed. Please try again or contact support if the issue persists."
             )
 
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Export endpoint error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log detailed error but return generic message
+        logger.error(f"Export endpoint error for user {current_user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while exporting your data. Please try again later."
+        )
 
 
 @router.get("/export/{export_id}/download")
@@ -141,8 +149,12 @@ def download_export(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Download endpoint error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log detailed error but return generic message
+        logger.error(f"Download endpoint error for export {export_id}, user {current_user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while downloading your export. Please try again."
+        )
 
 
 # ==================== IMPORT ENDPOINTS ====================
@@ -217,13 +229,36 @@ async def validate_import_file(
         service = DataTransferService(db)
         result = service.validate_csv(current_user_id, csv_content)
 
-        return result
+        # Log detailed validation results for debugging
+        if result.errors:
+            logger.error(f"Validation errors for user {current_user_id}:")
+            for error in result.errors:
+                logger.error(f"  - {error}")
+
+        if result.warnings:
+            logger.warning(f"Validation warnings for user {current_user_id}:")
+            for warning in result.warnings:
+                logger.warning(f"  - {warning}")
+
+        # Return result without exposing internal details
+        # Keep only the valid flag and row_count, remove errors/warnings
+        return ImportValidationResult(
+            valid=result.valid,
+            row_count=result.row_count,
+            estimated_entities=result.estimated_entities,
+            warnings=[],  # Don't expose warnings
+            errors=[] if result.valid else ["File validation failed. Please check your CSV format."]
+        )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Validation endpoint error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log detailed error but return generic message
+        logger.error(f"Validation endpoint error for user {current_user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while validating your file. Please check the file format and try again."
+        )
 
 
 @router.post("/import", response_model=ImportResponse)
@@ -325,18 +360,40 @@ async def import_financial_data(
         )
 
         if result.status == "failed":
+            # Log detailed validation errors for debugging
+            logger.error(f"Import failed for user {current_user_id} with {len(result.errors)} errors:")
+            for error in result.errors:
+                logger.error(f"  - {error}")
+
+            # Return generic message to user
             raise HTTPException(
                 status_code=400,
-                detail={
-                    "message": "Import failed",
-                    "errors": result.errors
-                }
+                detail="Import failed. Please check your CSV file format and try again."
             )
+
+        # Log any warnings or errors from successful imports
+        if result.warnings:
+            logger.warning(f"Import warnings for user {current_user_id}:")
+            for warning in result.warnings:
+                logger.warning(f"  - {warning}")
+
+        if result.errors:
+            logger.error(f"Import errors (skipped rows) for user {current_user_id}:")
+            for error in result.errors:
+                logger.error(f"  - {error}")
+
+        # Return sanitized response - remove errors and warnings
+        result.errors = []
+        result.warnings = []
 
         return result
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Import endpoint error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log detailed error but return generic message
+        logger.error(f"Import endpoint error for user {current_user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while importing your data. Please try again later."
+        )

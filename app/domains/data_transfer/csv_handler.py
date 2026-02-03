@@ -21,15 +21,17 @@ class MovementType(str, Enum):
     INCOME = "INCOME"
     EXPENSE = "EXPENSE"
     TRANSFER = "TRANSFER"
+    INVESTMENT = "INVESTMENT"
+    DEBIT = "DEBIT"
 
 
 class AccountType(str, Enum):
     """Account types"""
-    SAVINGS = "SAVINGS"
-    CREDIT = "CREDIT"
-    CASH = "CASH"
-    INVESTMENT = "INVESTMENT"
-    OTHER = "OTHER"
+    SAVINGS = "savings"
+    CREDIT = "credit"
+    CASH = "cash"
+    INVESTMENT = "investment"
+    OTHER = "other"
 
 
 class BillingCycle(str, Enum):
@@ -300,8 +302,8 @@ class CSVHandler:
                         except ValueError:
                             logger.warning(f"Row {row_num}: Invalid date for {field}: {value}")
                     elif field == "account_type":
-                        if value.upper() in [at.value for at in AccountType]:
-                            parsed[field] = value.upper()
+                        if value.lower() in [at.value for at in AccountType]:
+                            parsed[field] = value.lower()
                         else:
                             logger.warning(f"Row {row_num}: Invalid account type: {value}")
                     elif field == "subscription_billing_cycle":
@@ -321,14 +323,22 @@ class CSVHandler:
                     else:
                         parsed[field] = value
 
-        # Validate transfer consistency
+        # Validate transfer consistency (only if using from/to accounts)
         if parsed.get("transaction_movement_type") == "TRANSFER":
-            if not (parsed.get("from_account_name") and parsed.get("to_account_name")):
-                raise ValueError(
-                    "Transfer transactions must have both from_account_name and to_account_name"
-                )
-            if parsed.get("from_account_name") == parsed.get("to_account_name"):
-                raise ValueError("Transfer cannot be between the same account")
+            # If using from/to pattern, both must be present
+            has_from = bool(parsed.get("from_account_name"))
+            has_to = bool(parsed.get("to_account_name"))
+
+            if has_from or has_to:
+                # If one is present, both must be present
+                if not (has_from and has_to):
+                    raise ValueError(
+                        "Transfer transactions using from/to accounts must have both from_account_name and to_account_name"
+                    )
+                # Cannot transfer to same account
+                if parsed.get("from_account_name") == parsed.get("to_account_name"):
+                    raise ValueError("Transfer cannot be between the same account")
+            # Otherwise it's a regular account transfer (using account_id), which is fine
 
         return parsed
 
@@ -434,7 +444,7 @@ class CSVHandler:
             "credit_cards": set(),  # (name, account_name, broker_name)
             "categories": set(),  # (name, parent_name)
             "vendors": set(),
-            "subscriptions": set(),  # (name, vendor_name)
+            "subscriptions": set(),  # (name, vendor_name, amount, billing_cycle, next_due_date)
             "installment_plans": set(),  # (name, total_amount, count)
         }
 
@@ -448,7 +458,7 @@ class CSVHandler:
                 entities["accounts"].add((
                     account_name,
                     row.get("broker_name", ""),
-                    row.get("account_type", "OTHER"),
+                    row.get("account_type", "other"),
                     row.get("account_currency", "USD")
                 ))
 
@@ -457,7 +467,7 @@ class CSVHandler:
                 entities["accounts"].add((
                     from_account,
                     row.get("broker_name", ""),
-                    "OTHER",  # Default type for transfer accounts
+                    "other",  # Default type for transfer accounts
                     "USD"
                 ))
 
@@ -465,7 +475,7 @@ class CSVHandler:
                 entities["accounts"].add((
                     to_account,
                     row.get("broker_name", ""),
-                    "OTHER",
+                    "other",
                     "USD"
                 ))
 
@@ -489,11 +499,17 @@ class CSVHandler:
             if vendor_name := row.get("vendor_name"):
                 entities["vendors"].add(vendor_name)
 
-            # Extract subscriptions
+            # Extract subscriptions with full details
             if sub_name := row.get("subscription_name"):
+                sub_amount = row.get("subscription_amount", "0")
+                sub_cycle = row.get("subscription_billing_cycle", "monthly")
+                sub_next_due = row.get("subscription_next_due_date")
                 entities["subscriptions"].add((
                     sub_name,
-                    row.get("vendor_name", "")
+                    row.get("vendor_name", ""),
+                    str(sub_amount) if sub_amount else "0",
+                    str(sub_cycle) if sub_cycle else "monthly",
+                    sub_next_due.isoformat() if isinstance(sub_next_due, date) else str(sub_next_due) if sub_next_due else None
                 ))
 
             # Extract installment plans
