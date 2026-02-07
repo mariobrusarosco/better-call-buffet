@@ -9,6 +9,7 @@ from app.domains.transactions.models import Transaction
 from app.domains.transactions.schemas import TransactionFilters
 from app.domains.categories.models import UserCategory
 from app.domains.credit_cards.models import CreditCard
+from app.domains.transactions.constants import MovementType
 
 
 class TransactionRepository:
@@ -372,12 +373,13 @@ class TransactionRepository:
         """
         from sqlalchemy import case
 
-        # Sum with conditional: add income, subtract expense
+        # Sum with conditional: add income/investment, subtract expense/transfer
         total = (
             self.db.query(
                 func.sum(
                     case(
-                        (Transaction.movement_type == "income", Transaction.amount),
+                        (Transaction.movement_type == MovementType.INCOME, Transaction.amount),
+                        (Transaction.movement_type == MovementType.INVESTMENT, Transaction.amount),
                         else_=-Transaction.amount,
                     )
                 )

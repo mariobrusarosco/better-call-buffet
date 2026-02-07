@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator, model_validator
 from app.domains.vendors.schemas import VendorResponse
 from app.domains.subscriptions.schemas import SubscriptionResponse
+from app.domains.transactions.constants import MovementType
 
 
 class CategoryTreeNode(BaseModel):
@@ -22,13 +23,21 @@ class TransactionData(BaseModel):
     amount: str = Field(
         description="Transaction amount (without sign, preserve precision)"
     )
-    movement_type: str = Field(
-        default="expense",
-        description="Movement type: 'income' | 'expense' | 'transfer' | 'investment' | 'other'",
+    movement_type: MovementType = Field(
+        default=MovementType.EXPENSE,
+        description="Movement type: 'income' | 'expense' | 'transfer' | 'investment'",
     )
     category: str = Field(
         default="", description="Transaction category (empty if not explicit)"
     )
+
+    @field_validator("movement_type", mode="before")
+    @classmethod
+    def normalize_movement_type(cls, v):
+        """Normalize movement type to lowercase before validation"""
+        if isinstance(v, str):
+            return v.lower()
+        return v
 
 
 class TransactionBase(BaseModel):
@@ -43,12 +52,20 @@ class TransactionBase(BaseModel):
     date: datetime
     amount: float
     description: str
-    movement_type: str
+    movement_type: MovementType
     category: str  # Legacy string field (being phased out)
     category_id: Optional[UUID] = None  # New foreign key to user_categories
     ignored: bool = False
     vendor_id: Optional[UUID] = None
     subscription_id: Optional[UUID] = None
+
+    @field_validator("movement_type", mode="before")
+    @classmethod
+    def normalize_movement_type(cls, v):
+        """Normalize movement type to lowercase before validation"""
+        if isinstance(v, str):
+            return v.lower()
+        return v
 
 
 class TransactionIn(TransactionBase):
@@ -65,7 +82,7 @@ class TransactionUpdate(BaseModel):
     is_paid: Optional[bool] = None
     account_id: Optional[UUID] = None
     credit_card_id: Optional[UUID] = None
-    movement_type: Optional[str] = None
+    movement_type: Optional[MovementType] = None
     ignored: Optional[bool] = None
     vendor_id: Optional[UUID] = None
     subscription_id: Optional[UUID] = None
@@ -78,16 +95,12 @@ class TransactionUpdate(BaseModel):
             raise ValueError("amount must be greater than 0")
         return v
 
-    @field_validator("movement_type")
+    @field_validator("movement_type", mode="before")
     @classmethod
-    def validate_movement_type(cls, v):
-        if v is not None and v not in [
-            "income",
-            "expense",
-            "investment",
-            "transfer",
-        ]:
-            raise ValueError("Invalid movement type.")
+    def normalize_movement_type(cls, v):
+        """Normalize movement type to lowercase before validation"""
+        if isinstance(v, str):
+            return v.lower()
         return v
 
 
@@ -159,7 +172,7 @@ class TransactionFilters(BaseModel):
     date_to: Optional[datetime] = None
 
     # Content filters
-    movement_type: Optional[List[str]] = None  # "income", "expense", etc.
+    movement_type: Optional[List[MovementType]] = None  # "income", "expense", etc.
     category: Optional[str] = None  # Partial match
     category_id: Optional[List[UUID]] = None  # Exact match (multi-value)
     description_contains: Optional[str] = None  # Partial match
@@ -182,6 +195,16 @@ class TransactionFilters(BaseModel):
     # Pagination (embedded in filter for convenience)
     page: int = 1
     per_page: int = 20
+
+    @field_validator("movement_type", mode="before")
+    @classmethod
+    def normalize_movement_type_list(cls, v):
+        """Normalize list of movement types to lowercase"""
+        if v is None:
+            return v
+        if isinstance(v, list):
+            return [item.lower() if isinstance(item, str) else item for item in v]
+        return v
 
 
 # Pagination metadata
@@ -214,8 +237,16 @@ class TransactionBulkIn(BaseModel):
     date: datetime
     amount: float
     description: str
-    movement_type: str
+    movement_type: MovementType
     category: str
+
+    @field_validator("movement_type", mode="before")
+    @classmethod
+    def normalize_movement_type(cls, v):
+        """Normalize movement type to lowercase before validation"""
+        if isinstance(v, str):
+            return v.lower()
+        return v
 
     @field_validator("amount", mode="before")
     @classmethod

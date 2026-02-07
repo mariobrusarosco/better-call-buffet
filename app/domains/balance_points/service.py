@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.domains.balance_points.repository import BalancePointRepository
 from app.domains.transactions.repository import TransactionRepository
 from app.domains.transactions.models import Transaction
+from app.domains.transactions.constants import MovementType
 
 
 class BalancePointService:
@@ -63,7 +64,7 @@ class BalancePointService:
             transactions_of_day = transactions_by_date.get(date, [])
 
             summed_transactions_of_day = sum(
-                transaction.amount if transaction.movement_type == "income" or transaction.movement_type == "investment" else -transaction.amount
+                transaction.amount if transaction.movement_type in [MovementType.INCOME, MovementType.INVESTMENT] else -transaction.amount
                 for transaction in transactions_of_day
             )
             current_balance += summed_transactions_of_day

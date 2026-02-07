@@ -14,6 +14,7 @@ from app.domains.credit_cards.schemas import CreditCardFilters
 from app.domains.credit_cards.service import CreditCardService
 from app.domains.vendors.service import VendorService
 from app.domains.subscriptions.service import SubscriptionService
+from app.domains.transactions.constants import MovementType
 from app.domains.transactions.models import Transaction
 from app.domains.transactions.repository import TransactionRepository
 from app.domains.transactions.schemas import (
@@ -98,11 +99,11 @@ class TransactionService:
                 amount = float(tx_dict["amount"])
                 movement_type = tx_dict["movement_type"]
 
-                if movement_type == "income":
+                if movement_type == MovementType.INCOME:
                     tx_dict["balance_impact"] = amount  # Positive impact
-                elif movement_type == "expense":
+                elif movement_type == MovementType.EXPENSE:
                     tx_dict["balance_impact"] = -amount  # Negative impact
-                elif movement_type == "transfer":
+                elif movement_type == MovementType.TRANSFER:
                     tx_dict["balance_impact"] = (
                         -amount if tx_dict.get("from_account_id") else amount
                     )
@@ -286,11 +287,11 @@ class TransactionService:
         amount = float(transaction_data["amount"])
         movement_type = transaction_data["movement_type"]
 
-        if movement_type == "income":
+        if movement_type == MovementType.INCOME:
             transaction_data["balance_impact"] = amount  # Positive impact
-        elif movement_type == "expense":
+        elif movement_type == MovementType.EXPENSE:
             transaction_data["balance_impact"] = -amount  # Negative impact
-        elif movement_type == "transfer":
+        elif movement_type == MovementType.TRANSFER:
             # For transfers, this logic might need to be more complex
             # For now, we'll handle basic transfers
             transaction_data["balance_impact"] = (
