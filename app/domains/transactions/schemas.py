@@ -238,7 +238,8 @@ class TransactionBulkIn(BaseModel):
     amount: float
     description: str
     movement_type: MovementType
-    category: str
+    category: str = ""  # Legacy field (deprecated, kept for backward compatibility)
+    category_id: Optional[UUID] = None  # New foreign key to user_categories
 
     @field_validator("movement_type", mode="before")
     @classmethod

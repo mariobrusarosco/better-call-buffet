@@ -92,6 +92,10 @@ class TransactionService:
                 tx_dict["user_id"] = user_id
                 tx_dict["id"] = uuid.uuid4()  # Generate ID for bulk insert
 
+                # Handle category field migration: if category contains a UUID,
+                # move it to category_id for proper foreign key relationship
+                self._normalize_category_fields(tx_dict)
+
                 # Validate vendor and subscription
                 self._validate_vendor_and_subscription(tx_dict, user_id)
 
@@ -274,11 +278,25 @@ class TransactionService:
                     error_code="VENDOR_NOT_FOUND",
                 )
 
+    def _normalize_category_fields(self, data: Dict[str, Any]) -> None:
+        """
+        Normalize category fields to ensure proper foreign key relationship.
+        
+        The frontend now sends category_id directly. This method clears the
+        legacy 'category' string field to avoid confusion.
+        """
+        # Clear the legacy category field - we only use category_id now
+        data["category"] = ""
+
     def create_transaction(
         self, transaction: TransactionIn, user_id: UUID
     ) -> Transaction:
         transaction_data = transaction.model_dump()
         transaction_data["user_id"] = user_id
+
+        # Handle category field migration: if category contains a UUID,
+        # move it to category_id for proper foreign key relationship
+        self._normalize_category_fields(transaction_data)
 
         # Validate vendor and subscription
         self._validate_vendor_and_subscription(transaction_data, user_id)
