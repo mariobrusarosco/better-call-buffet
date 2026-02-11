@@ -37,7 +37,7 @@ structlog = "^25.4.0"
 sentry-sdk = {extras = ["fastapi"], version = "^2.0.0"}
 
 # Security (review before upgrading)
-urllib3 = "^2.6.0"  # HTTP client - caret OK for security patches
+urllib3 = "^2.6.3"  # HTTP client - caret OK for security patches
 h2 = ">=4.3.0"  # HTTP/2 - minimum for security fix
 
 # AI Dependencies (safe to upgrade)
