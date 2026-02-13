@@ -52,7 +52,7 @@ class TransactionBase(BaseModel):
     date: datetime
     amount: float
     description: str
-    movement_type: MovementType
+    movement_type: MovementType = MovementType.EXPENSE
     category: str  # Legacy string field (being phased out)
     category_id: Optional[UUID] = None  # New foreign key to user_categories
     ignored: bool = False
@@ -237,7 +237,7 @@ class TransactionBulkIn(BaseModel):
     date: datetime
     amount: float
     description: str
-    movement_type: MovementType
+    movement_type: MovementType = MovementType.EXPENSE
     category: str = ""  # Legacy field (deprecated, kept for backward compatibility)
     category_id: Optional[UUID] = None  # New foreign key to user_categories
 
