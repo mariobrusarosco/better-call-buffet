@@ -45,7 +45,7 @@ class Account(Base):
     type = Column(String, nullable=False)
     currency = Column(String, default="BRL", nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-
+    is_deleted = Column(Boolean, default=False, nullable=False)
     # Balance is now calculated from balance_points, not stored here
 
     # Foreign Keys

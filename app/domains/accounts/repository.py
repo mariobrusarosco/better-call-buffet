@@ -22,7 +22,7 @@ class AccountRepository:
         return (
             self.db.query(Account)
             .options(joinedload(Account.broker))  # Eagerly load the broker relationship
-            .filter(Account.user_id == user_id, Account.is_active == is_active)
+            .filter(Account.user_id == user_id, Account.is_active == is_active, Account.is_deleted == False)
             .all()
         )
 
@@ -40,7 +40,7 @@ class AccountRepository:
             self.db.query(Account)
             .options(joinedload(Account.broker))  # Eagerly load the broker relationship
             .join(Broker, Account.broker_id == Broker.id)
-            .filter(Account.id == account_id, Account.user_id == user_id)
+            .filter(Account.id == account_id, Account.user_id == user_id, Account.is_deleted == False)
             .first()
         )
 
@@ -55,6 +55,7 @@ class AccountRepository:
                 Account.user_id == user_id,
                 Account.type == account_type,
                 Account.is_active == is_active,
+                Account.is_deleted == False
             )
             .all()
         )
@@ -70,7 +71,7 @@ class AccountRepository:
         return (
             self.db.query(Account)
             .options(joinedload(Account.broker))
-            .filter(Account.id == db_account.id)
+            .filter(Account.id == db_account.id, Account.is_deleted == False)
             .first()
         )
 
@@ -101,7 +102,7 @@ class AccountRepository:
     ) -> bool:
         """Check if an account with the given name exists for a user"""
         query = self.db.query(Account).filter(
-            Account.name == name, Account.user_id == user_id
+             Account.name == name, Account.user_id == user_id, Account.is_deleted == False
         )
 
         if exclude_id:
@@ -113,7 +114,7 @@ class AccountRepository:
         """Calculate total balance across all active accounts for a user"""
         result = (
             self.db.query(Account)
-            .filter(Account.user_id == user_id, Account.is_active == True)
+            .filter(Account.user_id == user_id, Account.is_active == True, Account.is_deleted == False)
             .all()
         )
 
@@ -126,7 +127,8 @@ class AccountRepository:
             .filter(
                 Account.user_id == user_id,
                 Account.currency == currency,
-                Account.is_active == True,
+                Account.is_active == True,  
+                Account.is_deleted == False
             )
             .all()
         )

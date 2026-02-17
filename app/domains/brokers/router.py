@@ -137,25 +137,10 @@ def deactivate_broker(
 ):
     """Deactivate a broker (soft delete)"""
     service = BrokersService(db)
-    broker = service.deactivate_broker(broker_id, user_id)
+    broker = service.delete_broker(broker_id, user_id)
     if not broker:
         raise HTTPException(status_code=404, detail="Broker not found")
     return {"message": "Broker deactivated successfully"}
-
-
-@router.post("/{broker_id}/reactivate", response_model=Broker)
-def reactivate_broker(
-    broker_id: UUID,
-    db: Session = Depends(get_db_session),
-    user_id: UUID = Depends(get_current_user_id),
-):
-    """Reactivate a previously deactivated broker"""
-    service = BrokersService(db)
-    broker = service.reactivate_broker(broker_id, user_id)
-    if not broker:
-        raise HTTPException(status_code=404, detail="Broker not found")
-    return broker
-
 
 @router.get("/name/{name}", response_model=Broker)
 def get_broker_by_name(
