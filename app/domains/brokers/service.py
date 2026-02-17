@@ -111,39 +111,6 @@ class BrokersService:
 
         return self.repository.update(broker, update_data)
 
-    def deactivate_broker(self, broker_id: UUID, user_id: UUID) -> Optional[Broker]:
-        """
-        Deactivate a broker (soft delete).
-
-        Args:
-            broker_id: ID of the broker to deactivate
-            user_id: ID of the user deactivating the broker
-
-        Returns:
-            Deactivated broker if successful, None if broker not found
-        """
-        broker = self.repository.get_by_id_and_user(broker_id, user_id)
-        if not broker:
-            return None
-
-        return self.repository.soft_delete(broker)
-
-    def reactivate_broker(self, broker_id: UUID, user_id: UUID) -> Optional[Broker]:
-        """
-        Reactivate a previously deactivated broker.
-
-        Args:
-            broker_id: ID of the broker to reactivate
-            user_id: ID of the user reactivating the broker
-
-        Returns:
-            Reactivated broker if successful, None if broker not found
-        """
-        broker = self.repository.get_by_id_and_user(broker_id, user_id)
-        if not broker:
-            return None
-
-        return self.repository.reactivate(broker)
 
     def search_brokers(self, user_id: UUID, search_term: str) -> List[Broker]:
         """
@@ -201,7 +168,7 @@ class BrokersService:
 
     def delete_broker(self, broker_id: UUID, user_id: UUID) -> bool:
         """
-        Soft delete a broker (mark as inactive).
+        Soft delete a broker (mark as deleted).
 
         Args:
             broker_id: ID of the broker to delete
