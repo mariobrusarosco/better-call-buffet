@@ -14,6 +14,7 @@ from sqlalchemy import (
     DECIMAL,
 )
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from app.db.connection_and_session import Base
 
@@ -98,5 +99,5 @@ class CreditCard(Base):
     # Relationships - temporarily removed to avoid circular import issues
     # TODO: Add back relationships after ensuring all models are properly registered
     # broker = relationship("Broker", foreign_keys=[broker_id])
-    # account = relationship("Account", foreign_keys=[account_id])
+    account = relationship("Account", foreign_keys=[account_id])
     # last_transaction = relationship("Transaction", foreign_keys=[last_transaction_id])

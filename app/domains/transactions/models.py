@@ -53,6 +53,7 @@ class Transaction(Base):
     installment_id = Column(UUID(as_uuid=True), ForeignKey("installments.id"), nullable=True)
 
     # Relationships
+    account = relationship("Account", foreign_keys=[account_id])
     category_tree = relationship("UserCategory", foreign_keys=[category_id])
     credit_card = relationship("CreditCard", foreign_keys=[credit_card_id])
     vendor = relationship("Vendor", foreign_keys=[vendor_id])

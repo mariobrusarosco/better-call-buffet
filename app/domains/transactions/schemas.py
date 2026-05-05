@@ -110,6 +110,8 @@ class TransactionResponse(TransactionBase):
     is_deleted: bool = False
     created_at: datetime
     updated_at: datetime
+    account_name: Optional[str] = None
+    credit_card_name: Optional[str] = None
 
     # Nested category structure (replaces category_name/parent_category_name)
     category_tree: Optional[CategoryTreeNode] = None
@@ -124,7 +126,8 @@ class TransactionResponse(TransactionBase):
 
         Responsibilities:
         1. Set default values for nullable boolean fields
-        2. Extract account_id from credit_card relationship (for credit card transactions)
+        2. Extract readable account/card names for UI display
+        3. Extract account_id from credit_card relationship (for credit card transactions)
         """
         if hasattr(data, "__dict__"):
             # ORM object from database query
@@ -135,7 +138,17 @@ class TransactionResponse(TransactionBase):
             if getattr(data, "is_deleted", None) is None:
                 data.is_deleted = False
 
-            # 2. Extract account_id from credit_card JOIN
+            # 2. Extract readable names from eager-loaded relationships
+            if hasattr(data, "account") and data.account:
+                data.account_name = data.account.name
+
+            if hasattr(data, "credit_card") and data.credit_card:
+                data.credit_card_name = data.credit_card.name
+
+                if hasattr(data.credit_card, "account") and data.credit_card.account:
+                    data.account_name = data.credit_card.account.name
+
+            # 3. Extract account_id from credit_card JOIN
             if hasattr(data, "credit_card") and data.credit_card:
                 data.account_id = data.credit_card.account_id
 
@@ -147,6 +160,21 @@ class TransactionResponse(TransactionBase):
                 data["ignored"] = False
             if data.get("is_deleted") is None:
                 data["is_deleted"] = False
+
+            # 2. Populate readable names when nested objects are already present
+            account = data.get("account")
+            if account and data.get("account_name") is None:
+                if isinstance(account, dict):
+                    data["account_name"] = account.get("name")
+                else:
+                    data["account_name"] = getattr(account, "name", None)
+
+            credit_card = data.get("credit_card")
+            if credit_card and data.get("credit_card_name") is None:
+                if isinstance(credit_card, dict):
+                    data["credit_card_name"] = credit_card.get("name")
+                else:
+                    data["credit_card_name"] = getattr(credit_card, "name", None)
 
         return data
 

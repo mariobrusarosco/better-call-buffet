@@ -16,16 +16,20 @@ class TransactionRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def _transaction_load_options(self):
+        return (
+            joinedload(Transaction.account),
+            joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
+            joinedload(Transaction.credit_card).joinedload(CreditCard.account),
+            joinedload(Transaction.vendor),
+            joinedload(Transaction.subscription),
+        )
+
     def get_by_id(self, transaction_id: UUID, user_id: UUID) -> Optional[Transaction]:
         """Get a transaction by its ID with category relationship"""
         return (
             self.db.query(Transaction)
-            .options(
-                joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
-                joinedload(Transaction.credit_card),
-                joinedload(Transaction.vendor),
-                joinedload(Transaction.subscription),
-            )
+            .options(*self._transaction_load_options())
             .filter(
                 and_(Transaction.id == transaction_id, Transaction.user_id == user_id)
             )
@@ -42,14 +46,7 @@ class TransactionRepository:
             # Reload with category and credit_card relationships
             transaction = (
                 self.db.query(Transaction)
-                .options(
-                    joinedload(Transaction.category_tree).joinedload(
-                        UserCategory.parent
-                    ),
-                    joinedload(Transaction.credit_card),
-                    joinedload(Transaction.vendor),
-                    joinedload(Transaction.subscription),
-                )
+                .options(*self._transaction_load_options())
                 .filter(Transaction.id == transaction.id)
                 .first()
             )
@@ -104,12 +101,7 @@ class TransactionRepository:
         # Base query with category and credit_card JOINs
         query = (
             self.db.query(Transaction)
-            .options(
-                joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
-                joinedload(Transaction.credit_card),
-                joinedload(Transaction.vendor),
-                joinedload(Transaction.subscription),
-            )
+            .options(*self._transaction_load_options())
             .filter(
                 and_(
                     Transaction.account_id == account_id, Transaction.user_id == user_id
@@ -151,12 +143,7 @@ class TransactionRepository:
         # Base query for account transactions OR credit card transactions linked to this account with category and credit_card JOINs
         query = (
             self.db.query(Transaction)
-            .options(
-                joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
-                joinedload(Transaction.credit_card),
-                joinedload(Transaction.vendor),
-                joinedload(Transaction.subscription),
-            )
+            .options(*self._transaction_load_options())
             .filter(
                 and_(
                     Transaction.user_id
@@ -203,12 +190,7 @@ class TransactionRepository:
         # Base query with category and credit_card JOINs
         query = (
             self.db.query(Transaction)
-            .options(
-                joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
-                joinedload(Transaction.credit_card),
-                joinedload(Transaction.vendor),
-                joinedload(Transaction.subscription),
-            )
+            .options(*self._transaction_load_options())
             .filter(
                 and_(
                     Transaction.credit_card_id == credit_card_id,
@@ -314,12 +296,7 @@ class TransactionRepository:
         # Base query for all user transactions with category and credit_card JOINs
         query = (
             self.db.query(Transaction)
-            .options(
-                joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
-                joinedload(Transaction.credit_card),
-                joinedload(Transaction.vendor),
-                joinedload(Transaction.subscription),
-            )
+            .options(*self._transaction_load_options())
             .filter(Transaction.user_id == user_id)
         )
 
@@ -340,12 +317,7 @@ class TransactionRepository:
     ) -> List[Transaction]:
         return (
             self.db.query(Transaction)
-            .options(
-                joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
-                joinedload(Transaction.credit_card),
-                joinedload(Transaction.vendor),
-                joinedload(Transaction.subscription),
-            )
+            .options(*self._transaction_load_options())
             .filter(
                 and_(
                     Transaction.account_id == account_id,
@@ -503,14 +475,7 @@ class TransactionRepository:
         try:
             transaction = (
                 self.db.query(Transaction)
-                .options(
-                    joinedload(Transaction.category_tree).joinedload(
-                        UserCategory.parent
-                    ),
-                    joinedload(Transaction.credit_card),
-                    joinedload(Transaction.vendor),
-                    joinedload(Transaction.subscription),
-                )
+                .options(*self._transaction_load_options())
                 .filter(
                     and_(
                         Transaction.id == transaction_id, Transaction.user_id == user_id
@@ -522,10 +487,10 @@ class TransactionRepository:
             if not transaction:
                 return None
 
-            # Filter out None values to prevent overwriting with NULL
-            filtered_data = {k: v for k, v in update_data.items() if v is not None}
-
-            for key, value in filtered_data.items():
+            # `exclude_unset=True` in the service already limits updates to fields the
+            # client actually sent. Preserve explicit `null` values here so PATCH can
+            # clear nullable relationships like `vendor_id` or `subscription_id`.
+            for key, value in update_data.items():
                 setattr(transaction, key, value)
 
             transaction.updated_at = datetime.utcnow()
