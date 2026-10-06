@@ -97,11 +97,6 @@ class AccountRepository:
         self.db.refresh(account)
         return account
 
-    def delete(self, account: Account) -> None:
-        """Delete an account (hard delete)"""
-        self.db.delete(account)
-        self.db.commit()
-
     def soft_delete(self, account: Account) -> Account:
         """Soft delete an account by setting is_active to False"""
         account.is_active = False
