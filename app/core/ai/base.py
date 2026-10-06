@@ -17,17 +17,8 @@ class BaseAIProvider(ABC):
     def _get_provider_name(self) -> str:
         """Return the provider name"""
         pass
-    
-    @abstractmethod
-    async def parse_bank_statement(self, request: FinancialParsingRequest) -> FinancialParsingResponse:
-        """Parse BANK STATEMENT ONLY into structured data"""
-        pass
-    
-    @abstractmethod
-    async def parse_credit_card_invoice(self, request: FinancialParsingRequest) -> FinancialParsingResponse:
-        """Parse CREDIT CARD INVOICE ONLY into structured data"""
-        pass
-    
+
+
     @abstractmethod
     async def health_check(self) -> bool:
         """Check if provider is available"""

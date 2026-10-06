@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user_id, get_ai_client
+from app.core.dependencies import get_current_user_id, get_deprecated_ai_client
 from app.db.connection_and_session import get_db_session
 from app.domains.accounts.schemas import (
     Account,
@@ -24,7 +24,7 @@ from app.domains.statements.schemas import (
 from app.domains.statements.service import StatementService
 from app.domains.transactions.schemas import TransactionFilters, TransactionListResponse
 from app.domains.transactions.service import TransactionService
-from app.core.ai import AIClient
+from app.core.ai.deprecated_client import DeprecatedAIClient
 
 router = APIRouter()
 
@@ -366,7 +366,7 @@ async def parse_account_statement_pdf_endpoint(
     file: UploadFile = File(...),
     db: Session = Depends(get_db_session),
     user_id: UUID = Depends(get_current_user_id),
-    ai_client: AIClient = Depends(get_ai_client),
+    ai_client: DeprecatedAIClient = Depends(get_deprecated_ai_client),
 ):
     try:
         # Validate file type

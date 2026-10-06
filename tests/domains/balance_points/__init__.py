@@ -1,0 +1,1 @@
+"""Balance point domain tests."""

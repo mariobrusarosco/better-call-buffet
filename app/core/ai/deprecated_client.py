@@ -1,4 +1,8 @@
-"""Main AI client factory and interface"""
+"""Deprecated AI client factory and interface.
+
+Keep this module for existing bank statement and credit card invoice parsing
+flows while newer AI client implementations evolve separately.
+"""
 from typing import Dict, Any, Optional, Union
 import structlog
 
@@ -11,7 +15,7 @@ from .models.responses import FinancialParsingResponse
 logger = structlog.get_logger(__name__)
 
 
-class AIClient:
+class DeprecatedAIClient:
     def __init__(self, provider: str, config: Dict[str, Any]):
         self.provider_name = provider
         self.config = config
@@ -29,7 +33,7 @@ class AIClient:
         return providers[provider](config)
     
     @classmethod
-    def from_config(cls, ai_config: Dict[str, Any]) -> "AIClient":
+    def from_config(cls, ai_config: Dict[str, Any]) -> "DeprecatedAIClient":
         provider = ai_config.get("provider", "openai")
         return cls(provider, ai_config)
     

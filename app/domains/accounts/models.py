@@ -4,7 +4,9 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    DECIMAL,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     Enum,
@@ -12,8 +14,6 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
-    CheckConstraint,
-    DECIMAL,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -46,7 +46,7 @@ class Account(Base):
     currency = Column(String, default="BRL", nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     is_deleted = Column(Boolean, default=False, nullable=False)
-    # Balance is now calculated from balance_points, not stored here
+    # Current balance is derived from the opening balance point + transactions.
 
     # Foreign Keys
     broker_id = Column(UUID(as_uuid=True), ForeignKey("brokers.id"), nullable=False)

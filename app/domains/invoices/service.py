@@ -25,7 +25,7 @@ from app.domains.invoices.schemas import (
 )
 from app.domains.transactions.schemas import TransactionIn
 from app.domains.transactions.service import TransactionService
-from app.core.ai import AIClient
+from app.core.ai.deprecated_client import DeprecatedAIClient
 
 # Configure logger for this service
 logger = get_logger(__name__)
@@ -50,7 +50,7 @@ class InvoiceTransactionProcessingError(Exception):
 
 
 class InvoiceService:
-    def __init__(self, db: Session, ai_client: Optional[AIClient] = None):
+    def __init__(self, db: Session, ai_client: Optional[DeprecatedAIClient] = None):
         self.repository = InvoiceRepository(db)
         self.broker_service = BrokersService(db)
         self.credit_card_service = CreditCardService(db)

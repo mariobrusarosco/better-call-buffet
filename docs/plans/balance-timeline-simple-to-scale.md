@@ -19,6 +19,11 @@
 **Balance Calculation:** On-demand from transactions (with caching layer)
 **Evolution Path:** Simple → Cached → Pre-calculated (only if needed)
 
+**Opening balance exception:** Account creation persists one initial
+`balance_points` row (`has_transactions = false`). This row is the starting
+anchor; subsequent movement is still derived from transactions. Daily timeline
+points are not persisted during Phases 1–3.
+
 ### Why This Approach?
 
 ✅ **Audit trail built-in** - Transactions ARE the historical record

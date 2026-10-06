@@ -22,7 +22,11 @@ class AccountRepository:
         return (
             self.db.query(Account)
             .options(joinedload(Account.broker))  # Eagerly load the broker relationship
-            .filter(Account.user_id == user_id, Account.is_active == is_active, Account.is_deleted == False)
+            .filter(
+                Account.user_id == user_id,
+                Account.is_active == is_active,
+                Account.is_deleted == False,
+            )
             .all()
         )
 
@@ -40,7 +44,11 @@ class AccountRepository:
             self.db.query(Account)
             .options(joinedload(Account.broker))  # Eagerly load the broker relationship
             .join(Broker, Account.broker_id == Broker.id)
-            .filter(Account.id == account_id, Account.user_id == user_id, Account.is_deleted == False)
+            .filter(
+                Account.id == account_id,
+                Account.user_id == user_id,
+                Account.is_deleted == False,
+            )
             .first()
         )
 
@@ -55,17 +63,21 @@ class AccountRepository:
                 Account.user_id == user_id,
                 Account.type == account_type,
                 Account.is_active == is_active,
-                Account.is_deleted == False
+                Account.is_deleted == False,
             )
             .all()
         )
 
-    def create(self, account_data: dict) -> Account:
+    def create(self, account_data: dict, commit: bool = True) -> Account:
         """Create a new account"""
         db_account = Account(**account_data)
         self.db.add(db_account)
-        self.db.commit()
-        self.db.refresh(db_account)
+
+        if commit:
+            self.db.commit()
+            self.db.refresh(db_account)
+        else:
+            self.db.flush()
 
         # Reload with broker relationship
         return (
@@ -102,35 +114,12 @@ class AccountRepository:
     ) -> bool:
         """Check if an account with the given name exists for a user"""
         query = self.db.query(Account).filter(
-             Account.name == name, Account.user_id == user_id, Account.is_deleted == False
+            Account.name == name,
+            Account.user_id == user_id,
+            Account.is_deleted == False,
         )
 
         if exclude_id:
             query = query.filter(Account.id != exclude_id)
 
         return query.first() is not None
-
-    def get_total_balance_by_user(self, user_id: UUID) -> float:
-        """Calculate total balance across all active accounts for a user"""
-        result = (
-            self.db.query(Account)
-            .filter(Account.user_id == user_id, Account.is_active == True, Account.is_deleted == False)
-            .all()
-        )
-
-        return sum(account.balance for account in result)
-
-    def get_balance_by_currency(self, user_id: UUID, currency: str) -> float:
-        """Get total balance for a specific currency"""
-        result = (
-            self.db.query(Account)
-            .filter(
-                Account.user_id == user_id,
-                Account.currency == currency,
-                Account.is_active == True,  
-                Account.is_deleted == False
-            )
-            .all()
-        )
-
-        return sum(account.balance for account in result)

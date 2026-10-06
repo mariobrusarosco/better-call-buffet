@@ -23,6 +23,20 @@ _Real-world flow:_
 
 # has_transactions - The Gap Filler Flag
 
+## Opening Balance Anchor
+
+When an account is created, its user-provided initial balance is stored as the
+first balance point for that account:
+
+- `date` is the account creation date.
+- `balance` is the initial balance.
+- `has_transactions` is `false` because no financial movement created it.
+- `timeline_status` is `current`.
+
+Current balance is calculated as this opening anchor plus the signed total of
+direct account transactions. During the on-demand timeline phases, later daily
+points are calculated rather than persisted.
+
 The Problem:
 User has transactions on:
 

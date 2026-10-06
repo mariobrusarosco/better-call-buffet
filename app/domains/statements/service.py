@@ -19,14 +19,14 @@ from app.domains.statements.schemas import (
     StatementListResponse,
     StatementResponse,
 )
-from app.core.ai import AIClient
+from app.core.ai.deprecated_client import DeprecatedAIClient
 
 # Configure logger for this service
 logger = get_logger(__name__)
 
 
 class StatementService:
-    def __init__(self, db: Session, ai_client: Optional[AIClient] = None):
+    def __init__(self, db: Session, ai_client: Optional[DeprecatedAIClient] = None):
         self.db = db
         self.repository = StatementRepository(db)
         self.account_service = AccountService(db)

@@ -342,6 +342,13 @@ class TransactionRepository:
         IMPORTANT: Respects movement_type:
         - income: adds to balance
         - expense: subtracts from balance
+
+        NOTE: This method shares the same CASE logic as get_account_total_balance().
+        The duplication is intentional — each serves a distinct use case:
+        - get_balance_before_date: Starting point for balance timeline charts
+          (see BalancePointService.calculate_balance_timeline)
+        - get_account_total_balance: Current total balance for account listings
+          (see BalancePointService.calculate_account_balance_from_transactions)
         """
         from sqlalchemy import case
 
@@ -365,6 +372,48 @@ class TransactionRepository:
                     Transaction.is_deleted == False,
                     Transaction.ignored
                     == False,  # Exclude ignored transactions from balance
+                )
+            )
+            .scalar()
+        )
+
+        return total or Decimal("0.00")
+
+    def get_account_total_balance(
+        self, account_id: UUID, user_id: UUID
+    ) -> Decimal:
+        """
+        Calculate total balance for an account by summing ALL transactions.
+
+        Same movement_type logic as get_balance_before_date, but without a date cutoff:
+        - income/investment: adds to balance
+        - expense/transfer/other: subtracts from balance
+
+        NOTE: This method shares the same CASE logic as get_balance_before_date().
+        The duplication is intentional — each serves a distinct use case:
+        - get_account_total_balance: Current total balance for account listings
+          (see BalancePointService.calculate_account_balance_from_transactions)
+        - get_balance_before_date: Starting point for balance timeline charts
+          (see BalancePointService.calculate_balance_timeline)
+        """
+        from sqlalchemy import case
+
+        total = (
+            self.db.query(
+                func.sum(
+                    case(
+                        (Transaction.movement_type == MovementType.INCOME, Transaction.amount),
+                        (Transaction.movement_type == MovementType.INVESTMENT, Transaction.amount),
+                        else_=-Transaction.amount,
+                    )
+                )
+            )
+            .filter(
+                and_(
+                    Transaction.account_id == account_id,
+                    Transaction.user_id == user_id,
+                    Transaction.is_deleted == False,
+                    Transaction.ignored == False,
                 )
             )
             .scalar()

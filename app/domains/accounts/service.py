@@ -1,27 +1,23 @@
-from typing import Dict, List, Optional
+from decimal import Decimal
+from typing import List, Optional
 from uuid import UUID
-from datetime import datetime
-import logging
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
 
 from app.domains.accounts.models import Account
 from app.domains.accounts.repository import AccountRepository
 from app.domains.accounts.schemas import (
     AccountCreateIn,
     AccountType,
-    AccountWithBroker,
     AccountWithBalance,
 )
 from app.domains.balance_points.service import BalancePointService
-
-logger = logging.getLogger(__name__)
 
 
 class AccountService:
 
     def __init__(self, db: Session):
+        self.db = db
         self.repository = AccountRepository(db)
         self.balance_point_service = BalancePointService(db)
 
@@ -49,35 +45,27 @@ class AccountService:
         # Prepare account data (excluding balance)
         account_data = account_in.model_dump(exclude={"balance"})
         account_data["user_id"] = user_id
-        # Create account through repository
-        created_account = self.repository.create(account_data)
-
-        # Create opening balance point with the provided balance
+        # Account and opening point are one atomic operation. Either both are
+        # committed or neither is persisted.
         try:
-            balance_data = {
-                "balance": initial_balance,
-                "snapshot_type": "opening",
-                "note": f"Opening balance for account '{created_account.name}'",
-            }
-
-            self.balance_point_service.upsert_balance_point(
+            created_account = self.repository.create(account_data, commit=False)
+            self.balance_point_service.create_opening_balance_point(
                 account_id=created_account.id,
-                target_date=datetime.utcnow(),
-                balance_data=balance_data,
-                user_id=user_id,
+                opening_date=created_account.created_at.date(),
+                opening_balance=Decimal(str(initial_balance)),
+                commit=False,
             )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
 
-            logger.info(
-                f"Created opening balance point for account {created_account.id} "
-                f"with balance {initial_balance}"
-            )
-
-        except Exception as e:
-            logger.error(
-                f"Failed to create opening balance point for account {created_account.id}: {str(e)}"
-            )
-
-        return created_account
+        persisted_account = self.repository.get_by_id_and_user(
+            created_account.id, user_id
+        )
+        if persisted_account is None:
+            raise RuntimeError("Created account could not be reloaded")
+        return persisted_account
 
     ## ------- REVISION THRESHOLD -------
     def get_all_user_active_accounts(self, user_id: UUID) -> List[AccountWithBalance]:
@@ -161,7 +149,7 @@ class AccountService:
 
         return self.repository.soft_delete(account)
 
-    def get_user_total_balance(self, user_id: UUID) -> float:
+    def get_user_total_balance(self, user_id: UUID) -> Decimal:
         """
         Calculate total balance across all active accounts for a user.
 
@@ -171,9 +159,18 @@ class AccountService:
         Returns:
             Total balance across all active accounts
         """
-        return self.repository.get_total_balance_by_user(user_id)
+        accounts = self.repository.get_active_accounts_by_user(user_id)
+        return sum(
+            (
+                self.balance_point_service.calculate_account_balance_from_transactions(
+                    account.id, user_id
+                )
+                for account in accounts
+            ),
+            Decimal("0.00"),
+        )
 
-    def get_user_balance_by_currency(self, user_id: UUID, currency: str) -> float:
+    def get_user_balance_by_currency(self, user_id: UUID, currency: str) -> Decimal:
         """
         Get total balance for a specific currency.
 
@@ -184,4 +181,14 @@ class AccountService:
         Returns:
             Total balance for the specified currency
         """
-        return self.repository.get_balance_by_currency(user_id, currency)
+        accounts = self.repository.get_active_accounts_by_user(user_id)
+        return sum(
+            (
+                self.balance_point_service.calculate_account_balance_from_transactions(
+                    account.id, user_id
+                )
+                for account in accounts
+                if account.currency == currency
+            ),
+            Decimal("0.00"),
+        )

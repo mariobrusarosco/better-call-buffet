@@ -15,9 +15,9 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user_id, get_ai_client
+from app.core.dependencies import get_current_user_id, get_deprecated_ai_client
 from app.db.connection_and_session import get_db_session
-from app.core.ai import AIClient
+from app.core.ai.deprecated_client import DeprecatedAIClient
 from app.domains.credit_cards.models import CreditCard
 from app.domains.credit_cards.schemas import (
     CreditCardFilters,
@@ -188,7 +188,7 @@ def create_invoice(
     credit_card_id: UUID = Path(..., description="The ID of the credit card"),
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id),
-    ai_client: AIClient = Depends(get_ai_client),
+    ai_client: DeprecatedAIClient = Depends(get_deprecated_ai_client),
 ):
     """
     🎓 Create a new invoice for a specific credit card (NESTED RESOURCE PATTERN)
@@ -242,7 +242,7 @@ async def parse_credit_card_invoice_pdf_endpoint(
     credit_card_id: UUID = Path(..., description="The ID of the credit card"),
     db: Session = Depends(get_db_session),
     user_id: UUID = Depends(get_current_user_id),
-    ai_client: AIClient = Depends(get_ai_client),
+    ai_client: DeprecatedAIClient = Depends(get_deprecated_ai_client),
 ):
     """
     🎯 Parse credit card invoice PDF - NO TIMEOUT LIMITS!

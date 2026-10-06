@@ -1,3 +1,3 @@
-from .client import AIClient
+from .deprecated_client import DeprecatedAIClient
 
-__all__ = ["AIClient"]
+__all__ = ["DeprecatedAIClient"]
