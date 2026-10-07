@@ -497,20 +497,38 @@ if 'amount' in update_data or 'date' in update_data:
 
 ### 3. Bulk Updates
 
-**Not implementing now**, but future consideration:
+Bulk updates apply one partial update uniformly to a selected group of
+transactions:
 
-```python
-# Future: Update multiple transactions
+```http
 PATCH /transactions/bulk
+Content-Type: application/json
+```
+
+```json
 {
-  "updates": [
-    {"id": "abc-123", "description": "Updated 1"},
-    {"id": "xyz-789", "description": "Updated 2"}
-  ]
+  "transaction_ids": ["abc-123", "xyz-789"],
+  "changes": {
+    "category_id": "food-category-id"
+  }
 }
 ```
 
-**For now:** Single transaction updates only.
+The fields in `changes` follow the same contract as the single-transaction
+`PATCH /transactions/{transaction_id}` endpoint:
+
+- Omitted fields remain unchanged.
+- An explicit `null` clears a nullable field.
+- The same changes apply to every selected transaction.
+- Requests contain between 1 and 100 unique transaction IDs.
+
+The operation is **atomic**. The service validates ownership, referenced
+resources, and the resulting account/credit-card constraint for every selected
+transaction before writing. If any transaction or requested value is invalid,
+the database transaction is rolled back and no selected transaction changes.
+
+On success, the endpoint returns the updated transaction objects so the
+frontend can replace its local copies with the authoritative server state.
 
 ---
 

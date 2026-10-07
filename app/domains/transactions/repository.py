@@ -1,15 +1,16 @@
-from datetime import datetime, date
-from typing import List, Optional, Tuple, Dict, Any
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Any, Dict, List, Optional, Tuple, cast
 from uuid import UUID
 
-from sqlalchemy import and_, asc, desc, or_, func
+from sqlalchemy import and_, asc, desc, func, or_
 from sqlalchemy.orm import Session, joinedload
-from decimal import Decimal
-from app.domains.transactions.models import Transaction
-from app.domains.transactions.schemas import TransactionFilters
+
 from app.domains.categories.models import UserCategory
 from app.domains.credit_cards.models import CreditCard
 from app.domains.transactions.constants import MovementType
+from app.domains.transactions.models import Transaction
+from app.domains.transactions.schemas import TransactionFilters
 
 
 class TransactionRepository:
@@ -35,6 +36,49 @@ class TransactionRepository:
             )
             .first()
         )
+
+    def get_by_ids_for_update(
+        self, transaction_ids: List[UUID], user_id: UUID
+    ) -> List[Transaction]:
+        """Load owned transactions and lock them until commit or rollback."""
+        return (
+            self.db.query(Transaction)
+            .filter(
+                and_(
+                    Transaction.id.in_(transaction_ids),
+                    Transaction.user_id == user_id,
+                    Transaction.is_deleted.is_(False),
+                )
+            )
+            .with_for_update()
+            .all()
+        )
+
+    def get_by_ids(
+        self, transaction_ids: List[UUID], user_id: UUID
+    ) -> List[Transaction]:
+        """Reload owned transactions with response relationships."""
+        transactions = (
+            self.db.query(Transaction)
+            .options(*self._transaction_load_options())
+            .populate_existing()
+            .filter(
+                and_(
+                    Transaction.id.in_(transaction_ids),
+                    Transaction.user_id == user_id,
+                    Transaction.is_deleted.is_(False),
+                )
+            )
+            .all()
+        )
+        transactions_by_id: Dict[UUID, Transaction] = {
+            cast(UUID, transaction.id): transaction for transaction in transactions
+        }
+        return [
+            transactions_by_id[transaction_id]
+            for transaction_id in transaction_ids
+            if transaction_id in transactions_by_id
+        ]
 
     def create(self, transaction_data: dict):
         try:
@@ -357,8 +401,14 @@ class TransactionRepository:
             self.db.query(
                 func.sum(
                     case(
-                        (Transaction.movement_type == MovementType.INCOME, Transaction.amount),
-                        (Transaction.movement_type == MovementType.INVESTMENT, Transaction.amount),
+                        (
+                            Transaction.movement_type == MovementType.INCOME,
+                            Transaction.amount,
+                        ),
+                        (
+                            Transaction.movement_type == MovementType.INVESTMENT,
+                            Transaction.amount,
+                        ),
                         else_=-Transaction.amount,
                     )
                 )
@@ -379,9 +429,7 @@ class TransactionRepository:
 
         return total or Decimal("0.00")
 
-    def get_account_total_balance(
-        self, account_id: UUID, user_id: UUID
-    ) -> Decimal:
+    def get_account_total_balance(self, account_id: UUID, user_id: UUID) -> Decimal:
         """
         Calculate total balance for an account by summing ALL transactions.
 
@@ -402,8 +450,14 @@ class TransactionRepository:
             self.db.query(
                 func.sum(
                     case(
-                        (Transaction.movement_type == MovementType.INCOME, Transaction.amount),
-                        (Transaction.movement_type == MovementType.INVESTMENT, Transaction.amount),
+                        (
+                            Transaction.movement_type == MovementType.INCOME,
+                            Transaction.amount,
+                        ),
+                        (
+                            Transaction.movement_type == MovementType.INVESTMENT,
+                            Transaction.amount,
+                        ),
                         else_=-Transaction.amount,
                     )
                 )
@@ -552,3 +606,21 @@ class TransactionRepository:
         except Exception as e:
             self.db.rollback()
             raise e
+
+    def bulk_update_transactions(
+        self,
+        transactions: List[Transaction],
+        user_id: UUID,
+        update_data: Dict[str, Any],
+    ) -> List[Transaction]:
+        """Apply updates inside the caller's still-open database transaction."""
+        transaction_ids = [cast(UUID, transaction.id) for transaction in transactions]
+        updated_at = datetime.utcnow()
+
+        for transaction in transactions:
+            for key, value in update_data.items():
+                setattr(transaction, key, value)
+            setattr(transaction, "updated_at", updated_at)
+
+        self.db.flush()
+        return self.get_by_ids(transaction_ids, user_id)

@@ -2,7 +2,10 @@ from datetime import datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.domains.transactions.schemas import TransactionResponse
+import pytest
+from pydantic import ValidationError
+
+from app.domains.transactions.schemas import TransactionBulkUpdate, TransactionResponse
 
 
 def build_transaction(**overrides):
@@ -67,3 +70,31 @@ def test_transaction_response_includes_credit_card_and_bank_account_names():
     assert result.account_id == bank_account_id
     assert result.account_name == "Nubank Checking"
     assert result.credit_card_name == "Nubank Ultravioleta"
+    assert transaction.account_id is None
+
+
+def test_bulk_update_preserves_explicit_null_change():
+    request = TransactionBulkUpdate(
+        transaction_ids=[uuid4()],
+        changes={"vendor_id": None},
+    )
+
+    assert request.changes.model_dump(exclude_unset=True) == {"vendor_id": None}
+
+
+def test_bulk_update_rejects_duplicate_transaction_ids():
+    transaction_id = uuid4()
+
+    with pytest.raises(ValidationError, match="must not contain duplicates"):
+        TransactionBulkUpdate(
+            transaction_ids=[transaction_id, transaction_id],
+            changes={"category_id": uuid4()},
+        )
+
+
+def test_bulk_update_rejects_empty_changes():
+    with pytest.raises(ValidationError, match="at least one field"):
+        TransactionBulkUpdate(
+            transaction_ids=[uuid4()],
+            changes={},
+        )

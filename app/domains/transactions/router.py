@@ -11,6 +11,8 @@ from app.domains.transactions.schemas import (
     TransactionBulkDeleteRequest,
     TransactionBulkRequest,
     TransactionBulkResponse,
+    TransactionBulkUpdate,
+    TransactionBulkUpdateResponse,
     TransactionFilters,
     TransactionIn,
     TransactionListResponse,
@@ -42,7 +44,8 @@ def get_user_transactions(
         None, description="Filter by category (partial match)"
     ),
     category_id: Optional[List[str]] = Query(
-        None, description="Filter by specific category IDs (comma-separated or repeated)"
+        None,
+        description="Filter by specific category IDs (comma-separated or repeated)",
     ),
     description_contains: Optional[str] = Query(
         None, description="Filter by description (partial match)"
@@ -107,7 +110,10 @@ def get_user_transactions(
                     # For filtering, ignoring invalid values or raising 422 is standard.
                     # Let's raise 422 to be strict/helpful.
                     from fastapi import HTTPException
-                    raise HTTPException(status_code=422, detail=f"Invalid UUID format: {uuid_str}")
+
+                    raise HTTPException(
+                        status_code=422, detail=f"Invalid UUID format: {uuid_str}"
+                    )
 
     # Create structured filters from query parameters
     filters = TransactionFilters(
@@ -212,6 +218,17 @@ def delete_transactions_bulk_endpoint(
         "deleted_count": deleted_count,
         "requested_count": len(bulk_delete_request.transaction_ids),
     }
+
+
+@router.patch("/bulk", response_model=TransactionBulkUpdateResponse)
+def update_transactions_bulk_endpoint(
+    bulk_update: TransactionBulkUpdate,
+    db: Session = Depends(get_db_session),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Apply the same partial update atomically to selected transactions."""
+    service = TransactionService(db)
+    return service.update_transactions_bulk(bulk_update, user_id)
 
 
 @router.patch("/{transaction_id}", response_model=TransactionResponse)

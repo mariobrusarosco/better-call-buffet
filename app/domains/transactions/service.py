@@ -1,18 +1,17 @@
 import uuid
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from fastapi import HTTPException
 from app.core.error_handlers import NotFoundError, ValidationError
 from app.core.logging_config import get_logger
 from app.domains.accounts.service import AccountService
 from app.domains.balance_points.service import BalancePointService
+from app.domains.categories.repository import CategoryRepository
 from app.domains.credit_cards.schemas import CreditCardFilters
 from app.domains.credit_cards.service import CreditCardService
-from app.domains.vendors.service import VendorService
 from app.domains.subscriptions.service import SubscriptionService
 from app.domains.transactions.constants import MovementType
 from app.domains.transactions.models import Transaction
@@ -20,6 +19,8 @@ from app.domains.transactions.repository import TransactionRepository
 from app.domains.transactions.schemas import (
     TransactionBulkRequest,
     TransactionBulkResponse,
+    TransactionBulkUpdate,
+    TransactionBulkUpdateResponse,
     TransactionFilters,
     TransactionIn,
     TransactionListMeta,
@@ -28,6 +29,7 @@ from app.domains.transactions.schemas import (
     TransactionResult,
     TransactionUpdate,
 )
+from app.domains.vendors.service import VendorService
 
 # Configure logger for this service
 logger = get_logger(__name__)
@@ -40,6 +42,7 @@ class TransactionService:
         self.account_service = AccountService(db)
         self.credit_card_service = CreditCardService(db)
         self.balance_point_service = BalancePointService(db)
+        self.category_repository = CategoryRepository(db)
         self.vendor_service = VendorService(db)
         self.subscription_service = SubscriptionService(db)
 
@@ -251,13 +254,17 @@ class TransactionService:
                     error_code="CREDIT_CARD_NOT_FOUND",
                 )
 
-    def _validate_vendor_and_subscription(self, data: Dict[str, Any], user_id: UUID) -> None:
+    def _validate_vendor_and_subscription(
+        self, data: Dict[str, Any], user_id: UUID
+    ) -> None:
         subscription_id = data.get("subscription_id")
         vendor_id = data.get("vendor_id")
 
         if subscription_id:
             try:
-                subscription = self.subscription_service.get_subscription(subscription_id, user_id)
+                subscription = self.subscription_service.get_subscription(
+                    subscription_id, user_id
+                )
                 # Auto-assign vendor from subscription if it exists
                 if subscription.vendor_id:
                     data["vendor_id"] = subscription.vendor_id
@@ -281,7 +288,7 @@ class TransactionService:
     def _normalize_category_fields(self, data: Dict[str, Any]) -> None:
         """
         Normalize category fields to ensure proper foreign key relationship.
-        
+
         The frontend now sends category_id directly. This method clears the
         legacy 'category' string field to avoid confusion.
         """
@@ -708,56 +715,13 @@ class TransactionService:
         if not update_data:
             raise HTTPException(status_code=400, detail="No data provided to update")
 
-        credit_card_id = update_data.get("credit_card_id")
-        account_id = update_data.get("account_id")
-
-        if account_id:
-            account = self.account_service.get_account_by_id(
-                account_id=update_data["account_id"], user_id=user_id
-            )
-            if not account:
-                raise HTTPException(status_code=404, detail="Account not found")
-
-        if credit_card_id:
-            # Validate credit card ownership first
-            card_filters = CreditCardFilters(
-                credit_card_id=update_data["credit_card_id"]
-            )
-            credit_card = (
-                self.credit_card_service.get_user_unique_credit_card_with_filters(
-                    user_id, card_filters
-                )
-            )
-
-            if not credit_card:
-                raise HTTPException(status_code=404, detail="Credit card not found")
-
-        # Validate vendor and subscription
-        self._validate_vendor_and_subscription(update_data, user_id)
+        self._validate_update_references(update_data, user_id)
 
         if "account_id" in update_data or "credit_card_id" in update_data:
             current_transaction = self.repository.get_by_id(transaction_id, user_id)
             if not current_transaction:
                 raise HTTPException(status_code=404, detail="Transaction not found")
-
-            is_account_transaction = bool(
-                update_data.get("account_id", current_transaction.account_id)
-            )
-            is_credit_card_transaction = bool(
-                update_data.get("credit_card_id", current_transaction.credit_card_id)
-            )
-
-            if is_account_transaction and is_credit_card_transaction:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Transaction must have either account_id or credit_card_id, not both",
-                )
-
-            if not is_account_transaction and not is_credit_card_transaction:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Transaction must have either account_id or credit_card_id",
-                )
+            self._validate_resulting_target(current_transaction, update_data)
 
         updated_transaction = self.repository.update_transaction(
             transaction_id, user_id, update_data
@@ -766,3 +730,95 @@ class TransactionService:
             raise HTTPException(status_code=404, detail="Transaction not found")
 
         return updated_transaction
+
+    def update_transactions_bulk(
+        self,
+        bulk_update: TransactionBulkUpdate,
+        user_id: UUID,
+    ) -> TransactionBulkUpdateResponse:
+        """Apply one patch atomically to all requested, user-owned transactions."""
+        update_data = bulk_update.changes.model_dump(exclude_unset=True)
+
+        try:
+            transactions = self.repository.get_by_ids_for_update(
+                bulk_update.transaction_ids, user_id
+            )
+            if len(transactions) != len(bulk_update.transaction_ids):
+                raise HTTPException(
+                    status_code=404,
+                    detail="One or more transactions were not found",
+                )
+
+            self._validate_update_references(update_data, user_id)
+
+            if "account_id" in update_data or "credit_card_id" in update_data:
+                for transaction in transactions:
+                    self._validate_resulting_target(transaction, update_data)
+
+            updated_transactions = self.repository.bulk_update_transactions(
+                transactions, user_id, update_data
+            )
+            response_transactions = [
+                TransactionResponse.model_validate(transaction)
+                for transaction in updated_transactions
+            ]
+            response = TransactionBulkUpdateResponse(
+                updated_count=len(response_transactions),
+                transactions=response_transactions,
+            )
+            self.db.commit()
+            return response
+        except Exception:
+            # Validation can fail after SELECT ... FOR UPDATE. Rollback releases
+            # those locks and guarantees that the business action changes nothing.
+            self.db.rollback()
+            raise
+
+    def _validate_update_references(
+        self, update_data: Dict[str, Any], user_id: UUID
+    ) -> None:
+        account_id = update_data.get("account_id")
+        if account_id:
+            account = self.account_service.get_account_by_id(account_id, user_id)
+            if not account:
+                raise HTTPException(status_code=404, detail="Account not found")
+
+        credit_card_id = update_data.get("credit_card_id")
+        if credit_card_id:
+            card_filters = CreditCardFilters(credit_card_id=credit_card_id)
+            credit_card = (
+                self.credit_card_service.get_user_unique_credit_card_with_filters(
+                    user_id, card_filters
+                )
+            )
+            if not credit_card:
+                raise HTTPException(status_code=404, detail="Credit card not found")
+
+        category_id = update_data.get("category_id")
+        if category_id:
+            category = self.category_repository.get_category_by_id(category_id, user_id)
+            if not category or not category.is_active:
+                raise HTTPException(status_code=404, detail="Category not found")
+
+        self._validate_vendor_and_subscription(update_data, user_id)
+
+    def _validate_resulting_target(
+        self, transaction: Transaction, update_data: Dict[str, Any]
+    ) -> None:
+        account_id = update_data.get("account_id", transaction.account_id)
+        credit_card_id = update_data.get("credit_card_id", transaction.credit_card_id)
+        is_transfer = bool(transaction.from_account_id and transaction.to_account_id)
+        target_count = sum(
+            (account_id is not None, credit_card_id is not None, is_transfer)
+        )
+
+        if target_count > 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Transaction must have exactly one account, credit card, or transfer target",
+            )
+        if target_count == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Transaction must have an account, credit card, or transfer target",
+            )

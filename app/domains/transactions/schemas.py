@@ -3,9 +3,10 @@ from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-from app.domains.vendors.schemas import VendorResponse
+
 from app.domains.subscriptions.schemas import SubscriptionResponse
 from app.domains.transactions.constants import MovementType
+from app.domains.vendors.schemas import VendorResponse
 
 
 class CategoryTreeNode(BaseModel):
@@ -131,26 +132,32 @@ class TransactionResponse(TransactionBase):
         """
         if hasattr(data, "__dict__"):
             # ORM object from database query
+            prepared_data = {
+                field_name: getattr(data, field_name, None)
+                for field_name in cls.model_fields
+            }
 
             # 1. Set default boolean values
-            if getattr(data, "ignored", None) is None:
-                data.ignored = False
-            if getattr(data, "is_deleted", None) is None:
-                data.is_deleted = False
+            if prepared_data["ignored"] is None:
+                prepared_data["ignored"] = False
+            if prepared_data["is_deleted"] is None:
+                prepared_data["is_deleted"] = False
 
             # 2. Extract readable names from eager-loaded relationships
             if hasattr(data, "account") and data.account:
-                data.account_name = data.account.name
+                prepared_data["account_name"] = data.account.name
 
             if hasattr(data, "credit_card") and data.credit_card:
-                data.credit_card_name = data.credit_card.name
+                prepared_data["credit_card_name"] = data.credit_card.name
 
                 if hasattr(data.credit_card, "account") and data.credit_card.account:
-                    data.account_name = data.credit_card.account.name
+                    prepared_data["account_name"] = data.credit_card.account.name
 
             # 3. Extract account_id from credit_card JOIN
             if hasattr(data, "credit_card") and data.credit_card:
-                data.account_id = data.credit_card.account_id
+                prepared_data["account_id"] = data.credit_card.account_id
+
+            return prepared_data
 
         elif isinstance(data, dict):
             # Dict input (for testing or manual construction)
@@ -358,6 +365,30 @@ class TransactionBulkResponse(BaseModel):
     total_successful: int
     total_failed: int
     results: List[TransactionResult]
+
+
+class TransactionBulkUpdate(BaseModel):
+    """Apply the same partial update to a bounded set of transactions."""
+
+    transaction_ids: List[UUID] = Field(min_length=1, max_length=100)
+    changes: TransactionUpdate
+
+    @model_validator(mode="after")
+    def validate_bulk_update(self):
+        if len(set(self.transaction_ids)) != len(self.transaction_ids):
+            raise ValueError("transaction_ids must not contain duplicates")
+
+        if not self.changes.model_fields_set:
+            raise ValueError("changes must contain at least one field")
+
+        return self
+
+
+class TransactionBulkUpdateResponse(BaseModel):
+    """The authoritative state of transactions updated atomically."""
+
+    updated_count: int
+    transactions: List[TransactionResponse]
 
 
 class TransactionBulkDeleteRequest(BaseModel):
