@@ -1,5 +1,8 @@
 # Tags and Aggregations Domain
 
+> **Superseded (2026-10-08):** tag dimensions and aggregation views were removed.
+> See `docs/decisions/010-flat-tags-and-tag-groups.md` and `docs/domains/tag-groups.md`.
+
 **Frontend integration:** See
 `docs/guides/frontend-tags-and-aggregations-handover.md`.
 

@@ -1,5 +1,8 @@
 # Frontend Handover: Categories to Tags and Aggregation Views
 
+> **Superseded (2026-10-08):** tag dimensions and aggregation views were removed.
+> See `docs/decisions/010-flat-tags-and-tag-groups.md` and `docs/domains/tag-groups.md`.
+
 **Backend status:** Implemented
 **API prefix:** `/api/v1`
 **Compatibility:** Clean break; the category API and category fields no longer exist

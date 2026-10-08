@@ -5,7 +5,8 @@ from uuid import uuid4
 import pytest
 
 from app.core.error_handlers import ValidationError
-from app.domains.tags.constants import MAX_TAGS_PER_ENTITY, TagSelectionMode
+from app.domains.tags.constants import MAX_TAGS_PER_ENTITY, TagSort
+from app.domains.tags.models import Tag
 from app.domains.tags.service import TagService
 
 
@@ -15,12 +16,8 @@ def build_service():
     return service
 
 
-def build_tag(tag_id, dimension=None):
-    return SimpleNamespace(
-        id=tag_id,
-        dimension_id=dimension.id if dimension else None,
-        dimension=dimension,
-    )
+def build_tag(tag_id):
+    return SimpleNamespace(id=tag_id)
 
 
 def test_assignment_preserves_requested_tag_order():
@@ -52,29 +49,44 @@ def test_assignment_rejects_more_than_the_tag_cap():
     service.repository.get_tags_by_ids.assert_not_called()
 
 
-def test_assignment_rejects_two_tags_from_a_single_select_dimension():
+def test_assignment_allows_any_combination_of_flat_tags():
+    # Formerly rejected by single-select dimensions; tags are flat now.
     service = build_service()
-    dimension = SimpleNamespace(
-        id=uuid4(), selection_mode=TagSelectionMode.SINGLE.value
-    )
-    tag_ids = [uuid4(), uuid4()]
-    service.repository.get_tags_by_ids.return_value = [
-        build_tag(tag_ids[0], dimension),
-        build_tag(tag_ids[1], dimension),
-    ]
-
-    with pytest.raises(ValidationError) as error:
-        service.validate_tag_assignment(tag_ids, uuid4())
-
-    assert error.value.error_code == "TAG_DIMENSION_ASSIGNMENT_CONFLICT"
-
-
-def test_assignment_allows_health_and_mother_from_different_dimensions():
-    service = build_service()
-    topic = SimpleNamespace(id=uuid4(), selection_mode=TagSelectionMode.SINGLE.value)
-    person = SimpleNamespace(id=uuid4(), selection_mode=TagSelectionMode.SINGLE.value)
-    tag_ids = [uuid4(), uuid4()]
-    tags = [build_tag(tag_ids[0], topic), build_tag(tag_ids[1], person)]
+    tag_ids = [uuid4(), uuid4(), uuid4()]
+    tags = [build_tag(tag_id) for tag_id in tag_ids]
     service.repository.get_tags_by_ids.return_value = tags
 
     assert service.validate_tag_assignment(tag_ids, uuid4()) == tags
+
+
+def test_list_tags_normalizes_the_search_term():
+    service = build_service()
+    user_id = uuid4()
+
+    service.list_tags(user_id, search="  StReAm ", sort=TagSort.USAGE, limit=10)
+
+    service.repository.list_tags.assert_called_once_with(
+        user_id, False, search="stream", sort=TagSort.USAGE, limit=10
+    )
+
+
+def test_list_tags_treats_a_blank_search_as_no_search():
+    service = build_service()
+    user_id = uuid4()
+
+    service.list_tags(user_id, search="   ")
+
+    service.repository.list_tags.assert_called_once_with(
+        user_id, False, search=None, sort=TagSort.DISPLAY_ORDER, limit=None
+    )
+
+
+def test_usage_count_sums_links_from_every_taggable_entity():
+    sql = str(Tag.usage_count.expression.compile())
+
+    for association in (
+        "transaction_tags",
+        "subscription_tags",
+        "installment_plan_tags",
+    ):
+        assert f"{association}.tag_id = tags.id" in sql

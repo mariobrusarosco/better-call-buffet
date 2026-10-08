@@ -1,97 +1,16 @@
 from typing import List, Optional, Sequence
 from uuid import UUID
 
-from sqlalchemy import asc, func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import asc, desc
+from sqlalchemy.orm import Session, undefer
 
-from app.domains.tags.models import (
-    Tag,
-    TagDimension,
-    installment_plan_tags,
-    subscription_tags,
-    transaction_tags,
-)
+from app.domains.tags.constants import TagSort
+from app.domains.tags.models import Tag
 
 
 class TagRepository:
     def __init__(self, db: Session):
         self.db = db
-
-    def create_dimension(self, dimension: TagDimension) -> TagDimension:
-        self.db.add(dimension)
-        self.db.commit()
-        self.db.refresh(dimension)
-        return dimension
-
-    def get_dimension(
-        self, dimension_id: UUID, user_id: UUID
-    ) -> Optional[TagDimension]:
-        return (
-            self.db.query(TagDimension)
-            .filter(
-                TagDimension.id == dimension_id,
-                TagDimension.user_id == user_id,
-            )
-            .first()
-        )
-
-    def get_dimension_by_normalized_name(
-        self, normalized_name: str, user_id: UUID
-    ) -> Optional[TagDimension]:
-        return (
-            self.db.query(TagDimension)
-            .filter(
-                TagDimension.user_id == user_id,
-                TagDimension.normalized_name == normalized_name,
-            )
-            .first()
-        )
-
-    def list_dimensions(
-        self, user_id: UUID, include_inactive: bool = False
-    ) -> List[TagDimension]:
-        query = self.db.query(TagDimension).filter(TagDimension.user_id == user_id)
-        if not include_inactive:
-            query = query.filter(TagDimension.is_active.is_(True))
-        return query.order_by(
-            asc(TagDimension.display_order), asc(TagDimension.name)
-        ).all()
-
-    def save_dimension(self, dimension: TagDimension) -> TagDimension:
-        self.db.commit()
-        self.db.refresh(dimension)
-        return dimension
-
-    def dimension_has_active_tags(self, dimension_id: UUID) -> bool:
-        return (
-            self.db.query(Tag.id)
-            .filter(Tag.dimension_id == dimension_id, Tag.is_active.is_(True))
-            .first()
-            is not None
-        )
-
-    def dimension_has_assignment_conflicts(self, dimension_id: UUID) -> bool:
-        associations = (
-            (transaction_tags, transaction_tags.c.transaction_id),
-            (subscription_tags, subscription_tags.c.subscription_id),
-            (installment_plan_tags, installment_plan_tags.c.installment_plan_id),
-        )
-        for association, entity_column in associations:
-            conflict = (
-                self.db.query(entity_column)
-                .select_from(association)
-                .join(Tag, association.c.tag_id == Tag.id)
-                .filter(
-                    Tag.dimension_id == dimension_id,
-                    Tag.is_active.is_(True),
-                )
-                .group_by(entity_column)
-                .having(func.count(Tag.id) > 1)
-                .first()
-            )
-            if conflict is not None:
-                return True
-        return False
 
     def create_tag(self, tag: Tag) -> Tag:
         self.db.add(tag)
@@ -100,10 +19,7 @@ class TagRepository:
 
     def get_tag(self, tag_id: UUID, user_id: UUID) -> Optional[Tag]:
         return (
-            self.db.query(Tag)
-            .options(joinedload(Tag.dimension))
-            .filter(Tag.id == tag_id, Tag.user_id == user_id)
-            .first()
+            self.db.query(Tag).filter(Tag.id == tag_id, Tag.user_id == user_id).first()
         )
 
     def get_tag_by_normalized_name(
@@ -111,7 +27,6 @@ class TagRepository:
     ) -> Optional[Tag]:
         return (
             self.db.query(Tag)
-            .options(joinedload(Tag.dimension))
             .filter(
                 Tag.user_id == user_id,
                 Tag.normalized_name == normalized_name,
@@ -127,11 +42,7 @@ class TagRepository:
     ) -> List[Tag]:
         if not tag_ids:
             return []
-        query = (
-            self.db.query(Tag)
-            .options(joinedload(Tag.dimension))
-            .filter(Tag.id.in_(tag_ids), Tag.user_id == user_id)
-        )
+        query = self.db.query(Tag).filter(Tag.id.in_(tag_ids), Tag.user_id == user_id)
         if active_only:
             query = query.filter(Tag.is_active.is_(True))
         return query.all()
@@ -139,48 +50,34 @@ class TagRepository:
     def list_tags(
         self,
         user_id: UUID,
-        dimension_id: Optional[UUID] = None,
         include_inactive: bool = False,
+        search: Optional[str] = None,
+        sort: TagSort = TagSort.DISPLAY_ORDER,
+        limit: Optional[int] = None,
     ) -> List[Tag]:
         query = (
             self.db.query(Tag)
-            .options(joinedload(Tag.dimension))
+            .options(undefer(Tag.usage_count))
             .filter(Tag.user_id == user_id)
         )
-        if dimension_id is not None:
-            query = query.filter(Tag.dimension_id == dimension_id)
         if not include_inactive:
             query = query.filter(Tag.is_active.is_(True))
-        return query.order_by(asc(Tag.display_order), asc(Tag.name)).all()
+        if search:
+            # `search` arrives normalized; autoescape keeps % and _ literal.
+            query = query.filter(Tag.normalized_name.contains(search, autoescape=True))
+
+        if sort == TagSort.USAGE:
+            query = query.order_by(desc(Tag.usage_count), asc(Tag.name))
+        else:
+            query = query.order_by(asc(Tag.display_order), asc(Tag.name))
+
+        if limit is not None:
+            query = query.limit(limit)
+        return query.all()
 
     def save_tag(self, tag: Tag) -> Tag:
         self.db.commit()
         return self.get_tag(tag.id, tag.user_id)  # type: ignore[return-value]
-
-    def tag_move_has_conflicts(self, tag_id: UUID, dimension_id: UUID) -> bool:
-        associations = (
-            (transaction_tags, transaction_tags.c.transaction_id),
-            (subscription_tags, subscription_tags.c.subscription_id),
-            (installment_plan_tags, installment_plan_tags.c.installment_plan_id),
-        )
-        for association, entity_column in associations:
-            other = association.alias("other_assignment")
-            conflict = (
-                self.db.query(entity_column)
-                .select_from(association)
-                .join(other, other.c[entity_column.name] == entity_column)
-                .join(Tag, other.c.tag_id == Tag.id)
-                .filter(
-                    association.c.tag_id == tag_id,
-                    other.c.tag_id != tag_id,
-                    Tag.dimension_id == dimension_id,
-                    Tag.is_active.is_(True),
-                )
-                .first()
-            )
-            if conflict is not None:
-                return True
-        return False
 
     def find_or_create_tag(self, user_id: UUID, name: str) -> Tag:
         normalized_name = name.strip().casefold()

@@ -24,12 +24,10 @@ def build_tag(tag_id, user_id):
         id=tag_id,
         user_id=user_id,
         name="Health",
-        dimension_id=None,
         display_order=0,
         is_active=True,
         created_at=now,
         updated_at=now,
-        dimension=None,
     )
 
 

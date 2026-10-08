@@ -1,6 +1,6 @@
 # ADR 009: Tag-Based Classification and Aggregation Trees
 
-**Status:** Accepted
+**Status:** Partially superseded by ADR 010 (dimensions and aggregation views removed)
 **Date:** 2026-10-08
 **Supersedes:** ADR 007 - User-Defined Category System with 2-Level Hierarchy
 
@@ -97,7 +97,12 @@ is written.
 ## API decisions
 
 - `/api/v1/tags/dimensions` manages dimensions.
-- `/api/v1/tags` manages tags.
+- `/api/v1/tags` manages tags. Listing accepts `q` (case-insensitive substring
+  match on the normalized name), `sort=display_order|usage` and `limit` (max 100),
+  and every listed tag carries `usage_count`. Pickers load
+  `?sort=usage&limit=10` and switch to `?q=...` as the user types, so a user with
+  many tags never downloads all of them. Without `limit` the endpoint still
+  returns every tag, for management screens.
 - Transaction create/update payloads use `tag_ids` and responses expose `tags`.
 - Transaction list filtering supports `tag_ids`, `tag_match=all|any`, and
   `exclude_tag_ids`.
@@ -140,6 +145,12 @@ would duplicate data and require expensive synchronization after every rule edit
 - Evaluating many nodes requires multiple aggregate queries initially.
 
 ## Evolution
+
+`usage_count` is computed on read (correlated counts over the three tag link
+tables, each indexed by `tag_id`), not stored. A stored counter would have to be
+maintained by every code path that assigns or removes tags and drifts when one
+is missed. If listing becomes slow, add a denormalized counter maintained in the
+same transaction as tag assignment, or a `pg_trgm` index for the search.
 
 If a view approaches the 100-node limit or result latency becomes material, batch
 the node predicates into fewer SQL statements or add a cache keyed by user, view,

@@ -20,7 +20,7 @@ class TransactionRepository:
     def _transaction_load_options(self):
         return (
             joinedload(Transaction.account),
-            joinedload(Transaction.tags).joinedload(Tag.dimension),
+            joinedload(Transaction.tags),
             joinedload(Transaction.credit_card).joinedload(CreditCard.account),
             joinedload(Transaction.vendor),
             joinedload(Transaction.subscription),

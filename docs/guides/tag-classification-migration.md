@@ -1,5 +1,8 @@
 # Tag Classification Migration Guide
 
+> **Superseded (2026-10-08):** tag dimensions and aggregation views were removed.
+> See `docs/decisions/010-flat-tags-and-tag-groups.md` and `docs/domains/tag-groups.md`.
+
 This is a clean-break migration for a pre-production project. It preserves core
 financial records but intentionally removes the category API and category columns.
 

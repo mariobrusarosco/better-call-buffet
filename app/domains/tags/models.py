@@ -3,7 +3,6 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
-    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -12,9 +11,11 @@ from sqlalchemy import (
     String,
     Table,
     UniqueConstraint,
+    func,
+    select,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import column_property, relationship
 
 from app.db.connection_and_session import Base
 
@@ -78,41 +79,12 @@ installment_plan_tags = Table(
 )
 
 
-class TagDimension(Base):
-    __tablename__ = "tag_dimensions"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    name = Column(String(100), nullable=False)
-    normalized_name = Column(String(100), nullable=False)
-    selection_mode = Column(String(20), nullable=False, default="multiple")
-    display_order = Column(Integer, nullable=False, default=0)
-    is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(
-        DateTime,
-        nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-    )
-
-    tags = relationship("Tag", back_populates="dimension")
-
-    __table_args__ = (
-        UniqueConstraint(
-            "user_id",
-            "normalized_name",
-            name="uq_tag_dimensions_user_normalized_name",
-        ),
-        CheckConstraint(
-            "selection_mode IN ('single', 'multiple')",
-            name="ck_tag_dimensions_selection_mode",
-        ),
-        Index("ix_tag_dimensions_user_active", "user_id", "is_active"),
+def _count_tag_links(association: Table, tag_id: Column):
+    return (
+        select(func.count())
+        .select_from(association)
+        .where(association.c.tag_id == tag_id)
+        .scalar_subquery()
     )
 
 
@@ -125,11 +97,6 @@ class Tag(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    dimension_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("tag_dimensions.id", ondelete="RESTRICT"),
-        nullable=True,
-    )
     name = Column(String(100), nullable=False)
     normalized_name = Column(String(100), nullable=False)
     display_order = Column(Integer, nullable=False, default=0)
@@ -142,7 +109,16 @@ class Tag(Base):
         onupdate=datetime.utcnow,
     )
 
-    dimension = relationship("TagDimension", back_populates="tags")
+    # Links across transactions, subscriptions and installment plans. Computed by
+    # the database, never stored. Deferred so it only runs when a query asks for
+    # it with undefer(); plain tag loads stay a single cheap SELECT.
+    usage_count = column_property(
+        _count_tag_links(transaction_tags, id)
+        + _count_tag_links(subscription_tags, id)
+        + _count_tag_links(installment_plan_tags, id),
+        deferred=True,
+    )
+
     transactions = relationship(
         "Transaction", secondary=transaction_tags, back_populates="tags"
     )
@@ -160,5 +136,4 @@ class Tag(Base):
             "user_id", "normalized_name", name="uq_tags_user_normalized_name"
         ),
         Index("ix_tags_user_active", "user_id", "is_active"),
-        Index("ix_tags_user_dimension", "user_id", "dimension_id"),
     )
