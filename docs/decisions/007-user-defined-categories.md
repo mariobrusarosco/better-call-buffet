@@ -1,9 +1,10 @@
 # ADR 007: User-Defined Category System with 2-Level Hierarchy
 
-**Status:** Accepted
+**Status:** Superseded by ADR 009
 **Date:** 2024-12-20
 **Context:** Transaction categorization enhancement
 **Supersedes:** Simple string-based category field
+**Superseded by:** `009-tag-based-classification-and-aggregation.md`
 
 ---
 

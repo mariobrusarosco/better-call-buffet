@@ -9,10 +9,10 @@ from app.core.error_handlers import NotFoundError, ValidationError
 from app.core.logging_config import get_logger
 from app.domains.accounts.service import AccountService
 from app.domains.balance_points.service import BalancePointService
-from app.domains.categories.repository import CategoryRepository
 from app.domains.credit_cards.schemas import CreditCardFilters
 from app.domains.credit_cards.service import CreditCardService
 from app.domains.subscriptions.service import SubscriptionService
+from app.domains.tags.service import TagService
 from app.domains.transactions.constants import MovementType
 from app.domains.transactions.models import Transaction
 from app.domains.transactions.repository import TransactionRepository
@@ -42,18 +42,23 @@ class TransactionService:
         self.account_service = AccountService(db)
         self.credit_card_service = CreditCardService(db)
         self.balance_point_service = BalancePointService(db)
-        self.category_repository = CategoryRepository(db)
+        self.tag_service = TagService(db)
         self.vendor_service = VendorService(db)
         self.subscription_service = SubscriptionService(db)
 
     def create_transactions_bulk(
-        self, transactions_data: List[Dict[str, Any]]
+        self, transactions_data: List[Dict[str, Any]], user_id: UUID
     ) -> List[UUID]:
         try:
-            self.db.bulk_insert_mappings(Transaction, transactions_data)
-            self.db.commit()
-            transaction_ids = [tx_data["id"] for tx_data in transactions_data]
-            return transaction_ids
+            prepared = []
+            for transaction_data in transactions_data:
+                data = dict(transaction_data)
+                tag_ids = data.pop("tag_ids", [])
+                data["tags"] = self.tag_service.validate_tag_assignment(
+                    tag_ids, user_id
+                )
+                prepared.append(data)
+            return self.repository.bulk_create(prepared)
 
         except Exception as e:
             self.db.rollback()
@@ -65,7 +70,7 @@ class TransactionService:
         if not transaction_data_list:
             return []
 
-        return self.create_transactions_bulk(transaction_data_list)
+        return self.create_transactions_bulk(transaction_data_list, user_id)
 
     def create_transactions_bulk_with_validation(
         self, bulk_request: TransactionBulkRequest, user_id: UUID
@@ -95,9 +100,10 @@ class TransactionService:
                 tx_dict["user_id"] = user_id
                 tx_dict["id"] = uuid.uuid4()  # Generate ID for bulk insert
 
-                # Handle category field migration: if category contains a UUID,
-                # move it to category_id for proper foreign key relationship
-                self._normalize_category_fields(tx_dict)
+                tag_ids = tx_dict.pop("tag_ids", [])
+                tx_dict["tags"] = self.tag_service.validate_tag_assignment(
+                    tag_ids, user_id
+                )
 
                 # Validate vendor and subscription
                 self._validate_vendor_and_subscription(tx_dict, user_id)
@@ -268,6 +274,8 @@ class TransactionService:
                 # Auto-assign vendor from subscription if it exists
                 if subscription.vendor_id:
                     data["vendor_id"] = subscription.vendor_id
+                if not data.get("tags") and subscription.tags:
+                    data["tags"] = list(subscription.tags)
             except NotFoundError:
                 raise ValidationError(
                     message=f"Subscription {subscription_id} not found or not accessible",
@@ -285,25 +293,15 @@ class TransactionService:
                     error_code="VENDOR_NOT_FOUND",
                 )
 
-    def _normalize_category_fields(self, data: Dict[str, Any]) -> None:
-        """
-        Normalize category fields to ensure proper foreign key relationship.
-
-        The frontend now sends category_id directly. This method clears the
-        legacy 'category' string field to avoid confusion.
-        """
-        # Clear the legacy category field - we only use category_id now
-        data["category"] = ""
-
     def create_transaction(
         self, transaction: TransactionIn, user_id: UUID
     ) -> Transaction:
         transaction_data = transaction.model_dump()
         transaction_data["user_id"] = user_id
-
-        # Handle category field migration: if category contains a UUID,
-        # move it to category_id for proper foreign key relationship
-        self._normalize_category_fields(transaction_data)
+        tag_ids = transaction_data.pop("tag_ids", [])
+        transaction_data["tags"] = self.tag_service.validate_tag_assignment(
+            tag_ids, user_id
+        )
 
         # Validate vendor and subscription
         self._validate_vendor_and_subscription(transaction_data, user_id)
@@ -777,6 +775,12 @@ class TransactionService:
     def _validate_update_references(
         self, update_data: Dict[str, Any], user_id: UUID
     ) -> None:
+        if "tag_ids" in update_data:
+            tag_ids = update_data.pop("tag_ids") or []
+            update_data["tags"] = self.tag_service.validate_tag_assignment(
+                tag_ids, user_id
+            )
+
         account_id = update_data.get("account_id")
         if account_id:
             account = self.account_service.get_account_by_id(account_id, user_id)
@@ -793,12 +797,6 @@ class TransactionService:
             )
             if not credit_card:
                 raise HTTPException(status_code=404, detail="Credit card not found")
-
-        category_id = update_data.get("category_id")
-        if category_id:
-            category = self.category_repository.get_category_by_id(category_id, user_id)
-            if not category or not category.is_active:
-                raise HTTPException(status_code=404, detail="Category not found")
 
         self._validate_vendor_and_subscription(update_data, user_id)
 

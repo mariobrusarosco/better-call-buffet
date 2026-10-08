@@ -23,17 +23,17 @@ def build_transaction(**overrides):
         "amount": 19.9,
         "description": "Estadao",
         "movement_type": "expense",
-        "category": "",
-        "category_id": None,
+        "tag_ids": [],
+        "tags": [],
         "ignored": False,
         "vendor_id": None,
         "subscription_id": None,
+        "installment_id": None,
         "is_deleted": False,
         "created_at": now,
         "updated_at": now,
         "account": None,
         "credit_card": None,
-        "category_tree": None,
         "vendor": None,
         "subscription": None,
     }
@@ -88,7 +88,7 @@ def test_bulk_update_rejects_duplicate_transaction_ids():
     with pytest.raises(ValidationError, match="must not contain duplicates"):
         TransactionBulkUpdate(
             transaction_ids=[transaction_id, transaction_id],
-            changes={"category_id": uuid4()},
+            changes={"tag_ids": [uuid4()]},
         )
 
 

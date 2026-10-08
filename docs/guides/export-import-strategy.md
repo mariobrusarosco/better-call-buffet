@@ -1,5 +1,8 @@
 # Financial Data Export/Import Strategy Guide
 
+> **Legacy design notes:** Category references in this document predate ADR 009.
+> The implemented CSV format now uses `tag_names` as a JSON string array.
+
 ## Overview
 This guide provides detailed technical implementation strategies for the financial data export/import feature. It covers data transformation, relationship handling, and edge case management.
 

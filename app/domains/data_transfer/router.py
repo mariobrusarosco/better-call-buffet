@@ -8,19 +8,19 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
 from app.domains.data_transfer.schemas import (
+    DataTransferHealthResponse,
     ExportRequest,
     ExportResponse,
     ImportRequest,
     ImportResponse,
     ImportValidationResult,
-    DataTransferHealthResponse
 )
 from app.domains.data_transfer.service import DataTransferService
 
@@ -31,6 +31,7 @@ router = APIRouter()
 
 # ==================== HEALTH CHECK ====================
 
+
 @router.get("/health", response_model=DataTransferHealthResponse)
 def health_check():
     """
@@ -39,13 +40,12 @@ def health_check():
     Returns basic service status information.
     """
     return DataTransferHealthResponse(
-        status="healthy",
-        active_exports=0,
-        active_imports=0
+        status="healthy", active_exports=0, active_imports=0
     )
 
 
 # ==================== EXPORT ENDPOINTS ====================
+
 
 @router.post("/export", response_model=ExportResponse)
 def export_financial_data(
@@ -57,7 +57,7 @@ def export_financial_data(
     Export user's financial data to CSV format.
 
     This endpoint generates a CSV file containing all the user's financial data
-    including transactions, accounts, credit cards, categories, vendors, and more.
+    including transactions, accounts, credit cards, tags, vendors, and more.
 
     **Parameters:**
     - **date_from**: Optional start date for filtering transactions (ISO format: YYYY-MM-DD)
@@ -85,10 +85,12 @@ def export_financial_data(
 
         if result.status == "failed":
             # Log detailed error but return generic message
-            logger.error(f"Export failed for user {current_user_id}: {result.error_message}")
+            logger.error(
+                f"Export failed for user {current_user_id}: {result.error_message}"
+            )
             raise HTTPException(
                 status_code=500,
-                detail="Export failed. Please try again or contact support if the issue persists."
+                detail="Export failed. Please try again or contact support if the issue persists.",
             )
 
         return result
@@ -100,7 +102,7 @@ def export_financial_data(
         logger.error(f"Export endpoint error for user {current_user_id}: {e}")
         raise HTTPException(
             status_code=500,
-            detail="An error occurred while exporting your data. Please try again later."
+            detail="An error occurred while exporting your data. Please try again later.",
         )
 
 
@@ -132,8 +134,7 @@ def download_export(
 
         if not result:
             raise HTTPException(
-                status_code=404,
-                detail="Export file not found or has expired"
+                status_code=404, detail="Export file not found or has expired"
             )
 
         content, filename = result
@@ -141,23 +142,24 @@ def download_export(
         return Response(
             content=content,
             media_type="text/csv",
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            }
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
 
     except HTTPException:
         raise
     except Exception as e:
         # Log detailed error but return generic message
-        logger.error(f"Download endpoint error for export {export_id}, user {current_user_id}: {e}")
+        logger.error(
+            f"Download endpoint error for export {export_id}, user {current_user_id}: {e}"
+        )
         raise HTTPException(
             status_code=500,
-            detail="An error occurred while downloading your export. Please try again."
+            detail="An error occurred while downloading your export. Please try again.",
         )
 
 
 # ==================== IMPORT ENDPOINTS ====================
+
 
 @router.post("/import/validate", response_model=ImportValidationResult)
 async def validate_import_file(
@@ -200,11 +202,8 @@ async def validate_import_file(
     """
     try:
         # Validate file type
-        if not file.filename.endswith('.csv'):
-            raise HTTPException(
-                status_code=400,
-                detail="File must be a CSV file"
-            )
+        if not file.filename.endswith(".csv"):
+            raise HTTPException(status_code=400, detail="File must be a CSV file")
 
         # Check file size (50MB limit)
         max_size = 50 * 1024 * 1024  # 50MB
@@ -212,18 +211,14 @@ async def validate_import_file(
 
         if len(content) > max_size:
             raise HTTPException(
-                status_code=400,
-                detail="File size exceeds maximum limit of 50MB"
+                status_code=400, detail="File size exceeds maximum limit of 50MB"
             )
 
         # Decode content
         try:
-            csv_content = content.decode('utf-8')
+            csv_content = content.decode("utf-8")
         except UnicodeDecodeError:
-            raise HTTPException(
-                status_code=400,
-                detail="File must be UTF-8 encoded"
-            )
+            raise HTTPException(status_code=400, detail="File must be UTF-8 encoded")
 
         # Validate CSV
         service = DataTransferService(db)
@@ -247,7 +242,11 @@ async def validate_import_file(
             row_count=result.row_count,
             estimated_entities=result.estimated_entities,
             warnings=[],  # Don't expose warnings
-            errors=[] if result.valid else ["File validation failed. Please check your CSV format."]
+            errors=(
+                []
+                if result.valid
+                else ["File validation failed. Please check your CSV format."]
+            ),
         )
 
     except HTTPException:
@@ -257,7 +256,7 @@ async def validate_import_file(
         logger.error(f"Validation endpoint error for user {current_user_id}: {e}")
         raise HTTPException(
             status_code=500,
-            detail="An error occurred while validating your file. Please check the file format and try again."
+            detail="An error occurred while validating your file. Please check the file format and try again.",
         )
 
 
@@ -291,12 +290,12 @@ async def import_financial_data(
     **Import Behavior:**
     - **Append-only**: Existing records are not modified
     - **Duplicate detection**: Transactions with same date, amount, and description are skipped
-    - **Entity creation**: Missing entities (accounts, categories, etc.) are created automatically
+    - **Entity creation**: Missing entities (accounts, tags, etc.) are created automatically
     - **Relationship resolution**: Entities are linked by name matching
 
     **CSV Format:**
     - Required columns: transaction_date, transaction_amount, transaction_description, transaction_movement_type
-    - Optional columns: account_name, credit_card_name, category_name, vendor_name, etc.
+    - Optional columns: account_name, credit_card_name, tag_names, vendor_name, etc.
     - See /docs for complete column list
 
     **Example Response:**
@@ -319,11 +318,8 @@ async def import_financial_data(
     """
     try:
         # Validate file type
-        if not file.filename.endswith('.csv'):
-            raise HTTPException(
-                status_code=400,
-                detail="File must be a CSV file"
-            )
+        if not file.filename.endswith(".csv"):
+            raise HTTPException(status_code=400, detail="File must be a CSV file")
 
         # Check file size (50MB limit)
         max_size = 50 * 1024 * 1024  # 50MB
@@ -331,44 +327,37 @@ async def import_financial_data(
 
         if len(content) > max_size:
             raise HTTPException(
-                status_code=400,
-                detail="File size exceeds maximum limit of 50MB"
+                status_code=400, detail="File size exceeds maximum limit of 50MB"
             )
 
         # Decode content
         try:
-            csv_content = content.decode('utf-8')
+            csv_content = content.decode("utf-8")
         except UnicodeDecodeError:
-            raise HTTPException(
-                status_code=400,
-                detail="File must be UTF-8 encoded"
-            )
+            raise HTTPException(status_code=400, detail="File must be UTF-8 encoded")
 
         # Create import request
         import_request = ImportRequest(
-            skip_errors=skip_errors,
-            validate_only=validate_only
+            skip_errors=skip_errors, validate_only=validate_only
         )
 
         # Import data
         logger.info(f"Import requested by user {current_user_id}")
         service = DataTransferService(db)
-        result = service.import_user_data(
-            current_user_id,
-            csv_content,
-            import_request
-        )
+        result = service.import_user_data(current_user_id, csv_content, import_request)
 
         if result.status == "failed":
             # Log detailed validation errors for debugging
-            logger.error(f"Import failed for user {current_user_id} with {len(result.errors)} errors:")
+            logger.error(
+                f"Import failed for user {current_user_id} with {len(result.errors)} errors:"
+            )
             for error in result.errors:
                 logger.error(f"  - {error}")
 
             # Return generic message to user
             raise HTTPException(
                 status_code=400,
-                detail="Import failed. Please check your CSV file format and try again."
+                detail="Import failed. Please check your CSV file format and try again.",
             )
 
         # Log any warnings or errors from successful imports
@@ -395,5 +384,5 @@ async def import_financial_data(
         logger.error(f"Import endpoint error for user {current_user_id}: {e}")
         raise HTTPException(
             status_code=500,
-            detail="An error occurred while importing your data. Please try again later."
+            detail="An error occurred while importing your data. Please try again later.",
         )

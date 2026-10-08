@@ -24,8 +24,8 @@ Analise a fatura fornecida e extraia as seguintes informações:
     ** Débitos/Compras: "expense" - valores negativos, saques, pagamentos, saídas, compras
   * valor: "amount"
     * Remover o sinal do valor e manter precisão do valor.
-  * categoria: "category"
-    ** Se não houver categoria explícita, deixe vazio
+  * etiquetas: "tags"
+    ** Liste apenas fatos atômicos explícitos; use uma lista vazia se não houver
 
 **Informações Adicionais (se disponíveis):**
 - Próximo vencimento: valor e saldo atual
@@ -39,7 +39,7 @@ Analise a fatura fornecida e extraia as seguintes informações:
   * R$ 0,01 → "0.01"
 - Identifique datas de format consistente, de acordo com a linguagem: pt. Faça uma conversão para o formato ISO.
 - Ignore textos promocionais, avisos legais e publicidade
-- Se uma categoria não estiver explícita, deixe vazio
+- Se etiquetas não estiverem explícitas, retorne uma lista vazia
 """
     else:
         return """
@@ -65,8 +65,8 @@ Analyze the provided invoice and extract the following information:
   * movement_type
     ** Credits/Refunds: "income" - positive values, deposits, receipts, cashback
     ** Debits/Purchases: "expense" - negative values, withdrawals, payments, purchases
-  * category
-    ** If no explicit category, leave empty
+  * tags
+    ** List only explicit atomic facts; use an empty list if none are explicit
 
 **Additional Information (if available):**
 - Next due: amount and current balance
@@ -80,5 +80,5 @@ Analyze the provided invoice and extract the following information:
   * $0.01 → "0.01"
 - Dates in consistent format. After identify the date, convert it to ISO format.
 - Ignore promotional text, legal notices, and advertisements
-- If a category is not explicit, leave empty
+- If tags are not explicit, return an empty list
 """

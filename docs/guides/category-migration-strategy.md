@@ -1,5 +1,8 @@
 # Category Migration Strategy
 
+> **Legacy document:** This migration was superseded by the clean-break tag
+> migration in `docs/guides/tag-classification-migration.md`.
+
 **Feature:** Migrating from String Categories to User-Defined Category System
 **Risk Level:** Medium (production data modification)
 **Rollback:** Yes (keep old `category` column during migration)

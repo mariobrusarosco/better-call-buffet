@@ -1,31 +1,38 @@
+from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
-from uuid import UUID   
-from datetime import date, datetime
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.core.error_handlers import NotFoundError, ValidationError
-from app.core.utils.date import add_months
 from app.core.logging_config import get_logger
-from app.domains.installments.models import Installment, InstallmentPlan, InstallmentStatus, InstallmentPlanStatus
+from app.core.utils.date import add_months
+from app.domains.credit_cards.schemas import CreditCardFilters
+from app.domains.credit_cards.service import CreditCardService
+from app.domains.installments.models import (
+    Installment,
+    InstallmentPlan,
+    InstallmentPlanStatus,
+    InstallmentStatus,
+)
 from app.domains.installments.repository import InstallmentRepository
 from app.domains.installments.schemas import (
     InstallmentFilters,
     InstallmentPlanCreate,
+    InstallmentPlanListMeta,
     InstallmentPlanListResponse,
     InstallmentPlanResponse,
     InstallmentPlanUpdate,
     InstallmentResponse,
-    InstallmentPlanListMeta,
     InstallmentUpdate,
 )
-from app.domains.subscriptions.schemas import UpcomingPaymentResponse, UpcomingPaymentsListResponse
+from app.domains.subscriptions.schemas import (
+    UpcomingPaymentResponse,
+    UpcomingPaymentsListResponse,
+)
+from app.domains.tags.service import TagService
 from app.domains.vendors.service import VendorService
-from app.domains.categories.service import CategoryService
-from app.domains.credit_cards.service import CreditCardService
-from app.domains.credit_cards.schemas import CreditCardFilters
-from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 
@@ -35,25 +42,26 @@ class InstallmentService:
         self.db = db
         self.repository = InstallmentRepository(db)
         self.vendor_service = VendorService(db)
-        self.category_service = CategoryService(db)
+        self.tag_service = TagService(db)
         self.credit_card_service = CreditCardService(db)
 
-    def create_plan(self, plan_data: InstallmentPlanCreate, user_id: UUID) -> InstallmentPlan:
+    def create_plan(
+        self, plan_data: InstallmentPlanCreate, user_id: UUID
+    ) -> InstallmentPlan:
         """
         Atomically creates an Installment Plan and all its projected Installments.
         """
         # 1. Validate Ownership
         if plan_data.vendor_id:
             self.vendor_service.get_vendor(plan_data.vendor_id, user_id)
-        
-        if plan_data.category_id:
-            category = self.category_service.repository.get_category_by_id(plan_data.category_id, user_id)
-            if not category:
-                raise NotFoundError(message="Category not found", error_code="CATEGORY_NOT_FOUND")
+
+        tags = self.tag_service.validate_tag_assignment(plan_data.tag_ids, user_id)
 
         if plan_data.credit_card_id:
             filters = CreditCardFilters(credit_card_id=plan_data.credit_card_id)
-            self.credit_card_service.get_user_unique_credit_card_with_filters(user_id, filters)
+            self.credit_card_service.get_user_unique_credit_card_with_filters(
+                user_id, filters
+            )
 
         # 2. Create the Plan record
         plan = InstallmentPlan(
@@ -65,10 +73,10 @@ class InstallmentService:
             start_date=plan_data.start_date,
             status=InstallmentPlanStatus.active,
             vendor_id=plan_data.vendor_id,
-            category_id=plan_data.category_id,
-            credit_card_id=plan_data.credit_card_id
+            tags=tags,
+            credit_card_id=plan_data.credit_card_id,
         )
-        
+
         created_plan = self.repository.create_plan(plan)
 
         # 3. Generate Installments
@@ -86,53 +94,60 @@ class InstallmentService:
         installments = []
         count = plan.installment_count
         total = Decimal(str(plan.total_amount))
-        
+
         # Calculate base amount (truncated to 2 decimal places)
         base_amount = (total / count).quantize(Decimal("0.01"), rounding="ROUND_DOWN")
-        
+
         # Calculate remainder
         remainder = total - (base_amount * count)
-        
+
         for i in range(1, count + 1):
             installment_amount = base_amount
             # Add remainder to the last installment
             if i == count:
                 installment_amount += remainder
-            
+
             # Date rollover logic: Each installment is 1 month after the previous
             # Starting from the purchase month (Installment 1 is usually in the month of purchase)
             due_date = add_months(plan.start_date, i - 1)
-            
+
             installment = Installment(
                 plan_id=plan.id,
                 number=i,
                 amount=installment_amount,
                 due_date=due_date,
-                status=InstallmentStatus.pending
+                status=InstallmentStatus.pending,
             )
             installments.append(installment)
-            
+
         return installments
 
     def get_plan(self, plan_id: UUID, user_id: UUID) -> InstallmentPlan:
         plan = self.repository.get_plan_by_id(plan_id, user_id)
         if not plan:
-            raise NotFoundError(message="Installment Plan not found", error_code="INSTALLMENT_PLAN_NOT_FOUND")
+            raise NotFoundError(
+                message="Installment Plan not found",
+                error_code="INSTALLMENT_PLAN_NOT_FOUND",
+            )
         return plan
 
     def get_installment(self, installment_id: UUID, user_id: UUID) -> Installment:
         installment = self.repository.get_installment_by_id(installment_id, user_id)
         if not installment:
-            raise NotFoundError(message="Installment not found", error_code="INSTALLMENT_NOT_FOUND")
+            raise NotFoundError(
+                message="Installment not found", error_code="INSTALLMENT_NOT_FOUND"
+            )
         return installment
 
-    def update_installment(self, installment_id: UUID, data: InstallmentUpdate, user_id: UUID) -> Installment:
+    def update_installment(
+        self, installment_id: UUID, data: InstallmentUpdate, user_id: UUID
+    ) -> Installment:
         installment = self.get_installment(installment_id, user_id)
-        
+
         update_data = data.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(installment, key, value)
-            
+
         return self.repository.update_installment(installment)
 
     def delete_plan(self, plan_id: UUID, user_id: UUID) -> None:
@@ -140,67 +155,78 @@ class InstallmentService:
         # SQLAlchemy Cascade handles the deletion of individual installments
         self.repository.delete_plan(plan)
 
-    def list_plans(self, user_id: UUID, filters: Optional[InstallmentFilters] = None) -> InstallmentPlanListResponse:
+    def list_plans(
+        self, user_id: UUID, filters: Optional[InstallmentFilters] = None
+    ) -> InstallmentPlanListResponse:
         plans, total = self.repository.get_plans_with_filters(user_id, filters)
-        
+
         # Calculate pagination metadata
         per_page = filters.per_page if filters else 20
         page = filters.page if filters else 1
         total_pages = (total + per_page - 1) // per_page
-        
+
         meta = InstallmentPlanListMeta(
             total=total,
             page=page,
             per_page=per_page,
             has_next=page < total_pages,
-            has_previous=page > 1
+            has_previous=page > 1,
         )
-        
+
         # Convert to responses (including eager relationships)
         data = [InstallmentPlanResponse.from_orm(p) for p in plans]
-        
+
         return InstallmentPlanListResponse(data=data, meta=meta)
 
-    def link_transaction(self, installment_id: UUID, transaction_id: UUID, user_id: UUID) -> Installment:
+    def link_transaction(
+        self, installment_id: UUID, transaction_id: UUID, user_id: UUID
+    ) -> Installment:
         """
         Links a real transaction to a projected installment.
         """
         # Local import to avoid circular dependency
-        from app.domains.transactions.service import TransactionService
         from app.domains.transactions.schemas import TransactionUpdate
-        
+        from app.domains.transactions.service import TransactionService
+
         transaction_service = TransactionService(self.db)
-        
+
         # 1. Get and Validate Installment
         installment = self.repository.get_installment_by_id(installment_id, user_id)
         if not installment:
-            raise NotFoundError(message="Installment not found", error_code="INSTALLMENT_NOT_FOUND")
-            
+            raise NotFoundError(
+                message="Installment not found", error_code="INSTALLMENT_NOT_FOUND"
+            )
+
         # 2. Verify Transaction ownership
-        transaction = transaction_service.get_account_transaction_by_id(transaction_id, user_id)
-        
+        transaction = transaction_service.get_account_transaction_by_id(
+            transaction_id, user_id
+        )
+
         # 3. Update Transaction (Link to installment, assign vendor, mark paid)
         plan = installment.plan
         update_data = TransactionUpdate(
             installment_id=installment_id,
-            vendor_id=plan.vendor_id, # Inherit vendor from plan
-            is_paid=True
+            vendor_id=plan.vendor_id,  # Inherit vendor from plan
+            tag_ids=[tag.id for tag in plan.tags],
+            is_paid=True,
         )
         transaction_service.update_transaction(transaction_id, user_id, update_data)
-        
+
         # 4. Update Installment Status and Sync Amount
         installment.status = InstallmentStatus.linked
-        installment.transaction_id = transaction_id 
-        installment.amount = transaction.amount # Sync with reality
-        
+        installment.transaction_id = transaction_id
+        installment.amount = transaction.amount  # Sync with reality
+
         return self.repository.update_installment(installment)
 
     def get_upcoming_installments(
         self, user_id: UUID, start_date: date, end_date: date
     ) -> UpcomingPaymentsListResponse:
         """Projects all pending installments within a given timeframe."""
-        installments = self.repository.get_pending_installments_in_range(user_id, start_date, end_date)
-        
+        installments = self.repository.get_pending_installments_in_range(
+            user_id, start_date, end_date
+        )
+
         projected = [
             UpcomingPaymentResponse(
                 id=i.id,
@@ -208,9 +234,9 @@ class InstallmentService:
                 vendor=i.plan.vendor,
                 amount=float(i.amount),
                 due_date=i.due_date,
-                source_type="installment"
+                source_type="installment",
             )
             for i in installments
         ]
-        
+
         return UpcomingPaymentsListResponse(data=projected, total=len(projected))

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -24,6 +24,23 @@ from app.domains.transactions.service import TransactionService
 router = APIRouter()
 
 
+def _parse_uuid_list(values: Optional[List[str]]) -> Optional[List[UUID]]:
+    if not values:
+        return None
+    parsed = []
+    for value in values:
+        for raw_uuid in value.split(","):
+            try:
+                parsed.append(UUID(raw_uuid.strip()))
+            except ValueError as exc:
+                from fastapi import HTTPException
+
+                raise HTTPException(
+                    status_code=422, detail=f"Invalid UUID format: {raw_uuid}"
+                ) from exc
+    return parsed
+
+
 @router.get("", response_model=TransactionListResponse)
 def get_user_transactions(
     # Pagination parameters
@@ -40,13 +57,15 @@ def get_user_transactions(
     movement_type: Optional[List[str]] = Query(
         None, description="Filter by movement type (e.g., income, expense)"
     ),
-    category: Optional[str] = Query(
-        None, description="Filter by category (partial match)"
-    ),
-    category_id: Optional[List[str]] = Query(
+    tag_ids: Optional[List[str]] = Query(
         None,
-        description="Filter by specific category IDs (comma-separated or repeated)",
+        description="Required tag IDs (comma-separated or repeated)",
     ),
+    exclude_tag_ids: Optional[List[str]] = Query(
+        None,
+        description="Excluded tag IDs (comma-separated or repeated)",
+    ),
+    tag_match: Literal["all", "any"] = Query("all"),
     description_contains: Optional[str] = Query(
         None, description="Filter by description (partial match)"
     ),
@@ -60,7 +79,7 @@ def get_user_transactions(
     subscription_id: Optional[UUID] = Query(None, description="Filter by subscription"),
     # Sorting options
     sort_by: Optional[str] = Query(
-        "date", description="Sort field: date, amount, created_at, category"
+        "date", description="Sort field: date, amount, created_at"
     ),
     sort_order: Optional[str] = Query(
         "desc", description="Sort order: desc (newest first) or asc"
@@ -76,7 +95,7 @@ def get_user_transactions(
 
     Benefits:
     - ✅ Single endpoint for all user financial data
-    - ✅ Comprehensive filtering by date, amount, category, type, etc.
+    - ✅ Comprehensive filtering by date, amount, tags, type, etc.
     - ✅ Consistent pagination across all transaction endpoints
     - ✅ Flexible sorting options
     - ✅ Type-safe query parameter validation
@@ -95,26 +114,6 @@ def get_user_transactions(
         for mt in movement_type:
             final_movement_type.extend([t.strip() for t in mt.split(",")])
 
-    # Handle comma-separated values for category_id and convert to UUIDs
-    final_category_id = None
-    if category_id:
-        final_category_id = []
-        for cid_str in category_id:
-            # Split by comma and strip whitespace
-            for uuid_str in cid_str.split(","):
-                try:
-                    uuid_obj = UUID(uuid_str.strip())
-                    final_category_id.append(uuid_obj)
-                except ValueError:
-                    # Invalid UUID format - we can either raise 422 or ignore
-                    # For filtering, ignoring invalid values or raising 422 is standard.
-                    # Let's raise 422 to be strict/helpful.
-                    from fastapi import HTTPException
-
-                    raise HTTPException(
-                        status_code=422, detail=f"Invalid UUID format: {uuid_str}"
-                    )
-
     # Create structured filters from query parameters
     filters = TransactionFilters(
         page=page,
@@ -122,8 +121,9 @@ def get_user_transactions(
         date_from=date_from,
         date_to=date_to,
         movement_type=final_movement_type,
-        category=category,
-        category_id=final_category_id,
+        tag_ids=_parse_uuid_list(tag_ids),
+        exclude_tag_ids=_parse_uuid_list(exclude_tag_ids),
+        tag_match=tag_match,
         description_contains=description_contains,
         amount_min=amount_min,
         amount_max=amount_max,
@@ -254,7 +254,7 @@ def update_transaction_endpoint(
     Use Cases:
     - Fix incorrect transaction amount
     - Update transaction description
-    - Change transaction category
+    - Replace transaction tags
     - Mark transaction as paid/unpaid
     - Move transaction to different account/card
 
@@ -265,10 +265,10 @@ def update_transaction_endpoint(
         "description": "Groceries from Whole Foods"
     }
 
-    2. Update amount and category:
+    2. Update amount and tags:
     {
         "amount": 150.00,
-        "category": "Food"
+        "tag_ids": ["tag-uuid"]
     }
 
     3. Switch from account to credit card:

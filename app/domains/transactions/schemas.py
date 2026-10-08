@@ -1,21 +1,14 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.domains.subscriptions.schemas import SubscriptionResponse
+from app.domains.tags.constants import MAX_TAGS_PER_ENTITY
+from app.domains.tags.schemas import TagResponse
 from app.domains.transactions.constants import MovementType
 from app.domains.vendors.schemas import VendorResponse
-
-
-class CategoryTreeNode(BaseModel):
-    id: UUID
-    name: str
-    parent: Optional["CategoryTreeNode"] = None  # Self-referencing for parent
-
-    class Config:
-        from_attributes = True  # Allows Pydantic to read from ORM objects
 
 
 class TransactionData(BaseModel):
@@ -28,8 +21,10 @@ class TransactionData(BaseModel):
         default=MovementType.EXPENSE,
         description="Movement type: 'income' | 'expense' | 'transfer' | 'investment'",
     )
-    category: str = Field(
-        default="", description="Transaction category (empty if not explicit)"
+    tags: List[str] = Field(
+        default_factory=list,
+        max_length=MAX_TAGS_PER_ENTITY,
+        description="Atomic tag suggestions extracted from the source document",
     )
 
     @field_validator("movement_type", mode="before")
@@ -54,11 +49,18 @@ class TransactionBase(BaseModel):
     amount: float
     description: str
     movement_type: MovementType = MovementType.EXPENSE
-    category: str  # Legacy string field (being phased out)
-    category_id: Optional[UUID] = None  # New foreign key to user_categories
+    tag_ids: List[UUID] = Field(default_factory=list, max_length=MAX_TAGS_PER_ENTITY)
     ignored: bool = False
     vendor_id: Optional[UUID] = None
     subscription_id: Optional[UUID] = None
+    installment_id: Optional[UUID] = None
+
+    @field_validator("tag_ids")
+    @classmethod
+    def validate_unique_tag_ids(cls, value: List[UUID]) -> List[UUID]:
+        if len(set(value)) != len(value):
+            raise ValueError("tag_ids must not contain duplicates")
+        return value
 
     @field_validator("movement_type", mode="before")
     @classmethod
@@ -78,8 +80,7 @@ class TransactionUpdate(BaseModel):
 
     amount: Optional[float] = None
     description: Optional[str] = None
-    category: Optional[str] = None  # Legacy field
-    category_id: Optional[UUID] = None  # New foreign key
+    tag_ids: Optional[List[UUID]] = Field(default=None, max_length=MAX_TAGS_PER_ENTITY)
     is_paid: Optional[bool] = None
     account_id: Optional[UUID] = None
     credit_card_id: Optional[UUID] = None
@@ -87,6 +88,16 @@ class TransactionUpdate(BaseModel):
     ignored: Optional[bool] = None
     vendor_id: Optional[UUID] = None
     subscription_id: Optional[UUID] = None
+    installment_id: Optional[UUID] = None
+
+    @field_validator("tag_ids")
+    @classmethod
+    def validate_unique_tag_ids(
+        cls, value: Optional[List[UUID]]
+    ) -> Optional[List[UUID]]:
+        if value is not None and len(set(value)) != len(value):
+            raise ValueError("tag_ids must not contain duplicates")
+        return value
 
     @field_validator("amount")
     @classmethod
@@ -114,8 +125,7 @@ class TransactionResponse(TransactionBase):
     account_name: Optional[str] = None
     credit_card_name: Optional[str] = None
 
-    # Nested category structure (replaces category_name/parent_category_name)
-    category_tree: Optional[CategoryTreeNode] = None
+    tags: List[TagResponse] = Field(default_factory=list)
     vendor: Optional[VendorResponse] = None
     subscription: Optional[SubscriptionResponse] = None
 
@@ -157,6 +167,9 @@ class TransactionResponse(TransactionBase):
             if hasattr(data, "credit_card") and data.credit_card:
                 prepared_data["account_id"] = data.credit_card.account_id
 
+            prepared_data["tags"] = list(getattr(data, "tags", []) or [])
+            prepared_data["tag_ids"] = [tag.id for tag in prepared_data["tags"]]
+
             return prepared_data
 
         elif isinstance(data, dict):
@@ -183,6 +196,13 @@ class TransactionResponse(TransactionBase):
                 else:
                     data["credit_card_name"] = getattr(credit_card, "name", None)
 
+            tags = data.get("tags") or []
+            if data.get("tag_ids") is None:
+                data["tag_ids"] = [
+                    tag.get("id") if isinstance(tag, dict) else getattr(tag, "id", None)
+                    for tag in tags
+                ]
+
         return data
 
     class Config:
@@ -208,8 +228,9 @@ class TransactionFilters(BaseModel):
 
     # Content filters
     movement_type: Optional[List[MovementType]] = None  # "income", "expense", etc.
-    category: Optional[str] = None  # Partial match
-    category_id: Optional[List[UUID]] = None  # Exact match (multi-value)
+    tag_ids: Optional[List[UUID]] = None
+    exclude_tag_ids: Optional[List[UUID]] = None
+    tag_match: Literal["all", "any"] = "all"
     description_contains: Optional[str] = None  # Partial match
 
     # Amount filters
@@ -224,7 +245,7 @@ class TransactionFilters(BaseModel):
     subscription_id: Optional[UUID] = None
 
     # Sorting options
-    sort_by: Optional[str] = "date"  # date, amount, created_at, category
+    sort_by: Optional[str] = "date"  # date, amount, created_at
     sort_order: Optional[str] = "desc"  # desc (newest first) or asc
 
     # Pagination (embedded in filter for convenience)
@@ -273,8 +294,14 @@ class TransactionBulkIn(BaseModel):
     amount: float
     description: str
     movement_type: MovementType = MovementType.EXPENSE
-    category: str = ""  # Legacy field (deprecated, kept for backward compatibility)
-    category_id: Optional[UUID] = None  # New foreign key to user_categories
+    tag_ids: List[UUID] = Field(default_factory=list, max_length=MAX_TAGS_PER_ENTITY)
+
+    @field_validator("tag_ids")
+    @classmethod
+    def validate_unique_tag_ids(cls, value: List[UUID]) -> List[UUID]:
+        if len(set(value)) != len(value):
+            raise ValueError("tag_ids must not contain duplicates")
+        return value
 
     @field_validator("movement_type", mode="before")
     @classmethod

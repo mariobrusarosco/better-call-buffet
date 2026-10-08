@@ -1,5 +1,8 @@
 # User Categories Domain - Implementation Guide
 
+> **Legacy document:** This domain was removed by ADR 009. Use
+> `docs/domains/tags-and-aggregations.md` for the current implementation.
+
 **Feature:** User-Defined Category Management with 2-Level Hierarchy
 **Domain:** `app/domains/categories/`
 **Related:** Transaction categorization, expense analytics

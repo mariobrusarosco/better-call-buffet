@@ -3,15 +3,15 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    DECIMAL,
     Boolean,
     Column,
-    DateTime,
     Date,
+    DateTime,
     Enum,
     ForeignKey,
     Index,
     String,
-    DECIMAL,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -37,16 +37,19 @@ class Subscription(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
 
     # Core Subscription Data
-    name = Column(String, nullable=False)  # User's name for this sub (e.g. "Netflix Family")
+    name = Column(
+        String, nullable=False
+    )  # User's name for this sub (e.g. "Netflix Family")
     amount = Column(DECIMAL(10, 2), nullable=False)
-    billing_cycle = Column(Enum(BillingCycle), nullable=False, default=BillingCycle.monthly)
+    billing_cycle = Column(
+        Enum(BillingCycle), nullable=False, default=BillingCycle.monthly
+    )
     next_due_date = Column(Date, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
 
     # Foreign Keys
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     vendor_id = Column(UUID(as_uuid=True), ForeignKey("vendors.id"), nullable=True)
-    category_id = Column(UUID(as_uuid=True), ForeignKey("user_categories.id"), nullable=True)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -57,5 +60,7 @@ class Subscription(Base):
     # Relationships
     user = relationship("User", foreign_keys=[user_id])
     vendor = relationship("Vendor", foreign_keys=[vendor_id])
-    category = relationship("UserCategory", foreign_keys=[category_id])
+    tags = relationship(
+        "Tag", secondary="subscription_tags", back_populates="subscriptions"
+    )
     transactions = relationship("Transaction", back_populates="subscription")

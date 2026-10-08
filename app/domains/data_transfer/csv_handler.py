@@ -7,26 +7,22 @@ Handles the CSV schema and field mappings for all financial entities.
 
 import csv
 import io
+import json
 import logging
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from datetime import datetime, date
-from typing import List, Dict, Any, Optional, Set, Tuple
 from enum import Enum
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+from app.domains.tags.constants import MAX_TAGS_PER_ENTITY
+from app.domains.transactions.constants import MovementType
 
 logger = logging.getLogger(__name__)
 
 
-class MovementType(str, Enum):
-    """Transaction movement types"""
-    INCOME = "INCOME"
-    EXPENSE = "EXPENSE"
-    TRANSFER = "TRANSFER"
-    INVESTMENT = "INVESTMENT"
-    DEBIT = "DEBIT"
-
-
 class AccountType(str, Enum):
     """Account types"""
+
     SAVINGS = "savings"
     CREDIT = "credit"
     CASH = "cash"
@@ -36,6 +32,7 @@ class AccountType(str, Enum):
 
 class BillingCycle(str, Enum):
     """Subscription billing cycles"""
+
     WEEKLY = "weekly"
     MONTHLY = "monthly"
     QUARTERLY = "quarterly"
@@ -51,44 +48,35 @@ CSV_HEADERS = [
     "transaction_movement_type",
     "transaction_is_paid",
     "transaction_ignored",
-
     # Account columns
     "account_name",
     "account_type",
     "account_currency",
     "account_description",
-
     # Credit Card columns
     "credit_card_name",
     "credit_card_brand",
     "credit_card_last_four",
     "credit_card_limit",
     "credit_card_due_date",
-
-    # Category columns
-    "category_name",
-    "category_parent",
-
+    # Tags are encoded as a JSON array inside the CSV cell.
+    "tag_names",
     # Vendor columns
     "vendor_name",
     "vendor_website",
-
     # Broker columns
     "broker_name",
     "broker_description",
-
     # Subscription columns
     "subscription_name",
     "subscription_amount",
     "subscription_billing_cycle",
     "subscription_next_due_date",
-
     # Installment columns
     "installment_plan_name",
     "installment_number",
     "installment_total_amount",
     "installment_count",
-
     # Transfer columns
     "from_account_name",
     "to_account_name",
@@ -110,6 +98,31 @@ class CSVHandler:
         self.headers = CSV_HEADERS
         self.required_columns = REQUIRED_COLUMNS
 
+    @staticmethod
+    def parse_tag_names(value: Any) -> List[str]:
+        if not value:
+            return []
+        if isinstance(value, list):
+            parsed = value
+        else:
+            try:
+                parsed = json.loads(str(value))
+            except json.JSONDecodeError as exc:
+                raise ValueError("tag_names must be a JSON array of strings") from exc
+        if not isinstance(parsed, list) or not all(
+            isinstance(item, str) for item in parsed
+        ):
+            raise ValueError("tag_names must be a JSON array of strings")
+
+        names = [item.strip() for item in parsed if item.strip()]
+        if len(names) > MAX_TAGS_PER_ENTITY:
+            raise ValueError(
+                f"tag_names cannot contain more than {MAX_TAGS_PER_ENTITY} tags"
+            )
+        if len({name.casefold() for name in names}) != len(names):
+            raise ValueError("tag_names must not contain duplicates")
+        return names
+
     def generate_csv(self, data: List[Dict[str, Any]]) -> str:
         """
         Generate CSV content from a list of data rows.
@@ -124,7 +137,7 @@ class CSVHandler:
         writer = csv.DictWriter(
             output,
             fieldnames=self.headers,
-            extrasaction='ignore'  # Ignore extra fields not in headers
+            extrasaction="ignore",  # Ignore extra fields not in headers
         )
 
         writer.writeheader()
@@ -159,7 +172,9 @@ class CSVHandler:
                     errors.extend(header_errors)
                     # Continue parsing even with header warnings
 
-            for row_num, row in enumerate(reader, start=2):  # Start at 2 (header is row 1)
+            for row_num, row in enumerate(
+                reader, start=2
+            ):  # Start at 2 (header is row 1)
                 try:
                     validated_row = self._validate_and_parse_row(row, row_num)
                     if validated_row:
@@ -200,7 +215,7 @@ class CSVHandler:
             elif isinstance(value, Decimal):
                 sanitized[key] = str(value)
             # Prevent CSV injection
-            elif isinstance(value, str) and value and value[0] in ['=', '+', '-', '@']:
+            elif isinstance(value, str) and value and value[0] in ["=", "+", "-", "@"]:
                 sanitized[key] = "'" + value
             else:
                 sanitized[key] = str(value)
@@ -228,14 +243,14 @@ class CSVHandler:
         known = set(self.headers)
         unknown = set(headers) - known
         if unknown:
-            logger.warning(f"Unknown columns will be ignored: {', '.join(sorted(unknown))}")
+            logger.warning(
+                f"Unknown columns will be ignored: {', '.join(sorted(unknown))}"
+            )
 
         return errors
 
     def _validate_and_parse_row(
-        self,
-        row: Dict[str, str],
-        row_num: int
+        self, row: Dict[str, str], row_num: int
     ) -> Optional[Dict[str, Any]]:
         """
         Validate and parse a CSV row.
@@ -263,13 +278,17 @@ class CSVHandler:
 
         # Parse transaction amount
         amount_str = row.get("transaction_amount", "").strip()
-        parsed["transaction_amount"] = self._parse_decimal(amount_str, "transaction_amount")
+        parsed["transaction_amount"] = self._parse_decimal(
+            amount_str, "transaction_amount"
+        )
 
         # Parse transaction description
-        parsed["transaction_description"] = row.get("transaction_description", "").strip()
+        parsed["transaction_description"] = row.get(
+            "transaction_description", ""
+        ).strip()
 
         # Parse movement type
-        movement_type = row.get("transaction_movement_type", "").strip().upper()
+        movement_type = row.get("transaction_movement_type", "").strip().lower()
         if movement_type not in [mt.value for mt in MovementType]:
             raise ValueError(
                 f"Invalid movement type: {movement_type}. "
@@ -295,36 +314,46 @@ class CSVHandler:
                         try:
                             parsed[field] = self._parse_decimal(value, field)
                         except ValueError:
-                            logger.warning(f"Row {row_num}: Invalid decimal for {field}: {value}")
+                            logger.warning(
+                                f"Row {row_num}: Invalid decimal for {field}: {value}"
+                            )
                     elif "date" in field and field != "transaction_date":
                         try:
                             parsed[field] = self._parse_date(value)
                         except ValueError:
-                            logger.warning(f"Row {row_num}: Invalid date for {field}: {value}")
+                            logger.warning(
+                                f"Row {row_num}: Invalid date for {field}: {value}"
+                            )
                     elif field == "account_type":
                         if value.lower() in [at.value for at in AccountType]:
                             parsed[field] = value.lower()
                         else:
-                            logger.warning(f"Row {row_num}: Invalid account type: {value}")
+                            logger.warning(
+                                f"Row {row_num}: Invalid account type: {value}"
+                            )
                     elif field == "subscription_billing_cycle":
                         if value.lower() in [bc.value for bc in BillingCycle]:
                             parsed[field] = value.lower()
                         else:
-                            logger.warning(f"Row {row_num}: Invalid billing cycle: {value}")
+                            logger.warning(
+                                f"Row {row_num}: Invalid billing cycle: {value}"
+                            )
                     elif field == "credit_card_due_date":
                         try:
                             due_date = int(value)
                             if 1 <= due_date <= 31:
                                 parsed[field] = due_date
                             else:
-                                logger.warning(f"Row {row_num}: Due date must be 1-31: {value}")
+                                logger.warning(
+                                    f"Row {row_num}: Due date must be 1-31: {value}"
+                                )
                         except ValueError:
                             logger.warning(f"Row {row_num}: Invalid due date: {value}")
                     else:
                         parsed[field] = value
 
         # Validate transfer consistency (only if using from/to accounts)
-        if parsed.get("transaction_movement_type") == "TRANSFER":
+        if parsed.get("transaction_movement_type") == MovementType.TRANSFER.value:
             # If using from/to pattern, both must be present
             has_from = bool(parsed.get("from_account_name"))
             has_to = bool(parsed.get("to_account_name"))
@@ -360,10 +389,10 @@ class CSVHandler:
 
         # Try different date formats
         formats = [
-            "%Y-%m-%d",      # ISO format
-            "%m/%d/%Y",      # US format
-            "%d/%m/%Y",      # EU format
-            "%Y/%m/%d",      # Alternative
+            "%Y-%m-%d",  # ISO format
+            "%m/%d/%Y",  # US format
+            "%d/%m/%Y",  # EU format
+            "%Y/%m/%d",  # Alternative
             "%Y-%m-%dT%H:%M:%S",  # ISO datetime
             "%Y-%m-%dT%H:%M:%S.%f",  # ISO datetime with microseconds
         ]
@@ -426,8 +455,7 @@ class CSVHandler:
         return value_lower in ["true", "yes", "1", "t", "y"]
 
     def extract_unique_entities(
-        self,
-        rows: List[Dict[str, Any]]
+        self, rows: List[Dict[str, Any]]
     ) -> Dict[str, Set[Any]]:
         """
         Extract unique entities from parsed CSV rows.
@@ -442,7 +470,7 @@ class CSVHandler:
             "brokers": set(),
             "accounts": set(),  # (name, broker_name, type, currency)
             "credit_cards": set(),  # (name, account_name, broker_name)
-            "categories": set(),  # (name, parent_name)
+            "tags": set(),
             "vendors": set(),
             "subscriptions": set(),  # (name, vendor_name, amount, billing_cycle, next_due_date)
             "installment_plans": set(),  # (name, total_amount, count)
@@ -455,45 +483,39 @@ class CSVHandler:
 
             # Extract accounts
             if account_name := row.get("account_name"):
-                entities["accounts"].add((
-                    account_name,
-                    row.get("broker_name", ""),
-                    row.get("account_type", "other"),
-                    row.get("account_currency", "USD")
-                ))
+                entities["accounts"].add(
+                    (
+                        account_name,
+                        row.get("broker_name", ""),
+                        row.get("account_type", "other"),
+                        row.get("account_currency", "USD"),
+                    )
+                )
 
             # Extract from/to accounts for transfers
             if from_account := row.get("from_account_name"):
-                entities["accounts"].add((
-                    from_account,
-                    row.get("broker_name", ""),
-                    "other",  # Default type for transfer accounts
-                    "USD"
-                ))
+                entities["accounts"].add(
+                    (
+                        from_account,
+                        row.get("broker_name", ""),
+                        "other",  # Default type for transfer accounts
+                        "USD",
+                    )
+                )
 
             if to_account := row.get("to_account_name"):
-                entities["accounts"].add((
-                    to_account,
-                    row.get("broker_name", ""),
-                    "other",
-                    "USD"
-                ))
+                entities["accounts"].add(
+                    (to_account, row.get("broker_name", ""), "other", "USD")
+                )
 
             # Extract credit cards
             if card_name := row.get("credit_card_name"):
-                entities["credit_cards"].add((
-                    card_name,
-                    row.get("account_name", ""),
-                    row.get("broker_name", "")
-                ))
+                entities["credit_cards"].add(
+                    (card_name, row.get("account_name", ""), row.get("broker_name", ""))
+                )
 
-            # Extract categories (handle hierarchy)
-            if parent_cat := row.get("category_parent"):
-                entities["categories"].add((parent_cat, None))
-
-            if cat_name := row.get("category_name"):
-                parent = row.get("category_parent")
-                entities["categories"].add((cat_name, parent))
+            for tag_name in self.parse_tag_names(row.get("tag_names")):
+                entities["tags"].add(tag_name)
 
             # Extract vendors
             if vendor_name := row.get("vendor_name"):
@@ -504,20 +526,28 @@ class CSVHandler:
                 sub_amount = row.get("subscription_amount", "0")
                 sub_cycle = row.get("subscription_billing_cycle", "monthly")
                 sub_next_due = row.get("subscription_next_due_date")
-                entities["subscriptions"].add((
-                    sub_name,
-                    row.get("vendor_name", ""),
-                    str(sub_amount) if sub_amount else "0",
-                    str(sub_cycle) if sub_cycle else "monthly",
-                    sub_next_due.isoformat() if isinstance(sub_next_due, date) else str(sub_next_due) if sub_next_due else None
-                ))
+                entities["subscriptions"].add(
+                    (
+                        sub_name,
+                        row.get("vendor_name", ""),
+                        str(sub_amount) if sub_amount else "0",
+                        str(sub_cycle) if sub_cycle else "monthly",
+                        (
+                            sub_next_due.isoformat()
+                            if isinstance(sub_next_due, date)
+                            else str(sub_next_due) if sub_next_due else None
+                        ),
+                    )
+                )
 
             # Extract installment plans
             if plan_name := row.get("installment_plan_name"):
-                entities["installment_plans"].add((
-                    plan_name,
-                    row.get("installment_total_amount", "0"),
-                    row.get("installment_count", "1")
-                ))
+                entities["installment_plans"].add(
+                    (
+                        plan_name,
+                        row.get("installment_total_amount", "0"),
+                        row.get("installment_count", "1"),
+                    )
+                )
 
         return entities

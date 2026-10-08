@@ -61,22 +61,22 @@ def test_update_transaction_leaves_omitted_fields_unchanged():
 
 
 def test_bulk_update_transactions_flushes_all_rows_without_committing():
-    first = SimpleNamespace(id=uuid4(), category_id=None, updated_at=None)
-    second = SimpleNamespace(id=uuid4(), category_id=None, updated_at=None)
+    first = SimpleNamespace(id=uuid4(), tags=[], updated_at=None)
+    second = SimpleNamespace(id=uuid4(), tags=[], updated_at=None)
     db = MagicMock()
     repository = TransactionRepository(db)
-    category_id = uuid4()
+    tags = [SimpleNamespace(id=uuid4())]
     repository.get_by_ids = MagicMock(return_value=[first, second])
 
     result = repository.bulk_update_transactions(
         transactions=[first, second],
         user_id=uuid4(),
-        update_data={"category_id": category_id},
+        update_data={"tags": tags},
     )
 
     assert result == [first, second]
-    assert first.category_id == category_id
-    assert second.category_id == category_id
+    assert first.tags == tags
+    assert second.tags == tags
     assert first.updated_at == second.updated_at
     db.flush.assert_called_once_with()
     db.commit.assert_not_called()

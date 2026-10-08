@@ -5,29 +5,30 @@ Orchestrates export and import operations, managing business logic
 and coordinating between repository, CSV handler, and other components.
 """
 
+import json
 import logging
-import tempfile
 import os
-from typing import List, Dict, Any, Optional, Tuple
-from uuid import UUID, uuid4
+import tempfile
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
-from app.domains.data_transfer.repository import DataTransferRepository
 from app.domains.data_transfer.csv_handler import CSVHandler
+from app.domains.data_transfer.repository import DataTransferRepository
 from app.domains.data_transfer.schemas import (
+    EntityCreationStats,
     ExportRequest,
     ExportResponse,
     ExportStatus,
     ImportRequest,
     ImportResponse,
-    ImportStatus,
     ImportStatistics,
-    EntityCreationStats,
-    ImportValidationResult
+    ImportStatus,
+    ImportValidationResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,11 +50,7 @@ class DataTransferService:
 
     # ==================== EXPORT METHODS ====================
 
-    def export_user_data(
-        self,
-        user_id: UUID,
-        request: ExportRequest
-    ) -> ExportResponse:
+    def export_user_data(self, user_id: UUID, request: ExportRequest) -> ExportResponse:
         """
         Export user's financial data to CSV.
 
@@ -75,7 +72,7 @@ class DataTransferService:
                 user_id=user_id,
                 date_from=request.date_from,
                 date_to=request.date_to,
-                include_deleted=request.include_deleted
+                include_deleted=request.include_deleted,
             )
 
             # Transform data to CSV format
@@ -103,7 +100,7 @@ class DataTransferService:
                 row_count=row_count,
                 download_url=f"/api/v1/data_transfer/export/{export_id}/download",
                 created_at=start_time,
-                completed_at=datetime.utcnow()
+                completed_at=datetime.utcnow(),
             )
 
         except Exception as e:
@@ -113,10 +110,12 @@ class DataTransferService:
                 status=ExportStatus.FAILED,
                 created_at=start_time,
                 completed_at=datetime.utcnow(),
-                error_message=str(e)
+                error_message=str(e),
             )
 
-    def get_export_file(self, export_id: str, user_id: UUID) -> Optional[Tuple[str, str]]:
+    def get_export_file(
+        self, export_id: str, user_id: UUID
+    ) -> Optional[Tuple[str, str]]:
         """
         Get exported file content.
 
@@ -141,7 +140,9 @@ class DataTransferService:
             logger.error(f"Error reading export file {export_id}: {e}")
             return None
 
-    def _transform_data_for_export(self, data: Dict[str, List[Any]]) -> List[Dict[str, Any]]:
+    def _transform_data_for_export(
+        self, data: Dict[str, List[Any]]
+    ) -> List[Dict[str, Any]]:
         """
         Transform database entities to CSV rows.
 
@@ -157,7 +158,6 @@ class DataTransferService:
         broker_map = {b.id: b.name for b in data.get("brokers", [])}
         account_map = {a.id: a for a in data.get("accounts", [])}
         card_map = {c.id: c for c in data.get("credit_cards", [])}
-        category_map = {c.id: c for c in data.get("categories", [])}
         vendor_map = {v.id: v.name for v in data.get("vendors", [])}
         subscription_map = {s.id: s for s in data.get("subscriptions", [])}
 
@@ -167,7 +167,7 @@ class DataTransferService:
             for installment in plan.installments:
                 installment_map[installment.id] = {
                     "plan": plan,
-                    "installment": installment
+                    "installment": installment,
                 }
 
         # Process transactions
@@ -203,41 +203,54 @@ class DataTransferService:
                 row["credit_card_due_date"] = card.due_date
 
             # Add transfer information
-            if transaction.from_account_id and transaction.from_account_id in account_map:
+            if (
+                transaction.from_account_id
+                and transaction.from_account_id in account_map
+            ):
                 row["from_account_name"] = account_map[transaction.from_account_id].name
             if transaction.to_account_id and transaction.to_account_id in account_map:
                 row["to_account_name"] = account_map[transaction.to_account_id].name
 
-            # Add category information
-            if transaction.category_id and transaction.category_id in category_map:
-                category = category_map[transaction.category_id]
-                row["category_name"] = category.name
-                # Add parent category if exists
-                if category.parent_id and category.parent_id in category_map:
-                    row["category_parent"] = category_map[category.parent_id].name
+            row["tag_names"] = json.dumps(
+                [tag.name for tag in transaction.tags], ensure_ascii=False
+            )
 
             # Add vendor information
             if transaction.vendor_id:
                 row["vendor_name"] = vendor_map.get(transaction.vendor_id, "")
                 # Get vendor website if available
                 vendor = next(
-                    (v for v in data.get("vendors", []) if v.id == transaction.vendor_id),
-                    None
+                    (
+                        v
+                        for v in data.get("vendors", [])
+                        if v.id == transaction.vendor_id
+                    ),
+                    None,
                 )
                 if vendor:
                     row["vendor_website"] = vendor.website
 
             # Add subscription information
-            if transaction.subscription_id and transaction.subscription_id in subscription_map:
+            if (
+                transaction.subscription_id
+                and transaction.subscription_id in subscription_map
+            ):
                 subscription = subscription_map[transaction.subscription_id]
                 row["subscription_name"] = subscription.name
                 row["subscription_amount"] = subscription.amount
                 # Extract enum value (not the enum object itself)
-                row["subscription_billing_cycle"] = subscription.billing_cycle.value if hasattr(subscription.billing_cycle, 'value') else subscription.billing_cycle
+                row["subscription_billing_cycle"] = (
+                    subscription.billing_cycle.value
+                    if hasattr(subscription.billing_cycle, "value")
+                    else subscription.billing_cycle
+                )
                 row["subscription_next_due_date"] = subscription.next_due_date
 
             # Add installment information
-            if transaction.installment_id and transaction.installment_id in installment_map:
+            if (
+                transaction.installment_id
+                and transaction.installment_id in installment_map
+            ):
                 inst_data = installment_map[transaction.installment_id]
                 plan = inst_data["plan"]
                 installment = inst_data["installment"]
@@ -252,11 +265,7 @@ class DataTransferService:
 
     # ==================== IMPORT METHODS ====================
 
-    def validate_csv(
-        self,
-        user_id: UUID,
-        csv_content: str
-    ) -> ImportValidationResult:
+    def validate_csv(self, user_id: UUID, csv_content: str) -> ImportValidationResult:
         """
         Validate CSV content without importing.
 
@@ -273,9 +282,7 @@ class DataTransferService:
 
             if parse_errors:
                 return ImportValidationResult(
-                    valid=False,
-                    row_count=len(rows),
-                    errors=parse_errors
+                    valid=False, row_count=len(rows), errors=parse_errors
                 )
 
             # Extract unique entities
@@ -286,10 +293,10 @@ class DataTransferService:
                 "brokers": len(entities.get("brokers", set())),
                 "accounts": len(entities.get("accounts", set())),
                 "credit_cards": len(entities.get("credit_cards", set())),
-                "categories": len(entities.get("categories", set())),
+                "tags": len(entities.get("tags", set())),
                 "vendors": len(entities.get("vendors", set())),
                 "subscriptions": len(entities.get("subscriptions", set())),
-                "transactions": len(rows)
+                "transactions": len(rows),
             }
 
             # Check for potential issues
@@ -304,22 +311,15 @@ class DataTransferService:
                 row_count=len(rows),
                 estimated_entities=estimated,
                 warnings=warnings,
-                errors=[]
+                errors=[],
             )
 
         except Exception as e:
             logger.error(f"CSV validation failed: {e}")
-            return ImportValidationResult(
-                valid=False,
-                row_count=0,
-                errors=[str(e)]
-            )
+            return ImportValidationResult(valid=False, row_count=0, errors=[str(e)])
 
     def import_user_data(
-        self,
-        user_id: UUID,
-        csv_content: str,
-        request: ImportRequest
+        self, user_id: UUID, csv_content: str, request: ImportRequest
     ) -> ImportResponse:
         """
         Import financial data from CSV.
@@ -343,11 +343,15 @@ class DataTransferService:
                 validation = self.validate_csv(user_id, csv_content)
                 return ImportResponse(
                     import_id=import_id,
-                    status=ImportStatus.COMPLETED if validation.valid else ImportStatus.FAILED,
+                    status=(
+                        ImportStatus.COMPLETED
+                        if validation.valid
+                        else ImportStatus.FAILED
+                    ),
                     created_at=start_time,
                     completed_at=datetime.utcnow(),
                     errors=validation.errors,
-                    warnings=validation.warnings
+                    warnings=validation.warnings,
                 )
 
             # Parse CSV
@@ -359,7 +363,7 @@ class DataTransferService:
                     status=ImportStatus.FAILED,
                     created_at=start_time,
                     completed_at=datetime.utcnow(),
-                    errors=parse_errors
+                    errors=parse_errors,
                 )
 
             # Extract unique entities
@@ -370,10 +374,7 @@ class DataTransferService:
 
             # Import transactions
             import_stats = self._import_transactions(
-                user_id,
-                rows,
-                entity_map,
-                request.skip_errors
+                user_id, rows, entity_map, request.skip_errors
             )
 
             # Commit all changes
@@ -391,7 +392,7 @@ class DataTransferService:
                 created_at=start_time,
                 completed_at=datetime.utcnow(),
                 errors=parse_errors if request.skip_errors else [],
-                warnings=[]
+                warnings=[],
             )
 
         except Exception as e:
@@ -403,13 +404,11 @@ class DataTransferService:
                 status=ImportStatus.FAILED,
                 created_at=start_time,
                 completed_at=datetime.utcnow(),
-                errors=[str(e)]
+                errors=[str(e)],
             )
 
     def _create_entities(
-        self,
-        user_id: UUID,
-        entities: Dict[str, Any]
+        self, user_id: UUID, entities: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Create all entities in dependency order.
@@ -425,11 +424,11 @@ class DataTransferService:
             "brokers": {},
             "accounts": {},
             "credit_cards": {},
-            "categories": {},
+            "tags": {},
             "vendors": {},
             "subscriptions": {},
             "installment_plans": {},
-            "stats": EntityCreationStats()
+            "stats": EntityCreationStats(),
         }
 
         # Create brokers
@@ -440,20 +439,20 @@ class DataTransferService:
                 entity_map["stats"].brokers += 1
 
         # Create accounts
-        for account_name, broker_name, account_type, currency in entities.get("accounts", set()):
+        for account_name, broker_name, account_type, currency in entities.get(
+            "accounts", set()
+        ):
             broker_id = entity_map["brokers"].get(broker_name)
             if not broker_id:
                 # Create broker if not found
-                broker = self.repository.find_or_create_broker(user_id, broker_name or "Unknown")
+                broker = self.repository.find_or_create_broker(
+                    user_id, broker_name or "Unknown"
+                )
                 broker_id = broker.id
                 entity_map["brokers"][broker_name or "Unknown"] = broker_id
 
             account = self.repository.find_or_create_account(
-                user_id,
-                broker_id,
-                account_name,
-                account_type,
-                currency
+                user_id, broker_id, account_name, account_type, currency
             )
             entity_map["accounts"][(account_name, broker_name)] = account.id
             if self.db.new and account in self.db.new:
@@ -470,39 +469,17 @@ class DataTransferService:
 
             broker_id = entity_map["brokers"].get(broker_name)
             card = self.repository.find_or_create_credit_card(
-                user_id,
-                broker_id,
-                account_id,
-                card_name
+                user_id, broker_id, account_id, card_name
             )
             entity_map["credit_cards"][card_name] = card.id
             if self.db.new and card in self.db.new:
                 entity_map["stats"].credit_cards += 1
 
-        # Create categories (parents first)
-        for cat_name, parent_name in entities.get("categories", set()):
-            if parent_name is None:  # Parent category
-                category = self.repository.find_or_create_category(
-                    user_id,
-                    cat_name,
-                    None
-                )
-                entity_map["categories"][cat_name] = category.id
-                if self.db.new and category in self.db.new:
-                    entity_map["stats"].categories += 1
-
-        # Create child categories
-        for cat_name, parent_name in entities.get("categories", set()):
-            if parent_name is not None and cat_name not in entity_map["categories"]:
-                parent_id = entity_map["categories"].get(parent_name)
-                category = self.repository.find_or_create_category(
-                    user_id,
-                    cat_name,
-                    parent_id
-                )
-                entity_map["categories"][cat_name] = category.id
-                if self.db.new and category in self.db.new:
-                    entity_map["stats"].categories += 1
+        for tag_name in entities.get("tags", set()):
+            tag = self.repository.find_or_create_tag(user_id, tag_name)
+            entity_map["tags"][tag_name] = tag
+            if self.db.new and tag in self.db.new:
+                entity_map["stats"].tags += 1
 
         # Create vendors
         for vendor_name in entities.get("vendors", set()):
@@ -538,7 +515,9 @@ class DataTransferService:
                     else:
                         sub_next_due = sub_next_due_str
                 except (ValueError, AttributeError) as e:
-                    logger.warning(f"Invalid subscription next_due_date for '{sub_name}': {e}")
+                    logger.warning(
+                        f"Invalid subscription next_due_date for '{sub_name}': {e}"
+                    )
 
             subscription = self.repository.find_or_create_subscription(
                 user_id,
@@ -546,7 +525,7 @@ class DataTransferService:
                 vendor_id=vendor_id,
                 amount=sub_amount,
                 billing_cycle=sub_cycle,
-                next_due_date=sub_next_due
+                next_due_date=sub_next_due,
             )
             entity_map["subscriptions"][sub_name] = subscription.id
             if self.db.new and subscription in self.db.new:
@@ -559,7 +538,7 @@ class DataTransferService:
         user_id: UUID,
         rows: List[Dict[str, Any]],
         entity_map: Dict[str, Any],
-        skip_errors: bool
+        skip_errors: bool,
     ) -> ImportStatistics:
         """
         Import transaction rows.
@@ -574,10 +553,7 @@ class DataTransferService:
             Import statistics
         """
         stats = ImportStatistics(
-            total_rows=len(rows),
-            processed_rows=0,
-            skipped_rows=0,
-            error_rows=0
+            total_rows=len(rows), processed_rows=0, skipped_rows=0, error_rows=0
         )
 
         for row_num, row in enumerate(rows, start=1):
@@ -613,10 +589,13 @@ class DataTransferService:
                     to_key = (to_account, broker_name)
                     to_account_id = entity_map["accounts"].get(to_key)
 
-                # Resolve category
-                category_id = None
-                if cat_name := row.get("category_name"):
-                    category_id = entity_map["categories"].get(cat_name)
+                tags = [
+                    entity_map["tags"][tag_name]
+                    for tag_name in self.csv_handler.parse_tag_names(
+                        row.get("tag_names")
+                    )
+                    if tag_name in entity_map["tags"]
+                ]
 
                 # Resolve vendor
                 vendor_id = None
@@ -640,11 +619,11 @@ class DataTransferService:
                     credit_card_id=credit_card_id,
                     from_account_id=from_account_id,
                     to_account_id=to_account_id,
-                    category_id=category_id,
+                    tags=tags,
                     vendor_id=vendor_id,
                     subscription_id=subscription_id,
                     is_paid=row.get("transaction_is_paid", True),
-                    ignored=row.get("transaction_ignored", False)
+                    ignored=row.get("transaction_ignored", False),
                 )
 
                 if transaction:

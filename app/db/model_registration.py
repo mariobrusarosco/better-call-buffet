@@ -15,18 +15,29 @@ from app.db.connection_and_session import Base
 
 # Import all domain models for Alembic auto-discovery
 from app.domains.accounts.models import Account
+from app.domains.aggregations.models import (
+    AggregationNode,
+    AggregationNodeCondition,
+    AggregationView,
+)
 from app.domains.balance_points.models import BalancePoint
 from app.domains.brokers.models import Broker
 from app.domains.credit_cards.models import CreditCard
+from app.domains.installments.models import Installment, InstallmentPlan
 from app.domains.invoices.models import Invoice
 from app.domains.refresh_tokens.models import RefreshToken
 from app.domains.statements.models import Statement
+from app.domains.subscriptions.models import Subscription
+from app.domains.tags.models import (
+    Tag,
+    TagDimension,
+    installment_plan_tags,
+    subscription_tags,
+    transaction_tags,
+)
 from app.domains.transactions.models import Transaction
 from app.domains.users.models import User
-from app.domains.categories.models import UserCategory
 from app.domains.vendors.models import Vendor
-from app.domains.subscriptions.models import Subscription
-from app.domains.installments.models import Installment, InstallmentPlan
 
 
 # Optional: Validate all models are properly registered
@@ -47,7 +58,14 @@ def validate_model_registration():
         "transactions",
         "balance_points",
         "refresh_tokens",
-        "user_categories",
+        "tag_dimensions",
+        "tags",
+        "transaction_tags",
+        "subscription_tags",
+        "installment_plan_tags",
+        "aggregation_views",
+        "aggregation_nodes",
+        "aggregation_node_conditions",
         "vendors",
         "subscriptions",
         "installment_plans",

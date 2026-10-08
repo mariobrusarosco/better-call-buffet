@@ -22,7 +22,7 @@ Analise o extrato fornecido e extraia as seguintes informações:
     ** "transfer" - para transferências entre contas (entrada ou saída)
     ** "investment" - para aplicações e resgates de investimentos
     ** "other" - para outros tipos de movimentação não categorizados
-  * categoria: "category" (deixe vazio se não houver categoria explícita)
+  * etiquetas: "tags" (lista vazia se não houver etiquetas explícitas)
 
 **REGRAS IMPORTANTES:**
 - Todos os valores monetários devem ser strings no formato internacional (use ponto como separador decimal, SEM separador de milhares)
@@ -33,7 +33,7 @@ Analise o extrato fornecido e extraia as seguintes informações:
   * R$ 0,01 → "0.01"
 - Identifique datas de format consistente, de acordo com a linguagem: pt. Faça uma conversão para o formato ISO.
 - Ignore textos promocionais, avisos legais e publicidade
-- Se uma categoria não estiver explícita, deixe vazio
+- Se etiquetas não estiverem explícitas, retorne uma lista vazia
 """
     else:
         return """
@@ -58,7 +58,7 @@ Analyze the provided statement and extract the following information:
     ** "transfer" - for transfers between accounts (inflow or outflow)
     ** "investment" - for investment applications and redemptions
     ** "other" - for other types of movements not categorized
-  * category: transaction category (leave empty if no explicit category)
+  * tags: explicit atomic transaction facts (empty list if none are explicit)
 
 **IMPORTANT RULES:**
 - All monetary values must be strings in international format (use period as decimal separator, NO thousands separator)
@@ -69,5 +69,5 @@ Analyze the provided statement and extract the following information:
   * $0.01 → "0.01"
 - Dates in consistent format. After identify the date, convert it to ISO format.
 - Ignore promotional text, legal notices, and advertisements
-- If a category is not explicit, leave empty
+- If tags are not explicit, return an empty list
 """

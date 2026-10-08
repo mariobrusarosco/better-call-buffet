@@ -6,27 +6,28 @@ Provides methods to fetch data for export and create entities during import.
 """
 
 import logging
-from typing import List, Optional, Dict, Any, Tuple
-from uuid import UUID, uuid4
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any, Dict, List, Optional, Tuple
+from uuid import UUID, uuid4
 
-from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import and_, or_
+from sqlalchemy.orm import Session, joinedload, selectinload
+
+from app.domains.accounts.models import Account
+from app.domains.balance_points.models import BalancePoint
+from app.domains.brokers.models import Broker
+from app.domains.credit_cards.models import CreditCard
+from app.domains.installments.models import Installment, InstallmentPlan
+from app.domains.invoices.models import Invoice
+from app.domains.statements.models import Statement
+from app.domains.subscriptions.models import Subscription
+from app.domains.tags.models import Tag
+from app.domains.transactions.models import Transaction
 
 # Import all required models
 from app.domains.users.models import User
-from app.domains.brokers.models import Broker
-from app.domains.accounts.models import Account
-from app.domains.credit_cards.models import CreditCard
-from app.domains.transactions.models import Transaction
-from app.domains.categories.models import UserCategory
 from app.domains.vendors.models import Vendor
-from app.domains.subscriptions.models import Subscription
-from app.domains.installments.models import InstallmentPlan, Installment
-from app.domains.balance_points.models import BalancePoint
-from app.domains.invoices.models import Invoice
-from app.domains.statements.models import Statement
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class DataTransferRepository:
         user_id: UUID,
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
-        include_deleted: bool = False
+        include_deleted: bool = False,
     ) -> Dict[str, List[Any]]:
         """
         Fetch all financial data for a user.
@@ -81,26 +82,25 @@ class DataTransferRepository:
             card_query = card_query.filter(CreditCard.is_deleted == False)
         data["credit_cards"] = card_query.all()
 
-        # Fetch categories (with hierarchy)
-        category_query = self.db.query(UserCategory).filter(
-            UserCategory.user_id == user_id
-        )
+        tag_query = self.db.query(Tag).filter(Tag.user_id == user_id)
         if not include_deleted:
-            category_query = category_query.filter(UserCategory.is_active == True)
-        data["categories"] = category_query.all()
+            tag_query = tag_query.filter(Tag.is_active == True)
+        data["tags"] = tag_query.all()
 
         # Fetch vendors
-        data["vendors"] = self.db.query(Vendor).filter(
-            Vendor.user_id == user_id
-        ).all()
+        data["vendors"] = self.db.query(Vendor).filter(Vendor.user_id == user_id).all()
 
         # Fetch subscriptions
         subscription_query = self.db.query(Subscription).filter(
             Subscription.user_id == user_id
         )
         if not include_deleted:
-            subscription_query = subscription_query.filter(Subscription.is_active == True)
-        data["subscriptions"] = subscription_query.all()
+            subscription_query = subscription_query.filter(
+                Subscription.is_active == True
+            )
+        data["subscriptions"] = subscription_query.options(
+            selectinload(Subscription.tags)
+        ).all()
 
         # Fetch installment plans
         installment_plan_query = self.db.query(InstallmentPlan).filter(
@@ -111,7 +111,8 @@ class DataTransferRepository:
                 InstallmentPlan.status != "cancelled"
             )
         data["installment_plans"] = installment_plan_query.options(
-            selectinload(InstallmentPlan.installments)
+            selectinload(InstallmentPlan.installments),
+            selectinload(InstallmentPlan.tags),
         ).all()
 
         # Fetch transactions with date filtering
@@ -124,16 +125,18 @@ class DataTransferRepository:
         if date_to:
             transaction_query = transaction_query.filter(Transaction.date <= date_to)
         if not include_deleted:
-            transaction_query = transaction_query.filter(Transaction.is_deleted == False)
+            transaction_query = transaction_query.filter(
+                Transaction.is_deleted == False
+            )
 
         # Load with relationships for efficient access
         # Note: account relationship is not defined in model, will fetch separately if needed
         transaction_query = transaction_query.options(
             joinedload(Transaction.credit_card),
-            joinedload(Transaction.category_tree),
+            selectinload(Transaction.tags),
             joinedload(Transaction.vendor),
             joinedload(Transaction.subscription),
-            joinedload(Transaction.installment)
+            joinedload(Transaction.installment),
         )
 
         data["transactions"] = transaction_query.all()
@@ -151,42 +154,31 @@ class DataTransferRepository:
             Dictionary with entity types and their counts
         """
         return {
-            "brokers": self.db.query(Broker).filter(
-                Broker.user_id == user_id,
-                Broker.is_active == True
-            ).count(),
-            "accounts": self.db.query(Account).filter(
-                Account.user_id == user_id,
-                Account.is_active == True
-            ).count(),
-            "credit_cards": self.db.query(CreditCard).filter(
-                CreditCard.user_id == user_id,
-                CreditCard.is_deleted == False
-            ).count(),
-            "categories": self.db.query(UserCategory).filter(
-                UserCategory.user_id == user_id,
-                UserCategory.is_active == True
-            ).count(),
-            "vendors": self.db.query(Vendor).filter(
-                Vendor.user_id == user_id
-            ).count(),
-            "subscriptions": self.db.query(Subscription).filter(
-                Subscription.user_id == user_id,
-                Subscription.is_active == True
-            ).count(),
-            "transactions": self.db.query(Transaction).filter(
-                Transaction.user_id == user_id,
-                Transaction.is_deleted == False
-            ).count(),
+            "brokers": self.db.query(Broker)
+            .filter(Broker.user_id == user_id, Broker.is_active == True)
+            .count(),
+            "accounts": self.db.query(Account)
+            .filter(Account.user_id == user_id, Account.is_active == True)
+            .count(),
+            "credit_cards": self.db.query(CreditCard)
+            .filter(CreditCard.user_id == user_id, CreditCard.is_deleted == False)
+            .count(),
+            "tags": self.db.query(Tag)
+            .filter(Tag.user_id == user_id, Tag.is_active == True)
+            .count(),
+            "vendors": self.db.query(Vendor).filter(Vendor.user_id == user_id).count(),
+            "subscriptions": self.db.query(Subscription)
+            .filter(Subscription.user_id == user_id, Subscription.is_active == True)
+            .count(),
+            "transactions": self.db.query(Transaction)
+            .filter(Transaction.user_id == user_id, Transaction.is_deleted == False)
+            .count(),
         }
 
     # ==================== IMPORT METHODS ====================
 
     def find_or_create_broker(
-        self,
-        user_id: UUID,
-        name: str,
-        description: Optional[str] = None
+        self, user_id: UUID, name: str, description: Optional[str] = None
     ) -> Broker:
         """
         Find existing broker or create new one.
@@ -200,10 +192,11 @@ class DataTransferRepository:
             Broker instance (existing or new)
         """
         # Check for existing broker
-        existing = self.db.query(Broker).filter(
-            Broker.user_id == user_id,
-            Broker.name == name
-        ).first()
+        existing = (
+            self.db.query(Broker)
+            .filter(Broker.user_id == user_id, Broker.name == name)
+            .first()
+        )
 
         if existing:
             logger.debug(f"Found existing broker: {name}")
@@ -216,8 +209,8 @@ class DataTransferRepository:
             name=name,
             description=description or "",
             colors=[],  # Default empty colors
-            logo="",    # Default empty logo
-            is_active=True
+            logo="",  # Default empty logo
+            is_active=True,
         )
         self.db.add(broker)
         logger.info(f"Created new broker: {name}")
@@ -230,7 +223,7 @@ class DataTransferRepository:
         name: str,
         account_type: str = "other",
         currency: str = "USD",
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ) -> Account:
         """
         Find existing account or create new one.
@@ -247,11 +240,15 @@ class DataTransferRepository:
             Account instance (existing or new)
         """
         # Check for existing account
-        existing = self.db.query(Account).filter(
-            Account.user_id == user_id,
-            Account.broker_id == broker_id,
-            Account.name == name
-        ).first()
+        existing = (
+            self.db.query(Account)
+            .filter(
+                Account.user_id == user_id,
+                Account.broker_id == broker_id,
+                Account.name == name,
+            )
+            .first()
+        )
 
         if existing:
             logger.debug(f"Found existing account: {name}")
@@ -266,7 +263,7 @@ class DataTransferRepository:
             description=description or "",
             type=account_type.lower(),  # Convert to lowercase to match accounts domain enum
             currency=currency,
-            is_active=True
+            is_active=True,
         )
         self.db.add(account)
         logger.info(f"Created new account: {name}")
@@ -281,7 +278,7 @@ class DataTransferRepository:
         brand: Optional[str] = None,
         last_four_digits: Optional[str] = None,
         credit_limit: Optional[Decimal] = None,
-        due_date: Optional[int] = None
+        due_date: Optional[int] = None,
     ) -> CreditCard:
         """
         Find existing credit card or create new one.
@@ -300,11 +297,15 @@ class DataTransferRepository:
             CreditCard instance (existing or new)
         """
         # Check for existing credit card
-        existing = self.db.query(CreditCard).filter(
-            CreditCard.user_id == user_id,
-            CreditCard.account_id == account_id,
-            CreditCard.name == name
-        ).first()
+        existing = (
+            self.db.query(CreditCard)
+            .filter(
+                CreditCard.user_id == user_id,
+                CreditCard.account_id == account_id,
+                CreditCard.name == name,
+            )
+            .first()
+        )
 
         if existing:
             logger.debug(f"Found existing credit card: {name}")
@@ -324,58 +325,38 @@ class DataTransferRepository:
             current_balance=Decimal("0"),
             available_credit=credit_limit or Decimal("0"),
             is_active=True,
-            is_deleted=False
+            is_deleted=False,
         )
         self.db.add(card)
         logger.info(f"Created new credit card: {name}")
         return card
 
-    def find_or_create_category(
-        self,
-        user_id: UUID,
-        name: str,
-        parent_id: Optional[UUID] = None
-    ) -> UserCategory:
-        """
-        Find existing category or create new one.
-
-        Args:
-            user_id: User UUID
-            name: Category name
-            parent_id: Optional parent category ID
-
-        Returns:
-            UserCategory instance (existing or new)
-        """
-        # Check for existing category
-        existing = self.db.query(UserCategory).filter(
-            UserCategory.user_id == user_id,
-            UserCategory.name == name,
-            UserCategory.parent_id == parent_id
-        ).first()
-
+    def find_or_create_tag(self, user_id: UUID, name: str) -> Tag:
+        normalized_name = name.strip().casefold()
+        existing = (
+            self.db.query(Tag)
+            .filter(
+                Tag.user_id == user_id,
+                Tag.normalized_name == normalized_name,
+            )
+            .first()
+        )
         if existing:
-            logger.debug(f"Found existing category: {name}")
             return existing
 
-        # Create new category
-        category = UserCategory(
+        tag = Tag(
             id=uuid4(),
             user_id=user_id,
-            name=name,
-            parent_id=parent_id,
-            display_order=0,  # Default order
-            is_active=True
+            name=name.strip(),
+            normalized_name=normalized_name,
+            is_active=True,
         )
-        self.db.add(category)
-        logger.info(f"Created new category: {name}")
-        return category
+        self.db.add(tag)
+        logger.info(f"Created new tag: {name}")
+        return tag
 
     def find_or_create_vendor(
-        self,
-        user_id: UUID,
-        name: str,
-        website: Optional[str] = None
+        self, user_id: UUID, name: str, website: Optional[str] = None
     ) -> Vendor:
         """
         Find existing vendor or create new one.
@@ -389,10 +370,11 @@ class DataTransferRepository:
             Vendor instance (existing or new)
         """
         # Check for existing vendor
-        existing = self.db.query(Vendor).filter(
-            Vendor.user_id == user_id,
-            Vendor.name == name
-        ).first()
+        existing = (
+            self.db.query(Vendor)
+            .filter(Vendor.user_id == user_id, Vendor.name == name)
+            .first()
+        )
 
         if existing:
             logger.debug(f"Found existing vendor: {name}")
@@ -400,11 +382,7 @@ class DataTransferRepository:
 
         # Create new vendor
         vendor = Vendor(
-            id=uuid4(),
-            user_id=user_id,
-            name=name,
-            logo_url="",
-            website=website or ""
+            id=uuid4(), user_id=user_id, name=name, logo_url="", website=website or ""
         )
         self.db.add(vendor)
         logger.info(f"Created new vendor: {name}")
@@ -415,11 +393,11 @@ class DataTransferRepository:
         user_id: UUID,
         name: str,
         vendor_id: Optional[UUID] = None,
-        category_id: Optional[UUID] = None,
+        tags: Optional[List[Tag]] = None,
         amount: Optional[Decimal] = None,
         billing_cycle: Optional[str] = None,
         next_due_date: Optional[date] = None,
-        default_next_due_date: Optional[date] = None
+        default_next_due_date: Optional[date] = None,
     ) -> Subscription:
         """
         Find existing subscription or create new one.
@@ -428,7 +406,7 @@ class DataTransferRepository:
             user_id: User UUID
             name: Subscription name
             vendor_id: Optional vendor ID
-            category_id: Optional category ID
+            tags: Optional tag templates
             amount: Subscription amount
             billing_cycle: Billing cycle (monthly, yearly, etc.)
             next_due_date: Next due date
@@ -437,11 +415,15 @@ class DataTransferRepository:
             Subscription instance (existing or new)
         """
         # Check for existing subscription
-        existing = self.db.query(Subscription).filter(
-            Subscription.user_id == user_id,
-            Subscription.name == name,
-            Subscription.vendor_id == vendor_id
-        ).first()
+        existing = (
+            self.db.query(Subscription)
+            .filter(
+                Subscription.user_id == user_id,
+                Subscription.name == name,
+                Subscription.vendor_id == vendor_id,
+            )
+            .first()
+        )
 
         if existing:
             logger.debug(f"Found existing subscription: {name}")
@@ -454,20 +436,23 @@ class DataTransferRepository:
             else:
                 # Default to today if not provided
                 from datetime import date as date_class
+
                 next_due_date = date_class.today()
-                logger.warning(f"No next_due_date provided for subscription '{name}', using today's date")
+                logger.warning(
+                    f"No next_due_date provided for subscription '{name}', using today's date"
+                )
 
         # Create new subscription
         subscription = Subscription(
             id=uuid4(),
             user_id=user_id,
             vendor_id=vendor_id,
-            category_id=category_id,
+            tags=tags or [],
             name=name,
             amount=amount or Decimal("0"),
             billing_cycle=billing_cycle or "monthly",
             next_due_date=next_due_date,
-            is_active=True
+            is_active=True,
         )
         self.db.add(subscription)
         logger.info(f"Created new subscription: {name}")
@@ -480,9 +465,9 @@ class DataTransferRepository:
         total_amount: Decimal,
         installment_count: int,
         vendor_id: Optional[UUID] = None,
-        category_id: Optional[UUID] = None,
+        tags: Optional[List[Tag]] = None,
         credit_card_id: Optional[UUID] = None,
-        start_date: Optional[date] = None
+        start_date: Optional[date] = None,
     ) -> InstallmentPlan:
         """
         Find existing installment plan or create new one.
@@ -493,7 +478,7 @@ class DataTransferRepository:
             total_amount: Total amount
             installment_count: Number of installments
             vendor_id: Optional vendor ID
-            category_id: Optional category ID
+            tags: Optional tag templates
             credit_card_id: Optional credit card ID
             start_date: Plan start date
 
@@ -501,11 +486,15 @@ class DataTransferRepository:
             InstallmentPlan instance (existing or new)
         """
         # Check for existing plan
-        existing = self.db.query(InstallmentPlan).filter(
-            InstallmentPlan.user_id == user_id,
-            InstallmentPlan.name == name,
-            InstallmentPlan.total_amount == total_amount
-        ).first()
+        existing = (
+            self.db.query(InstallmentPlan)
+            .filter(
+                InstallmentPlan.user_id == user_id,
+                InstallmentPlan.name == name,
+                InstallmentPlan.total_amount == total_amount,
+            )
+            .first()
+        )
 
         if existing:
             logger.debug(f"Found existing installment plan: {name}")
@@ -516,14 +505,14 @@ class DataTransferRepository:
             id=uuid4(),
             user_id=user_id,
             vendor_id=vendor_id,
-            category_id=category_id,
+            tags=tags or [],
             credit_card_id=credit_card_id,
             name=name,
             description="",
             total_amount=total_amount,
             installment_count=installment_count,
             start_date=start_date or date.today(),
-            status="active"
+            status="active",
         )
         self.db.add(plan)
         logger.info(f"Created new installment plan: {name}")
@@ -541,12 +530,12 @@ class DataTransferRepository:
         credit_card_id: Optional[UUID] = None,
         from_account_id: Optional[UUID] = None,
         to_account_id: Optional[UUID] = None,
-        category_id: Optional[UUID] = None,
+        tags: Optional[List[Tag]] = None,
         vendor_id: Optional[UUID] = None,
         subscription_id: Optional[UUID] = None,
         installment_id: Optional[UUID] = None,
         is_paid: bool = True,
-        ignored: bool = False
+        ignored: bool = False,
     ) -> Transaction:
         """
         Create a new transaction.
@@ -562,7 +551,7 @@ class DataTransferRepository:
             credit_card_id: Optional credit card ID
             from_account_id: Optional source account ID (for transfers)
             to_account_id: Optional destination account ID (for transfers)
-            category_id: Optional category ID
+            tags: Optional transaction tags
             vendor_id: Optional vendor ID
             subscription_id: Optional subscription ID
             installment_id: Optional installment ID
@@ -578,7 +567,7 @@ class DataTransferRepository:
             Transaction.date == date,
             Transaction.amount == amount,
             Transaction.description == description,
-            Transaction.is_deleted == False
+            Transaction.is_deleted == False,
         )
 
         # Add optional field checks for better duplicate detection
@@ -608,15 +597,14 @@ class DataTransferRepository:
             amount=amount,
             description=description,
             movement_type=movement_type,
-            category="",  # Legacy field
-            category_id=category_id,
+            tags=tags or [],
             vendor_id=vendor_id,
             subscription_id=subscription_id,
             installment_id=installment_id,
             is_paid=is_paid,
             is_deleted=False,
             ignored=ignored,
-            balance_impact=None  # Currently unused field, set to NULL
+            balance_impact=None,  # Currently unused field, set to NULL
         )
         self.db.add(transaction)
         logger.debug(f"Created new transaction: {date} {amount} {description}")

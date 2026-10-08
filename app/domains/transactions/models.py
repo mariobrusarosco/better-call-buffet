@@ -3,17 +3,18 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    DECIMAL,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
-    String,
-    CheckConstraint,
-    DECIMAL,
     Index,
+    String,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+
 from app.db.connection_and_session import Base
 
 
@@ -28,10 +29,6 @@ class Transaction(Base):
     description = Column(String, nullable=False)
     date = Column(DateTime, nullable=False)
     movement_type = Column(String, nullable=False)
-    category = Column(String, nullable=True)
-    category_id = Column(
-        UUID(as_uuid=True), ForeignKey("user_categories.id"), nullable=True
-    )
     account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
     credit_card_id = Column(
         UUID(as_uuid=True), ForeignKey("credit_cards.id"), nullable=True
@@ -45,20 +42,28 @@ class Transaction(Base):
     updated_at = Column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
-    
+
     # New Fields for Vendors & Subscriptions
     vendor_id = Column(UUID(as_uuid=True), ForeignKey("vendors.id"), nullable=True)
-    subscription_id = Column(UUID(as_uuid=True), ForeignKey("subscriptions.id"), nullable=True)
+    subscription_id = Column(
+        UUID(as_uuid=True), ForeignKey("subscriptions.id"), nullable=True
+    )
     # New Fields for Installments
-    installment_id = Column(UUID(as_uuid=True), ForeignKey("installments.id"), nullable=True)
+    installment_id = Column(
+        UUID(as_uuid=True), ForeignKey("installments.id"), nullable=True
+    )
 
     # Relationships
     account = relationship("Account", foreign_keys=[account_id])
-    category_tree = relationship("UserCategory", foreign_keys=[category_id])
+    tags = relationship(
+        "Tag", secondary="transaction_tags", back_populates="transactions"
+    )
     credit_card = relationship("CreditCard", foreign_keys=[credit_card_id])
     vendor = relationship("Vendor", foreign_keys=[vendor_id])
     subscription = relationship("Subscription", foreign_keys=[subscription_id])
-    installment = relationship("Installment", foreign_keys=[installment_id], back_populates="transaction")
+    installment = relationship(
+        "Installment", foreign_keys=[installment_id], back_populates="transaction"
+    )
     # ===================================================================================
 
     # ============ COMPLEX APPROACH FIELDS (Reserved for Future Evolution) =============

@@ -1,11 +1,12 @@
 from typing import List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import and_, asc, desc
+from sqlalchemy import and_, asc, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.domains.subscriptions.models import Subscription
 from app.domains.subscriptions.schemas import SubscriptionFilters
+from app.domains.tags.models import Tag
 
 
 class SubscriptionRepository:
@@ -21,8 +22,12 @@ class SubscriptionRepository:
     def get_by_id(self, subscription_id: UUID, user_id: UUID) -> Optional[Subscription]:
         return (
             self.db.query(Subscription)
-            .options(joinedload(Subscription.vendor), joinedload(Subscription.category))
-            .filter(and_(Subscription.id == subscription_id, Subscription.user_id == user_id))
+            .options(joinedload(Subscription.vendor), joinedload(Subscription.tags))
+            .filter(
+                and_(
+                    Subscription.id == subscription_id, Subscription.user_id == user_id
+                )
+            )
             .first()
         )
 
@@ -39,8 +44,10 @@ class SubscriptionRepository:
         """Fetches all active subscriptions for a user, with relationships."""
         return (
             self.db.query(Subscription)
-            .options(joinedload(Subscription.vendor), joinedload(Subscription.category))
-            .filter(and_(Subscription.user_id == user_id, Subscription.is_active == True))
+            .options(joinedload(Subscription.vendor), joinedload(Subscription.tags))
+            .filter(
+                and_(Subscription.user_id == user_id, Subscription.is_active == True)
+            )
             .all()
         )
 
@@ -50,7 +57,7 @@ class SubscriptionRepository:
         # Base query with joined loads for performance
         query = (
             self.db.query(Subscription)
-            .options(joinedload(Subscription.vendor), joinedload(Subscription.category))
+            .options(joinedload(Subscription.vendor), joinedload(Subscription.tags))
             .filter(Subscription.user_id == user_id)
         )
 
@@ -71,8 +78,15 @@ class SubscriptionRepository:
             query = query.filter(Subscription.is_active == filters.is_active)
         if filters.vendor_id:
             query = query.filter(Subscription.vendor_id == filters.vendor_id)
-        if filters.category_id:
-            query = query.filter(Subscription.category_id == filters.category_id)
+        if filters.tag_ids:
+            predicates = [
+                Subscription.tags.any(Tag.id == tag_id) for tag_id in filters.tag_ids
+            ]
+            if filters.tag_match == "any":
+                query = query.filter(or_(*predicates))
+            else:
+                for predicate in predicates:
+                    query = query.filter(predicate)
         return query
 
     def _apply_sorting(self, query, filters: SubscriptionFilters):

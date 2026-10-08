@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,9 +12,9 @@ from app.domains.installments.schemas import (
     InstallmentPlanListResponse,
     InstallmentPlanResponse,
     InstallmentPlanUpdate,
+    InstallmentResponse,
     InstallmentUpdate,
     LinkInstallmentRequest,
-    InstallmentResponse
 )
 from app.domains.installments.service import InstallmentService
 
@@ -39,7 +39,8 @@ def create_installment_plan(
 def list_installment_plans(
     status: Optional[str] = Query(None),
     vendor_id: Optional[UUID] = Query(None),
-    category_id: Optional[UUID] = Query(None),
+    tag_ids: Optional[List[UUID]] = Query(None),
+    tag_match: Literal["all", "any"] = Query("all"),
     credit_card_id: Optional[UUID] = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
@@ -51,10 +52,11 @@ def list_installment_plans(
     filters = InstallmentFilters(
         status=status,
         vendor_id=vendor_id,
-        category_id=category_id,
+        tag_ids=tag_ids,
+        tag_match=tag_match,
         credit_card_id=credit_card_id,
         page=page,
-        per_page=per_page
+        per_page=per_page,
     )
     return service.list_plans(current_user_id, filters)
 
@@ -119,7 +121,7 @@ def link_installment_to_transaction(
         return service.link_transaction(
             installment_id=installment_id,
             transaction_id=link_request.transaction_id,
-            user_id=current_user_id
+            user_id=current_user_id,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

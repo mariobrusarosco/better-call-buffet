@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 
 from fastapi import (
@@ -15,9 +15,9 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
+from app.core.ai.deprecated_client import DeprecatedAIClient
 from app.core.dependencies import get_current_user_id, get_deprecated_ai_client
 from app.db.connection_and_session import get_db_session
-from app.core.ai.deprecated_client import DeprecatedAIClient
 from app.domains.credit_cards.models import CreditCard
 from app.domains.credit_cards.schemas import (
     CreditCardFilters,
@@ -467,9 +467,11 @@ def get_credit_card_transactions_endpoint(
     movement_type: Optional[List[str]] = Query(
         None, description="Filter by movement type (income/expense)"
     ),
-    category: Optional[str] = Query(
-        None, description="Filter by category (partial match)"
+    tag_ids: Optional[List[UUID]] = Query(None, description="Filter by tag IDs"),
+    exclude_tag_ids: Optional[List[UUID]] = Query(
+        None, description="Exclude transactions with these tags"
     ),
+    tag_match: Literal["all", "any"] = Query("all"),
     description_contains: Optional[str] = Query(
         None, description="Filter by description (partial match)"
     ),
@@ -480,7 +482,7 @@ def get_credit_card_transactions_endpoint(
     is_paid: Optional[bool] = Query(None, description="Filter by payment status"),
     # Sorting options
     sort_by: Optional[str] = Query(
-        "date", description="Sort field: date, amount, created_at, category"
+        "date", description="Sort field: date, amount, created_at"
     ),
     sort_order: Optional[str] = Query(
         "desc", description="Sort order: desc (newest first) or asc"
@@ -508,7 +510,7 @@ def get_credit_card_transactions_endpoint(
     Enhanced filtering capabilities:
     - Date range (date_from, date_to)
     - Movement type (income/expense)
-    - Category (partial text match)
+    - Tags (all or any selected tag IDs)
     - Description (partial text match) - NEW!
     - Amount range (amount_min, amount_max) - NEW!
     - Payment status (is_paid) - NEW!
@@ -541,7 +543,9 @@ def get_credit_card_transactions_endpoint(
         date_from=date_from,
         date_to=date_to,
         movement_type=final_movement_type,
-        category=category,
+        tag_ids=tag_ids,
+        exclude_tag_ids=exclude_tag_ids,
+        tag_match=tag_match,
         description_contains=description_contains,
         amount_min=amount_min,
         amount_max=amount_max,

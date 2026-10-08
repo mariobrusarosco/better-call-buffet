@@ -6,8 +6,8 @@ from uuid import UUID
 from sqlalchemy import and_, asc, desc, func, or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.domains.categories.models import UserCategory
 from app.domains.credit_cards.models import CreditCard
+from app.domains.tags.models import Tag
 from app.domains.transactions.constants import MovementType
 from app.domains.transactions.models import Transaction
 from app.domains.transactions.schemas import TransactionFilters
@@ -20,14 +20,14 @@ class TransactionRepository:
     def _transaction_load_options(self):
         return (
             joinedload(Transaction.account),
-            joinedload(Transaction.category_tree).joinedload(UserCategory.parent),
+            joinedload(Transaction.tags).joinedload(Tag.dimension),
             joinedload(Transaction.credit_card).joinedload(CreditCard.account),
             joinedload(Transaction.vendor),
             joinedload(Transaction.subscription),
         )
 
     def get_by_id(self, transaction_id: UUID, user_id: UUID) -> Optional[Transaction]:
-        """Get a transaction by its ID with category relationship"""
+        """Get a transaction by ID with response relationships."""
         return (
             self.db.query(Transaction)
             .options(*self._transaction_load_options())
@@ -87,7 +87,7 @@ class TransactionRepository:
             self.db.commit()
             self.db.refresh(transaction)
 
-            # Reload with category and credit_card relationships
+            # Reload with tag, account, card, vendor, and subscription relationships.
             transaction = (
                 self.db.query(Transaction)
                 .options(*self._transaction_load_options())
@@ -120,9 +120,10 @@ class TransactionRepository:
             Exception: If bulk insert fails, rolls back transaction
         """
         try:
-            self.db.bulk_insert_mappings(Transaction, transactions_data)
+            transactions = [Transaction(**data) for data in transactions_data]
+            self.db.add_all(transactions)
             self.db.commit()
-            return [tx_data["id"] for tx_data in transactions_data]
+            return [cast(UUID, transaction.id) for transaction in transactions]
         except Exception as e:
             self.db.rollback()
             raise e
@@ -142,7 +143,7 @@ class TransactionRepository:
         - ✅ Type-safe filter validation
         - ✅ Embedded pagination handling
         """
-        # Base query with category and credit_card JOINs
+        # Base query with response relationships.
         query = (
             self.db.query(Transaction)
             .options(*self._transaction_load_options())
@@ -184,7 +185,7 @@ class TransactionRepository:
         - ✅ Same filtering and pagination interface
         - ✅ Better user experience
         """
-        # Base query for account transactions OR credit card transactions linked to this account with category and credit_card JOINs
+        # Include direct account transactions and transactions on linked cards.
         query = (
             self.db.query(Transaction)
             .options(*self._transaction_load_options())
@@ -231,7 +232,7 @@ class TransactionRepository:
         user_id: UUID,
         filters: Optional[TransactionFilters] = None,
     ) -> Tuple[List[Transaction], int]:
-        # Base query with category and credit_card JOINs
+        # Base query with response relationships.
         query = (
             self.db.query(Transaction)
             .options(*self._transaction_load_options())
@@ -269,10 +270,18 @@ class TransactionRepository:
         # Content filters
         if filters.movement_type:
             query = query.filter(Transaction.movement_type.in_(filters.movement_type))
-        if filters.category:
-            query = query.filter(Transaction.category.ilike(f"%{filters.category}%"))
-        if filters.category_id:
-            query = query.filter(Transaction.category_id.in_(filters.category_id))
+        if filters.tag_ids:
+            predicates = [
+                Transaction.tags.any(Tag.id == tag_id) for tag_id in filters.tag_ids
+            ]
+            if filters.tag_match == "any":
+                query = query.filter(or_(*predicates))
+            else:
+                for predicate in predicates:
+                    query = query.filter(predicate)
+        if filters.exclude_tag_ids:
+            for tag_id in filters.exclude_tag_ids:
+                query = query.filter(~Transaction.tags.any(Tag.id == tag_id))
         if filters.description_contains:
             query = query.filter(
                 Transaction.description.ilike(f"%{filters.description_contains}%")
@@ -301,7 +310,6 @@ class TransactionRepository:
             "date": Transaction.date,
             "amount": Transaction.amount,
             "created_at": Transaction.created_at,
-            "category": Transaction.category,
         }
 
         default_field = Transaction.date
@@ -335,9 +343,9 @@ class TransactionRepository:
         - ✅ Consistent filtering interface across domains
         - ✅ Type-safe filter validation
         - ✅ Embedded pagination handling
-        - ✅ Eager loads category relationship (JOIN)
+        - ✅ Eager loads tag and display relationships
         """
-        # Base query for all user transactions with category and credit_card JOINs
+        # Base query for all user transactions with response relationships.
         query = (
             self.db.query(Transaction)
             .options(*self._transaction_load_options())

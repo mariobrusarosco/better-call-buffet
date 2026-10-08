@@ -1,13 +1,13 @@
 from datetime import date, timedelta
-from typing import Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user_id
-from app.db.connection_and_session import get_db_session
 from app.core.error_handlers import NotFoundError
+from app.db.connection_and_session import get_db_session
 from app.domains.subscriptions.schemas import (
     LinkPaymentRequest,
     SubscriptionCreate,
@@ -41,8 +41,11 @@ def create_subscription(
 def get_subscriptions(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     vendor_id: Optional[UUID] = Query(None, description="Filter by vendor"),
-    category_id: Optional[UUID] = Query(None, description="Filter by category"),
-    include_summary: bool = Query(False, description="Include financial dashboard summary in meta"),
+    tag_ids: Optional[List[UUID]] = Query(None, description="Filter by tag IDs"),
+    tag_match: Literal["all", "any"] = Query("all"),
+    include_summary: bool = Query(
+        False, description="Include financial dashboard summary in meta"
+    ),
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db_session),
@@ -53,7 +56,8 @@ def get_subscriptions(
     filters = SubscriptionFilters(
         is_active=is_active,
         vendor_id=vendor_id,
-        category_id=category_id,
+        tag_ids=tag_ids,
+        tag_match=tag_match,
         page=page,
         per_page=per_page,
     )
@@ -84,7 +88,9 @@ def update_subscription(
     """Update a subscription."""
     service = SubscriptionService(db)
     try:
-        service.update_subscription(subscription_id, subscription_update, current_user_id)
+        service.update_subscription(
+            subscription_id, subscription_update, current_user_id
+        )
         return service.get_subscription_response(subscription_id, current_user_id)
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -119,7 +125,7 @@ def link_payment(
         service.link_payment(
             subscription_id=subscription_id,
             transaction_id=link_request.transaction_id,
-            user_id=current_user_id
+            user_id=current_user_id,
         )
 
         return service.get_subscription_response(subscription_id, current_user_id)
@@ -127,10 +133,15 @@ def link_payment(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @router.get("/upcoming-bills", response_model=UpcomingPaymentsListResponse)
 def get_upcoming_bills(
-    start_date: Optional[date] = Query(None, description="Start date for projection (defaults to today)"),
-    end_date: Optional[date] = Query(None, description="End date for projection (defaults to 30 days from today)"),
+    start_date: Optional[date] = Query(
+        None, description="Start date for projection (defaults to today)"
+    ),
+    end_date: Optional[date] = Query(
+        None, description="End date for projection (defaults to 30 days from today)"
+    ),
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id),
 ):
@@ -151,4 +162,3 @@ def get_upcoming_bills(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
