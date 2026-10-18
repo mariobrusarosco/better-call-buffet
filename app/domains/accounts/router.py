@@ -31,12 +31,18 @@ router = APIRouter()
 
 @router.get("", response_model=List[AccountWithBalance])
 def get_all_accounts_endpoint(
+    is_active: bool = Query(True, description="Filter by active status"),
+    account_type: Optional[AccountType] = Query(
+        None, alias="type", description="Filter by account type"
+    ),
     db: Session = Depends(get_db_session),
     current_user_id: UUID = Depends(get_current_user_id),
 ):
-    """Get all active accounts for the current user"""
+    """Get the current user's accounts, filtered by status and optionally by type"""
     service = AccountService(db)
-    return service.get_all_user_active_accounts(user_id=current_user_id)
+    return service.get_user_accounts(
+        user_id=current_user_id, is_active=is_active, account_type=account_type
+    )
 
 
 @router.get("/active", response_model=List[AccountWithBalance])

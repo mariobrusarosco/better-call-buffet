@@ -68,6 +68,27 @@ class AccountService:
         return persisted_account
 
     ## ------- REVISION THRESHOLD -------
+    def get_user_accounts(
+        self,
+        user_id: UUID,
+        is_active: bool = True,
+        account_type: Optional[AccountType] = None,
+    ) -> List[AccountWithBalance]:
+        """Get a user's accounts filtered by status and type, with calculated balances"""
+        accounts = self.repository.get_by_user_and_status(
+            user_id, is_active=is_active, account_type=account_type
+        )
+
+        # Calculate balance for each account
+        for account in accounts:
+            account.balance = (
+                self.balance_point_service.calculate_account_balance_from_transactions(
+                    account.id, user_id
+                )
+            )
+
+        return accounts
+
     def get_all_user_active_accounts(self, user_id: UUID) -> List[AccountWithBalance]:
         """Get all active accounts for a user with calculated balances"""
         accounts = self.repository.get_active_accounts_by_user(user_id)

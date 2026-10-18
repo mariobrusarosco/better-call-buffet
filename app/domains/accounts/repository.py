@@ -17,9 +17,14 @@ class AccountRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_by_user_and_status(self, user_id: UUID, is_active: bool) -> List[Account]:
-        """Get accounts by user ID and active status"""
-        return (
+    def get_by_user_and_status(
+        self,
+        user_id: UUID,
+        is_active: bool,
+        account_type: Optional[AccountType] = None,
+    ) -> List[Account]:
+        """Get accounts by user ID and active status, optionally filtered by type"""
+        query = (
             self.db.query(Account)
             .options(joinedload(Account.broker))  # Eagerly load the broker relationship
             .filter(
@@ -27,8 +32,10 @@ class AccountRepository:
                 Account.is_active == is_active,
                 Account.is_deleted == False,
             )
-            .all()
         )
+        if account_type is not None:
+            query = query.filter(Account.type == account_type)
+        return query.all()
 
     def get_active_accounts_by_user(self, user_id: UUID) -> List[Account]:
         """Get all active accounts for a user"""
