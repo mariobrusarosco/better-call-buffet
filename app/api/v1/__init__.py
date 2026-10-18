@@ -10,8 +10,8 @@ from app.domains.credit_cards.router import router as credit_cards_router
 from app.domains.data_transfer.router import router as data_transfer_router
 from app.domains.forecast.router import router as forecast_router
 from app.domains.installments.router import router as installments_router
+from app.domains.investments.router import router as investments_router
 from app.domains.invoices.router import router as invoices_router
-from app.domains.reports.router import router as reports_router
 from app.domains.statements.router import router as statements_router
 from app.domains.subscriptions.router import router as subscriptions_router
 from app.domains.tags.router import router as tags_router
@@ -32,7 +32,6 @@ api_router.include_router(accounts_router, prefix="/accounts", tags=["accounts"]
 api_router.include_router(
     balance_points_router, prefix="/balance_points", tags=["balance_points"]
 )
-api_router.include_router(reports_router, prefix="/reports", tags=["reports"])
 api_router.include_router(invoices_router, prefix="/invoices", tags=["invoices"])
 api_router.include_router(brokers_router, prefix="/brokers", tags=["brokers"])
 api_router.include_router(
@@ -53,6 +52,9 @@ api_router.include_router(
     installments_router, prefix="/installments", tags=["installments"]
 )
 api_router.include_router(forecast_router, prefix="/forecast", tags=["forecast"])
+api_router.include_router(
+    investments_router, prefix="/investments", tags=["investments"]
+)
 api_router.include_router(
     data_transfer_router, prefix="/data_transfer", tags=["data_transfer"]
 )

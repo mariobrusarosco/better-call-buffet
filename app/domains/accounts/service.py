@@ -26,10 +26,8 @@ class AccountService:
     ) -> Optional[AccountWithBalance]:
         account = self.repository.get_by_id_and_user(account_id, user_id)
         if account:
-            balance = (
-                self.balance_point_service.calculate_account_balance_from_transactions(
-                    account_id, user_id
-                )
+            balance = self.balance_point_service.calculate_account_balance(
+                account_id, user_id
             )
             # Set the calculated balance
             account.balance = balance
@@ -42,8 +40,8 @@ class AccountService:
 
         initial_balance = account_in.balance
 
-        # Prepare account data (excluding balance)
-        account_data = account_in.model_dump(exclude={"balance"})
+        # The balance and opening date belong to the opening point, not the account
+        account_data = account_in.model_dump(exclude={"balance", "opening_date"})
         account_data["user_id"] = user_id
         # Account and opening point are one atomic operation. Either both are
         # committed or neither is persisted.
@@ -51,7 +49,8 @@ class AccountService:
             created_account = self.repository.create(account_data, commit=False)
             self.balance_point_service.create_opening_balance_point(
                 account_id=created_account.id,
-                opening_date=created_account.created_at.date(),
+                opening_date=account_in.opening_date
+                or created_account.created_at.date(),
                 opening_balance=Decimal(str(initial_balance)),
                 commit=False,
             )
@@ -81,10 +80,8 @@ class AccountService:
 
         # Calculate balance for each account
         for account in accounts:
-            account.balance = (
-                self.balance_point_service.calculate_account_balance_from_transactions(
-                    account.id, user_id
-                )
+            account.balance = self.balance_point_service.calculate_account_balance(
+                account.id, user_id
             )
 
         return accounts
@@ -95,10 +92,8 @@ class AccountService:
 
         # Calculate balance for each account
         for account in accounts:
-            balance = (
-                self.balance_point_service.calculate_account_balance_from_transactions(
-                    account.id, user_id
-                )
+            balance = self.balance_point_service.calculate_account_balance(
+                account.id, user_id
             )
             account.balance = balance
 
@@ -110,10 +105,8 @@ class AccountService:
 
         # Calculate balance for each account
         for account in accounts:
-            calculated_balance = (
-                self.balance_point_service.calculate_account_balance_from_transactions(
-                    account.id, user_id
-                )
+            calculated_balance = self.balance_point_service.calculate_account_balance(
+                account.id, user_id
             )
             account.balance = calculated_balance
 
@@ -183,7 +176,7 @@ class AccountService:
         accounts = self.repository.get_active_accounts_by_user(user_id)
         return sum(
             (
-                self.balance_point_service.calculate_account_balance_from_transactions(
+                self.balance_point_service.calculate_account_balance(
                     account.id, user_id
                 )
                 for account in accounts
@@ -205,7 +198,7 @@ class AccountService:
         accounts = self.repository.get_active_accounts_by_user(user_id)
         return sum(
             (
-                self.balance_point_service.calculate_account_balance_from_transactions(
+                self.balance_point_service.calculate_account_balance(
                     account.id, user_id
                 )
                 for account in accounts

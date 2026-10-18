@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.domains.brokers.schemas import Broker
 
@@ -30,6 +30,16 @@ class AccountBase(BaseModel):
 # Schema for creating an account with initial balance
 class AccountCreateIn(AccountBase):
     balance: float = Field(default=0.0, ge=0.0)
+    # Date of the opening balance. Defaults to the day the account is created;
+    # set it to start tracking an existing account from a past date.
+    opening_date: Optional[date] = None
+
+    @field_validator("opening_date")
+    @classmethod
+    def validate_opening_date_not_in_future(cls, value: Optional[date]):
+        if value is not None and value > date.today():
+            raise ValueError("opening_date can't be in the future")
+        return value
 
 
 # Schema for updating an account

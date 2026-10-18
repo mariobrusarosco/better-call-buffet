@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 from uuid import uuid4
@@ -71,3 +71,34 @@ def test_create_account_rolls_back_if_opening_point_fails():
 
     db.rollback.assert_called_once()
     db.commit.assert_not_called()
+
+
+def test_create_account_uses_the_given_opening_date():
+    db = MagicMock()
+    service = AccountService(db)
+    service.repository = MagicMock()
+    service.balance_point_service = MagicMock()
+    account = SimpleNamespace(id=uuid4(), created_at=datetime(2026, 1, 2, 10, 30))
+    service.repository.exists_by_name_and_user.return_value = False
+    service.repository.create.return_value = account
+    service.repository.get_by_id_and_user.return_value = account
+    account_in = build_account_input()
+    account_in.opening_date = date(2022, 12, 31)
+
+    service.create_account(account_in, uuid4())
+
+    assert "opening_date" not in service.repository.create.call_args.args[0]
+    opening_call = (
+        service.balance_point_service.create_opening_balance_point.call_args.kwargs
+    )
+    assert opening_call["opening_date"] == date(2022, 12, 31)
+
+
+def test_opening_date_cannot_be_in_the_future():
+    with pytest.raises(ValueError, match="opening_date"):
+        AccountCreateIn(
+            name="Previdência",
+            type=AccountType.INVESTMENT,
+            broker_id=uuid4(),
+            opening_date=date.today() + timedelta(days=1),
+        )

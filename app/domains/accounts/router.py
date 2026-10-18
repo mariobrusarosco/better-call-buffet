@@ -15,8 +15,6 @@ from app.domains.accounts.schemas import (
     AccountWithBalance,
 )
 from app.domains.accounts.service import AccountService
-from app.domains.balance_points.schemas import BalancePoint, BalanceSnapshotIn
-from app.domains.balance_points.service import BalancePointService
 from app.domains.statements.schemas import (
     StatementIn,
     StatementListResponse,
@@ -127,46 +125,6 @@ def get_account_endpoint(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     return account
-
-
-@router.post("/{account_id}/update-balance", response_model=BalancePoint)
-def create_balance_snapshot_endpoint(
-    account_id: UUID,
-    balance_snapshot_in: Optional[BalanceSnapshotIn] = None,
-    db: Session = Depends(get_db_session),
-    current_user_id: UUID = Depends(get_current_user_id),
-):
-    """
-    Create today's balance snapshot by calculating balance from transactions.
-
-    This endpoint provides the "Update Balance" button functionality:
-    - Automatically calculates current balance from all account transactions
-    - Creates or updates today's balance point with the calculated balance
-    - No manual balance input needed - everything is calculated from transaction history
-
-    **Perfect for the balance tracking button that:**
-    - First call today: Creates new balance point with calculated balance
-    - Subsequent calls today: Updates existing balance point
-    - Next day: Creates new balance point (maintains daily history)
-
-    **Frontend Usage:**
-    ```javascript
-    POST /api/v1/accounts/{accountId}/update-balance?note=End%20of%20day%20snapshot
-    // No body required - note is optional query parameter
-    ```
-
-    **Response:** Complete balance point object with calculated balance
-    """
-    balance_service = BalancePointService(db)
-    try:
-        balance_point = balance_service.create_balance_snapshot_from_transactions(
-            account_id=account_id,
-            user_id=current_user_id,
-            note=balance_snapshot_in.note if balance_snapshot_in else None,
-        )
-        return balance_point
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/{account_id}/transactions", response_model=TransactionListResponse)

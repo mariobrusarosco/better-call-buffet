@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple, cast
 from uuid import UUID
 
-from sqlalchemy import and_, asc, desc, func, or_
+from sqlalchemy import and_, asc, case, desc, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.domains.credit_cards.models import CreditCard
@@ -11,6 +11,20 @@ from app.domains.tags.models import Tag
 from app.domains.transactions.constants import MovementType
 from app.domains.transactions.models import Transaction
 from app.domains.transactions.schemas import TransactionFilters
+
+
+def signed_amount():
+    """A transaction's effect on its account's balance. Amounts are stored
+    unsigned: income and investment add, every other movement type subtracts."""
+    return case(
+        (
+            Transaction.movement_type.in_(
+                [MovementType.INCOME.value, MovementType.INVESTMENT.value]
+            ),
+            Transaction.amount,
+        ),
+        else_=-Transaction.amount,
+    )
 
 
 class TransactionRepository:
@@ -388,103 +402,30 @@ class TransactionRepository:
             .all()
         )
 
-    def get_balance_before_date(
-        self, account_id: UUID, user_id: UUID, start_date: date
+    def get_balance_between(
+        self,
+        account_id: UUID,
+        user_id: UUID,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
     ) -> Decimal:
+        """Signed total of an account's transactions dated on or after
+        `date_from` and before `date_to`. Either bound may be omitted.
+
+        Ignored and deleted transactions never count toward a balance.
         """
-        Calculate balance before a given date.
-
-        IMPORTANT: Respects movement_type:
-        - income: adds to balance
-        - expense: subtracts from balance
-
-        NOTE: This method shares the same CASE logic as get_account_total_balance().
-        The duplication is intentional — each serves a distinct use case:
-        - get_balance_before_date: Starting point for balance timeline charts
-          (see BalancePointService.calculate_balance_timeline)
-        - get_account_total_balance: Current total balance for account listings
-          (see BalancePointService.calculate_account_balance_from_transactions)
-        """
-        from sqlalchemy import case
-
-        # Sum with conditional: add income/investment, subtract expense/transfer
-        total = (
-            self.db.query(
-                func.sum(
-                    case(
-                        (
-                            Transaction.movement_type == MovementType.INCOME,
-                            Transaction.amount,
-                        ),
-                        (
-                            Transaction.movement_type == MovementType.INVESTMENT,
-                            Transaction.amount,
-                        ),
-                        else_=-Transaction.amount,
-                    )
-                )
-            )
-            .filter(
-                and_(
-                    Transaction.account_id == account_id,
-                    Transaction.user_id == user_id,
-                    Transaction.date
-                    < start_date,  # Changed from <= to < (before the start date)
-                    Transaction.is_deleted == False,
-                    Transaction.ignored
-                    == False,  # Exclude ignored transactions from balance
-                )
-            )
-            .scalar()
+        query = self.db.query(func.sum(signed_amount())).filter(
+            Transaction.account_id == account_id,
+            Transaction.user_id == user_id,
+            Transaction.is_deleted.is_(False),
+            Transaction.ignored.is_(False),
         )
+        if date_from is not None:
+            query = query.filter(Transaction.date >= date_from)
+        if date_to is not None:
+            query = query.filter(Transaction.date < date_to)
 
-        return total or Decimal("0.00")
-
-    def get_account_total_balance(self, account_id: UUID, user_id: UUID) -> Decimal:
-        """
-        Calculate total balance for an account by summing ALL transactions.
-
-        Same movement_type logic as get_balance_before_date, but without a date cutoff:
-        - income/investment: adds to balance
-        - expense/transfer/other: subtracts from balance
-
-        NOTE: This method shares the same CASE logic as get_balance_before_date().
-        The duplication is intentional — each serves a distinct use case:
-        - get_account_total_balance: Current total balance for account listings
-          (see BalancePointService.calculate_account_balance_from_transactions)
-        - get_balance_before_date: Starting point for balance timeline charts
-          (see BalancePointService.calculate_balance_timeline)
-        """
-        from sqlalchemy import case
-
-        total = (
-            self.db.query(
-                func.sum(
-                    case(
-                        (
-                            Transaction.movement_type == MovementType.INCOME,
-                            Transaction.amount,
-                        ),
-                        (
-                            Transaction.movement_type == MovementType.INVESTMENT,
-                            Transaction.amount,
-                        ),
-                        else_=-Transaction.amount,
-                    )
-                )
-            )
-            .filter(
-                and_(
-                    Transaction.account_id == account_id,
-                    Transaction.user_id == user_id,
-                    Transaction.is_deleted == False,
-                    Transaction.ignored == False,
-                )
-            )
-            .scalar()
-        )
-
-        return total or Decimal("0.00")
+        return cast(Decimal, query.scalar() or Decimal("0.00"))
 
     def get_transaction_count(self, account_id: UUID, user_id: UUID) -> int:
         return (

@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from app.core.error_handlers import NotFoundError, ValidationError
 from app.core.logging_config import get_logger
 from app.domains.accounts.service import AccountService
-from app.domains.balance_points.service import BalancePointService
 from app.domains.credit_cards.schemas import CreditCardFilters
 from app.domains.credit_cards.service import CreditCardService
 from app.domains.subscriptions.service import SubscriptionService
@@ -41,7 +40,6 @@ class TransactionService:
         self.repository = TransactionRepository(db)
         self.account_service = AccountService(db)
         self.credit_card_service = CreditCardService(db)
-        self.balance_point_service = BalancePointService(db)
         self.tag_service = TagService(db)
         self.vendor_service = VendorService(db)
         self.subscription_service = SubscriptionService(db)
@@ -175,40 +173,6 @@ class TransactionService:
                     },
                 )
 
-                # Mark balance points as stale for all affected accounts
-                affected_accounts = {}  # account_id -> earliest transaction date
-                for tx_data in successful_transactions:
-                    if tx_data.get("account_id"):
-                        account_id = tx_data["account_id"]
-                        tx_date = tx_data["date"]
-
-                        if account_id not in affected_accounts:
-                            affected_accounts[account_id] = tx_date
-                        elif tx_date < affected_accounts[account_id]:
-                            affected_accounts[account_id] = tx_date
-
-                for account_id, earliest_date in affected_accounts.items():
-                    try:
-                        marked_count = self.balance_point_service.mark_balance_points_stale_after_transaction_change(
-                            account_id=account_id,
-                            transaction_date=earliest_date,
-                            user_id=user_id,
-                            reason=f"Bulk transactions added affecting balance calculation",
-                        )
-                        logger.info(
-                            f"Marked {marked_count} balance points as stale for account {account_id} after bulk creation"
-                        )
-
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to mark balance points as stale for account {account_id}: {str(e)}",
-                            extra={
-                                "account_id": str(account_id),
-                                "user_id": str(user_id),
-                                "error": str(e),
-                            },
-                        )
-
             except Exception as e:
                 logger.error(f"Bulk insert failed: {str(e)}")
 
@@ -325,29 +289,6 @@ class TransactionService:
 
         # Create the transaction
         created_transaction = self.repository.create(transaction_data)
-
-        # Mark balance points as stale for the affected account
-        if created_transaction.account_id:
-            try:
-                marked_count = self.balance_point_service.mark_balance_points_stale_after_transaction_change(
-                    account_id=created_transaction.account_id,
-                    transaction_date=created_transaction.date,
-                    user_id=user_id,
-                    reason=f"New transaction added: {created_transaction.id}",
-                )
-                logger.info(
-                    f"Marked {marked_count} balance points as stale after transaction creation"
-                )
-            except Exception as e:
-                # Log error but don't fail the transaction creation
-                logger.error(
-                    f"Failed to mark balance points as stale after transaction creation: {str(e)}",
-                    extra={
-                        "transaction_id": str(created_transaction.id),
-                        "account_id": str(created_transaction.account_id),
-                        "error": str(e),
-                    },
-                )
 
         return created_transaction
 
@@ -595,12 +536,11 @@ class TransactionService:
 
     def delete_transaction(self, transaction_id: UUID, user_id: UUID) -> bool:
         """
-        Delete a single transaction by ID and auto-update balance.
+        Delete a single transaction by ID.
 
         Benefits:
         - ✅ User ownership validation
         - ✅ Safe deletion with rollback
-        - ✅ Automatic balance recalculation
         - ✅ Logging for audit trail
 
         Args:
@@ -618,7 +558,7 @@ class TransactionService:
                 f"Attempting to delete transaction {transaction_id} for user {user_id}"
             )
 
-            # Get transaction details before deletion for balance update
+            # Verify the transaction exists and belongs to the user
             transaction = self.repository.get_by_id(transaction_id, user_id)
             if not transaction or transaction.user_id != user_id:
                 logger.warning(
@@ -626,35 +566,11 @@ class TransactionService:
                 )
                 return False
 
-            # Store transaction details for balance update
-            account_id = transaction.account_id
-            transaction_date = transaction.date
-
             # Delete the transaction
             result = self.repository.delete_by_id(transaction_id, user_id)
 
             if result:
                 logger.info(f"Successfully deleted transaction {transaction_id}")
-
-                # Mark balance points as stale if transaction was linked to an account
-                if account_id:
-                    try:
-                        balance_service = BalancePointService(self.db)
-                        marked_count = balance_service.mark_balance_points_stale_after_transaction_change(
-                            account_id=account_id,
-                            transaction_date=transaction_date,
-                            user_id=user_id,
-                            reason=f"Transaction deleted: {transaction_id}",
-                        )
-                        logger.info(
-                            f"Marked {marked_count} balance points as stale after transaction deletion"
-                        )
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to mark balance points as stale after deleting transaction {transaction_id}: {str(e)}"
-                        )
-                        # Don't fail the deletion because of balance update issues
-                        pass
 
             return result
 
