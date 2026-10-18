@@ -3,8 +3,8 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
-from sqlalchemy import asc, case, func
-from sqlalchemy.orm import Query, Session, selectinload
+from sqlalchemy import asc, case, func, select
+from sqlalchemy.orm import Query, Session, joinedload, selectinload
 
 from app.domains.cashflow.models import (
     CashflowView,
@@ -133,34 +133,6 @@ class CashflowRepository:
 
     # ---- View reporting -----------------------------------------------------
 
-    def totals_by_tag(
-        self,
-        user_id: UUID,
-        tag_ids: Sequence[UUID],
-        date_from: Optional[date],
-        date_to: Optional[date],
-        movement_type: str,
-    ) -> Dict[UUID, Aggregate]:
-        """Every transaction carrying the tag. A (transaction, tag) link is
-        unique, so nothing is counted twice within one tag."""
-        if not tag_ids:
-            return {}
-        query = self.db.query(
-            transaction_tags.c.tag_id,
-            func.sum(func.abs(Transaction.amount)),
-            func.count(Transaction.id),
-        ).join(Transaction, Transaction.id == transaction_tags.c.transaction_id)
-        query = cashflow_scope(query, user_id, date_from, date_to)
-        rows = (
-            query.filter(
-                Transaction.movement_type == movement_type,
-                transaction_tags.c.tag_id.in_(tag_ids),
-            )
-            .group_by(transaction_tags.c.tag_id)
-            .all()
-        )
-        return {tag_id: (Decimal(total), int(count)) for tag_id, total, count in rows}
-
     def _group_matches(
         self,
         user_id: UUID,
@@ -169,9 +141,24 @@ class CashflowRepository:
         date_to: Optional[date],
         movement_type: str,
     ) -> Query:
-        """One row per (group, transaction) where the transaction carries ANY
-        of the group's tags. DISTINCT collapses a transaction that matches a
-        group through several tags into a single row."""
+        """One row per (group, transaction) where the transaction carries ALL
+        of the group's tags.
+
+        Joining a group's tags to a transaction's tags gives one row per tag
+        they share. Both links are unique pairs, so the transaction carries
+        every tag of the group exactly when that shared count equals the
+        group's size. A group left with no tags (its tags were deleted) has
+        no rows to join and matches nothing, rather than everything.
+        """
+        group_sizes = (
+            self.db.query(
+                CashflowViewGroupTag.group_id.label("group_id"),
+                func.count().label("size"),
+            )
+            .filter(CashflowViewGroupTag.group_id.in_(group_ids))
+            .group_by(CashflowViewGroupTag.group_id)
+            .subquery()
+        )
         query = (
             self.db.query(
                 CashflowViewGroupTag.group_id.label("group_id"),
@@ -180,6 +167,7 @@ class CashflowRepository:
                 Transaction.amount.label("amount"),
                 Transaction.date.label("date"),
             )
+            .join(group_sizes, group_sizes.c.group_id == CashflowViewGroupTag.group_id)
             .join(
                 transaction_tags,
                 transaction_tags.c.tag_id == CashflowViewGroupTag.tag_id,
@@ -187,10 +175,14 @@ class CashflowRepository:
             .join(Transaction, Transaction.id == transaction_tags.c.transaction_id)
         )
         query = cashflow_scope(query, user_id, date_from, date_to)
-        return query.filter(
-            Transaction.movement_type == movement_type,
-            CashflowViewGroupTag.group_id.in_(group_ids),
-        ).distinct()
+        return (
+            query.filter(Transaction.movement_type == movement_type)
+            # Grouping by the primary key lets Postgres select the other
+            # transaction columns without listing them here.
+            .group_by(
+                CashflowViewGroupTag.group_id, Transaction.id, group_sizes.c.size
+            ).having(func.count() == group_sizes.c.size)
+        )
 
     def totals_by_group(
         self,
@@ -234,3 +226,95 @@ class CashflowRepository:
             .all()
         )
         return [tuple(row) for row in rows]  # type: ignore[misc]
+
+    def list_group_transactions(
+        self,
+        user_id: UUID,
+        group_id: UUID,
+        date_from: Optional[date],
+        date_to: Optional[date],
+        movement_type: str,
+        page: int,
+        per_page: int,
+    ) -> Tuple[List[Transaction], int]:
+        """The transactions behind one group's total. Uses the same match as
+        totals_by_group, so the total here always equals the group's count in
+        the summary."""
+        matches = self._group_matches(
+            user_id, [group_id], date_from, date_to, movement_type
+        ).subquery()
+        query = self.db.query(Transaction).filter(
+            Transaction.id.in_(select(matches.c.transaction_id))
+        )
+        return self._page_of_transactions(query, page, per_page)
+
+    def _ungrouped(
+        self,
+        user_id: UUID,
+        group_ids: Sequence[UUID],
+        date_from: Optional[date],
+        date_to: Optional[date],
+        movement_type: str,
+    ) -> Query:
+        """Cashflow transactions that match none of the given groups, untagged
+        ones included. With no groups, every transaction is ungrouped."""
+        query = cashflow_scope(
+            self.db.query(Transaction), user_id, date_from, date_to
+        ).filter(Transaction.movement_type == movement_type)
+        if group_ids:
+            matches = self._group_matches(
+                user_id, group_ids, date_from, date_to, movement_type
+            ).subquery()
+            query = query.filter(~Transaction.id.in_(select(matches.c.transaction_id)))
+        return query
+
+    def totals_ungrouped(
+        self,
+        user_id: UUID,
+        group_ids: Sequence[UUID],
+        date_from: Optional[date],
+        date_to: Optional[date],
+        movement_type: str,
+    ) -> Aggregate:
+        total, count = (
+            self._ungrouped(user_id, group_ids, date_from, date_to, movement_type)
+            .with_entities(
+                func.coalesce(func.sum(func.abs(Transaction.amount)), 0),
+                func.count(Transaction.id),
+            )
+            .one()
+        )
+        return Decimal(total), int(count)
+
+    def list_ungrouped_transactions(
+        self,
+        user_id: UUID,
+        group_ids: Sequence[UUID],
+        date_from: Optional[date],
+        date_to: Optional[date],
+        movement_type: str,
+        page: int,
+        per_page: int,
+    ) -> Tuple[List[Transaction], int]:
+        """Same set as totals_ungrouped, so the total here always equals the
+        ungrouped count in the summary."""
+        query = self._ungrouped(user_id, group_ids, date_from, date_to, movement_type)
+        return self._page_of_transactions(query, page, per_page)
+
+    @staticmethod
+    def _page_of_transactions(
+        query: Query, page: int, per_page: int
+    ) -> Tuple[List[Transaction], int]:
+        """One page, newest first, with account and card names loaded in the
+        same query; plus the total across all pages."""
+        total = query.count()
+        transactions = (
+            query.options(
+                joinedload(Transaction.account), joinedload(Transaction.credit_card)
+            )
+            .order_by(Transaction.date.desc(), Transaction.id)
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+            .all()
+        )
+        return transactions, total

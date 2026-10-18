@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 import app.db.model_registration  # noqa: F401 - register every relationship
@@ -13,6 +14,8 @@ from app.db.connection_and_session import get_db_session, get_engine
 from app.domains.accounts.models import Account
 from app.domains.brokers.models import Broker
 from app.domains.cashflow.models import CashflowViewGroup
+from app.domains.credit_cards.models import CreditCard
+from app.domains.tags.models import Tag
 from app.domains.tags.schemas import TagCreate
 from app.domains.tags.service import TagService
 from app.domains.transactions.constants import MovementType
@@ -44,13 +47,13 @@ def make_user(db_session, email):
 
 @pytest.fixture
 def world(db_session):
-    """One view, two groups:
+    """One view, three groups. A group matches expenses carrying ALL its tags:
 
-    Family = [family, pharmacy]    Health = [health, unused]
+    Mother Health = [health, mother]       Personal Health = [health, personal]
+    Unused        = [unused]
 
-    "Mother appointment" carries family + health, so it lands in both groups.
-    "Pharmacy" carries family + pharmacy, so it matches Family through two
-    tags but must be counted once.
+    "Family pharmacy" carries health + mother + personal, so it lands in both
+    health groups. "Gift for mother" has mother but not health: no match.
     """
     user = make_user(db_session, "cashflow-views-integration@example.test")
     broker = Broker(user_id=user.id, name="Test Broker", colors=["#000000"])
@@ -60,16 +63,25 @@ def world(db_session):
         user_id=user.id, broker_id=broker.id, name="Test Account", type="cash"
     )
     db_session.add(account)
+    db_session.flush()
+    card = CreditCard(
+        user_id=user.id,
+        broker_id=broker.id,
+        account_id=account.id,
+        name="Test Card",
+        brand="visa",
+    )
+    db_session.add(card)
     db_session.commit()
 
     tag_service = TagService(db_session)
     tags = {
         name: tag_service.create_tag(TagCreate(name=name), user.id)
-        for name in ("family", "pharmacy", "health", "unused")
+        for name in ("health", "mother", "personal", "unused")
     }
 
     today = date.today()
-    # Noon, not midnight: proves date_to includes the whole last day.
+    # Midday, not midnight: proves date_to includes the whole last day.
     noon = datetime.combine(today, time(12))
 
     def expense(description, amount, tag_names, **overrides):
@@ -86,19 +98,31 @@ def world(db_session):
         values.update(overrides)
         return Transaction(**values)
 
+    on_card = dict(account_id=None, credit_card_id=card.id)
     db_session.add_all(
         [
-            expense("Mother appointment", "4000.00", ["family", "health"]),
-            expense("Pharmacy", "100.00", ["family", "pharmacy"]),
-            expense("Gym", "50.00", ["health"]),
-            expense("Untagged", "30.00", []),
-            expense("Ignored", "500.00", ["family"], ignored=True),
-            expense("Deleted", "600.00", ["family"], is_deleted=True),
-            expense("Last year", "700.00", ["family"], date=noon - timedelta(365)),
+            expense("Mother appointment", "4000.00", ["health", "mother"], **on_card),
+            expense(
+                "Family pharmacy",
+                "100.00",
+                ["health", "mother", "personal"],
+                date=noon + timedelta(hours=1),
+            ),
+            expense("Gym", "50.00", ["health", "personal"]),
+            expense("Gift for mother", "300.00", ["mother"]),
+            expense("Untagged", "30.00", [], date=noon + timedelta(hours=2)),
+            expense("Ignored", "500.00", ["health", "mother"], ignored=True),
+            expense("Deleted", "600.00", ["health", "mother"], is_deleted=True),
+            expense(
+                "Last year",
+                "700.00",
+                ["health", "mother"],
+                date=noon - timedelta(365),
+            ),
             expense(
                 "Refund",
                 "20.00",
-                ["family"],
+                ["health", "mother"],
                 movement_type=MovementType.INCOME.value,
             ),
         ]
@@ -112,35 +136,44 @@ def world(db_session):
     app.dependency_overrides[get_current_user_id] = lambda: user.id
     client = TestClient(app)
 
+    def tag_ids(*names):
+        return [str(tags[name].id) for name in names]
+
     response = client.post(
         "/api/v1/cashflow/views",
         json={
             "name": "By person",
             "groups": [
-                {
-                    "name": "Family",
-                    "tag_ids": [str(tags["family"].id), str(tags["pharmacy"].id)],
-                },
-                {
-                    "name": "Health",
-                    "tag_ids": [str(tags["health"].id), str(tags["unused"].id)],
-                },
+                {"name": "Mother Health", "tag_ids": tag_ids("health", "mother")},
+                {"name": "Personal Health", "tag_ids": tag_ids("health", "personal")},
+                {"name": "Unused", "tag_ids": tag_ids("unused")},
             ],
         },
     )
     assert response.status_code == 201, response.text
     view = response.json()
+    mother, personal, unused = (group["id"] for group in view["groups"])
 
     yield SimpleNamespace(
         client=client,
         user_id=user.id,
         tags={name: str(tag.id) for name, tag in tags.items()},
+        account={"id": str(account.id), "name": "Test Account"},
+        card={"id": str(card.id), "name": "Test Card"},
         view=view,
-        family=view["groups"][0]["id"],
-        health=view["groups"][1]["id"],
+        view_url=f"/api/v1/cashflow/views/{view['id']}",
+        mother=mother,
+        personal=personal,
+        unused=unused,
         period={"date_from": today.isoformat(), "date_to": today.isoformat()},
     )
     app.dependency_overrides.clear()
+
+
+def summary_of(world, **params):
+    response = world.client.get(f"{world.view_url}/summary", params=params)
+    assert response.status_code == 200, response.text
+    return {group["group_id"]: group for group in response.json()["groups"]}
 
 
 # ---- CRUD ---------------------------------------------------------------------
@@ -159,10 +192,14 @@ def test_create_returns_the_contract_shape(world):
     }
     assert view["name"] == "By person"
     assert view["display_order"] == 0
-    assert [g["name"] for g in view["groups"]] == ["Family", "Health"]
+    assert [g["name"] for g in view["groups"]] == [
+        "Mother Health",
+        "Personal Health",
+        "Unused",
+    ]
     assert view["groups"][0]["tag_ids"] == [
-        world.tags["family"],
-        world.tags["pharmacy"],
+        world.tags["health"],
+        world.tags["mother"],
     ]
 
 
@@ -180,7 +217,7 @@ def test_list_returns_a_bare_array_ordered_by_display_order_then_name(world):
 
 def test_patch_replaces_groups_and_keeps_omitted_fields(world, db_session):
     response = world.client.patch(
-        f"/api/v1/cashflow/views/{world.view['id']}",
+        world.view_url,
         json={"groups": [{"name": "Only health", "tag_ids": [world.tags["health"]]}]},
     )
 
@@ -198,25 +235,26 @@ def test_patch_replaces_groups_and_keeps_omitted_fields(world, db_session):
 
 
 def test_delete_returns_204_and_the_view_is_gone(world):
-    url = f"/api/v1/cashflow/views/{world.view['id']}"
-
-    response = world.client.delete(url)
+    response = world.client.delete(world.view_url)
 
     assert response.status_code == 204
     assert response.content == b""
-    assert world.client.patch(url, json={"name": "x"}).status_code == 404
+    assert world.client.patch(world.view_url, json={"name": "x"}).status_code == 404
 
 
 def test_views_of_another_user_are_not_found(world, db_session):
     intruder = make_user(db_session, "cashflow-views-intruder@example.test")
     app.dependency_overrides[get_current_user_id] = lambda: intruder.id
-    view_url = f"/api/v1/cashflow/views/{world.view['id']}"
+    group_url = f"{world.view_url}/groups/{world.mother}/transactions"
 
     assert world.client.get("/api/v1/cashflow/views").json() == []
-    assert world.client.patch(view_url, json={"name": "x"}).status_code == 404
-    assert world.client.delete(view_url).status_code == 404
-    assert world.client.get(f"{view_url}/summary").status_code == 404
-    assert world.client.get(f"{view_url}/overlaps").status_code == 404
+    assert world.client.patch(world.view_url, json={"name": "x"}).status_code == 404
+    assert world.client.delete(world.view_url).status_code == 404
+    assert world.client.get(f"{world.view_url}/summary").status_code == 404
+    assert world.client.get(f"{world.view_url}/overlaps").status_code == 404
+    assert world.client.get(group_url).status_code == 404
+    ungrouped_url = f"{world.view_url}/ungrouped/transactions"
+    assert world.client.get(ungrouped_url).status_code == 404
 
 
 def test_unknown_view_is_not_found(world):
@@ -252,84 +290,186 @@ def test_another_users_tag_is_rejected(world, db_session):
     assert response.status_code == 422
 
 
-# ---- Summary and overlaps ---------------------------------------------------------
+# ---- Summary ------------------------------------------------------------------
 
 
-def test_summary_counts_each_expense_once_per_group(world):
+def test_summary_matches_expenses_carrying_all_of_a_groups_tags(world):
+    response = world.client.get(f"{world.view_url}/summary", params=world.period)
+
+    # Gift for mother (mother only) stays out of Mother Health. Family
+    # pharmacy is in both health groups and counted once in each.
+    # Ignored, deleted, last-year and income rows never count.
+    assert response.json() == {
+        "groups": [
+            {"group_id": world.mother, "total": "4100.00", "count": 2},
+            {"group_id": world.personal, "total": "150.00", "count": 2},
+            {"group_id": world.unused, "total": "0.00", "count": 0},
+        ],
+        # Gift for mother + Untagged.
+        "ungrouped": {"total": "330.00", "count": 2},
+    }
+
+
+def test_in_a_view_without_groups_every_expense_is_ungrouped(world):
+    view = world.client.post("/api/v1/cashflow/views", json={"name": "Empty"}).json()
+
     response = world.client.get(
-        f"/api/v1/cashflow/views/{world.view['id']}/summary", params=world.period
+        f"/api/v1/cashflow/views/{view['id']}/summary", params=world.period
     )
 
-    assert response.status_code == 200
-    family, health = response.json()["groups"]
+    assert response.json() == {
+        "groups": [],
+        "ungrouped": {"total": "4480.00", "count": 5},
+    }
 
-    # Mother appointment + Pharmacy. Pharmacy matches through two tags but
-    # counts once, so the group total is less than the sum of its tags.
-    assert family == {
-        "group_id": world.family,
-        "total": "4100.00",
-        "count": 2,
-        "tags": [
-            {"tag_id": world.tags["family"], "total": "4100.00", "count": 2},
-            {"tag_id": world.tags["pharmacy"], "total": "100.00", "count": 1},
-        ],
-    }
-    # Every tag is listed, even with no matches.
-    assert health == {
-        "group_id": world.health,
-        "total": "4050.00",
-        "count": 2,
-        "tags": [
-            {"tag_id": world.tags["health"], "total": "4050.00", "count": 2},
-            {"tag_id": world.tags["unused"], "total": "0.00", "count": 0},
-        ],
-    }
+
+def test_ungrouped_is_zero_when_groups_cover_everything(world):
+    world.client.patch(
+        world.view_url,
+        json={"groups": [{"name": "Health", "tag_ids": [world.tags["health"]]}]},
+    )
+
+    response = world.client.get(
+        f"{world.view_url}/summary", params={**world.period, "movement_type": "income"}
+    )
+
+    assert response.json()["ungrouped"] == {"total": "0.00", "count": 0}
 
 
 def test_summary_respects_movement_type(world):
-    response = world.client.get(
-        f"/api/v1/cashflow/views/{world.view['id']}/summary",
-        params={**world.period, "movement_type": "income"},
-    )
+    summary = summary_of(world, **world.period, movement_type="income")
 
-    family = response.json()["groups"][0]
-    assert (family["total"], family["count"]) == ("20.00", 1)
+    assert (summary[world.mother]["total"], summary[world.mother]["count"]) == (
+        "20.00",
+        1,
+    )
 
 
 def test_summary_without_dates_covers_all_time(world):
-    response = world.client.get(f"/api/v1/cashflow/views/{world.view['id']}/summary")
+    summary = summary_of(world)
 
-    family = response.json()["groups"][0]
-    assert (family["total"], family["count"]) == ("4800.00", 3)  # + last year
+    # + Last year
+    assert (summary[world.mother]["total"], summary[world.mother]["count"]) == (
+        "4800.00",
+        3,
+    )
+
+
+def test_group_whose_tags_were_all_deleted_matches_nothing(world, db_session):
+    # Deleting a tag removes it from groups (ON DELETE CASCADE). An empty
+    # ALL-of rule must not turn into "every transaction".
+    db_session.execute(delete(Tag).where(Tag.id == world.tags["unused"]))
+    db_session.commit()
+
+    summary = summary_of(world, **world.period)
+
+    assert (summary[world.unused]["total"], summary[world.unused]["count"]) == (
+        "0.00",
+        0,
+    )
+
+
+# ---- Overlaps -----------------------------------------------------------------
 
 
 def test_overlaps_list_expenses_in_two_or_more_groups(world):
-    response = world.client.get(
-        f"/api/v1/cashflow/views/{world.view['id']}/overlaps", params=world.period
-    )
+    response = world.client.get(f"{world.view_url}/overlaps", params=world.period)
 
     assert response.status_code == 200
     [overlap] = response.json()
-    assert overlap["description"] == "Mother appointment"
-    assert overlap["amount"] == "4000.00"
+    assert overlap["description"] == "Family pharmacy"
+    assert overlap["amount"] == "100.00"
     assert overlap["date"] == world.period["date_from"]
-    assert overlap["group_ids"] == [world.family, world.health]
+    assert overlap["group_ids"] == [world.mother, world.personal]
 
 
 def test_overlaps_are_empty_when_groups_do_not_share_expenses(world):
     world.client.patch(
-        f"/api/v1/cashflow/views/{world.view['id']}",
+        world.view_url,
         json={"groups": [{"name": "Only health", "tag_ids": [world.tags["health"]]}]},
     )
 
-    response = world.client.get(
-        f"/api/v1/cashflow/views/{world.view['id']}/overlaps", params=world.period
-    )
+    response = world.client.get(f"{world.view_url}/overlaps", params=world.period)
 
     assert response.json() == []
 
 
-# ---- Monthly cashflow -------------------------------------------------------------
+# ---- Group transactions -------------------------------------------------------
+
+
+def test_group_transactions_list_what_is_behind_the_total(world):
+    response = world.client.get(
+        f"{world.view_url}/groups/{world.mother}/transactions", params=world.period
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    family_pharmacy, mother_appointment = body["data"]  # newest first
+    assert family_pharmacy == {
+        "id": family_pharmacy["id"],
+        "date": world.period["date_from"],
+        "description": "Family pharmacy",
+        "amount": "100.00",
+        "account": world.account,
+        "credit_card": None,
+    }
+    assert mother_appointment["description"] == "Mother appointment"
+    assert mother_appointment["account"] is None
+    assert mother_appointment["credit_card"] == world.card
+    # Same rule as the summary, so the numbers line up.
+    assert (
+        body["meta"]["total"]
+        == summary_of(world, **world.period)[world.mother]["count"]
+    )
+    assert body["meta"]["has_next"] is False
+
+
+def test_group_transactions_are_paginated(world):
+    url = f"{world.view_url}/groups/{world.mother}/transactions"
+
+    first = world.client.get(url, params={**world.period, "per_page": 1}).json()
+    second = world.client.get(
+        url, params={**world.period, "per_page": 1, "page": 2}
+    ).json()
+
+    assert [t["description"] for t in first["data"]] == ["Family pharmacy"]
+    assert first["meta"] == {
+        "total": 2,
+        "page": 1,
+        "per_page": 1,
+        "has_next": True,
+        "has_previous": False,
+    }
+    assert [t["description"] for t in second["data"]] == ["Mother appointment"]
+    assert second["meta"]["has_next"] is False
+
+
+def test_group_transactions_reject_per_page_above_100(world):
+    response = world.client.get(
+        f"{world.view_url}/groups/{world.mother}/transactions",
+        params={"per_page": 101},
+    )
+
+    assert response.status_code == 422
+
+
+def test_group_of_another_view_or_unknown_is_not_found(world):
+    other = world.client.post(
+        "/api/v1/cashflow/views",
+        json={
+            "name": "Other",
+            "groups": [{"name": "G", "tag_ids": [world.tags["health"]]}],
+        },
+    ).json()
+    other_group = other["groups"][0]["id"]
+
+    for group_id in (other_group, str(uuid4())):
+        response = world.client.get(f"{world.view_url}/groups/{group_id}/transactions")
+        assert response.status_code == 404
+        assert response.json()["error"]["message"] == "Cashflow view group not found"
+
+
+# ---- Monthly cashflow -----------------------------------------------------------
 
 
 def test_monthly_cashflow_is_served_at_new_and_legacy_paths(world):
@@ -339,4 +479,42 @@ def test_monthly_cashflow_is_served_at_new_and_legacy_paths(world):
     assert new.status_code == legacy.status_code == 200
     assert new.json() == legacy.json()
     # Same scope as the views: ignored, deleted and last-year rows excluded.
-    assert Decimal(new.json()["total_expenses"]) == Decimal("4180.00")
+    assert Decimal(new.json()["total_expenses"]) == Decimal("4480.00")
+
+
+# ---- Ungrouped transactions -----------------------------------------------------
+
+
+def test_ungrouped_transactions_list_what_is_behind_the_ungrouped_total(world):
+    response = world.client.get(
+        f"{world.view_url}/ungrouped/transactions", params=world.period
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [t["description"] for t in body["data"]] == [
+        "Untagged",
+        "Gift for mother",
+    ]
+    assert body["data"][0]["account"] == world.account
+    ungrouped = world.client.get(
+        f"{world.view_url}/summary", params=world.period
+    ).json()["ungrouped"]
+    assert body["meta"]["total"] == ungrouped["count"]
+
+
+def test_ungrouped_transactions_are_paginated(world):
+    url = f"{world.view_url}/ungrouped/transactions"
+
+    second = world.client.get(
+        url, params={**world.period, "per_page": 1, "page": 2}
+    ).json()
+
+    assert [t["description"] for t in second["data"]] == ["Gift for mother"]
+    assert second["meta"] == {
+        "total": 2,
+        "page": 2,
+        "per_page": 1,
+        "has_next": False,
+        "has_previous": True,
+    }

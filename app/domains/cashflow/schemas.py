@@ -5,6 +5,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# Same pagination meta as the transactions list, so the frontend reads both
+# the same way.
+from app.domains.transactions.schemas import TransactionListMeta
+
 # ---- Monthly cashflow -------------------------------------------------------
 
 
@@ -68,21 +72,21 @@ class CashflowViewResponse(BaseModel):
     updated_at: datetime
 
 
-class CashflowViewTagSummary(BaseModel):
-    tag_id: UUID
-    total: Decimal
-    count: int
-
-
 class CashflowViewGroupSummary(BaseModel):
     group_id: UUID
     total: Decimal
     count: int
-    tags: List[CashflowViewTagSummary]
+
+
+class CashflowViewUngroupedSummary(BaseModel):
+    total: Decimal
+    count: int
 
 
 class CashflowViewSummaryResponse(BaseModel):
     groups: List[CashflowViewGroupSummary]
+    # Transactions that match none of the groups ("Not in any group").
+    ungrouped: CashflowViewUngroupedSummary
 
 
 class CashflowViewOverlapItem(BaseModel):
@@ -91,3 +95,24 @@ class CashflowViewOverlapItem(BaseModel):
     amount: Decimal
     date: date
     group_ids: List[UUID]
+
+
+class CashflowNamedRef(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+
+
+class CashflowViewGroupTransaction(BaseModel):
+    id: UUID
+    date: date
+    description: str
+    amount: Decimal
+    account: Optional[CashflowNamedRef]
+    credit_card: Optional[CashflowNamedRef]
+
+
+class CashflowViewGroupTransactionListResponse(BaseModel):
+    data: List[CashflowViewGroupTransaction]
+    meta: TransactionListMeta

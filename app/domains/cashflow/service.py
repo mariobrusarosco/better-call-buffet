@@ -23,14 +23,18 @@ from app.domains.cashflow.schemas import (
     CashflowViewCreate,
     CashflowViewGroupCreate,
     CashflowViewGroupSummary,
+    CashflowViewGroupTransaction,
+    CashflowViewGroupTransactionListResponse,
     CashflowViewOverlapItem,
     CashflowViewSummaryResponse,
-    CashflowViewTagSummary,
+    CashflowViewUngroupedSummary,
     CashflowViewUpdate,
     MonthlyCashflow,
 )
 from app.domains.tags.repository import TagRepository
 from app.domains.transactions.constants import MovementType
+from app.domains.transactions.models import Transaction
+from app.domains.transactions.schemas import TransactionListMeta
 
 CENTS = Decimal("0.01")
 
@@ -166,20 +170,15 @@ class CashflowService:
         date_to: Optional[date] = None,
         movement_type: MovementType = MovementType.EXPENSE,
     ) -> CashflowViewSummaryResponse:
-        """Every group and every tag of the view, zero when nothing matches.
-
-        A tag's total covers every transaction carrying it. A group's total
-        covers every transaction carrying ANY of its tags, counted once, so
-        it can be less than the sum of its tags.
-        """
+        """Every group of the view, zero when nothing matches, plus what fell
+        outside all of them. A group's total covers the transactions carrying
+        ALL of its tags, each counted once."""
         view = self.get_view(view_id, user_id)
         group_ids = [group.id for group in view.groups]
-        tag_ids = list({tag_id for group in view.groups for tag_id in group.tag_ids})
-        by_tag = self.repository.totals_by_tag(
-            user_id, tag_ids, date_from, date_to, movement_type.value
-        )
-        by_group = self.repository.totals_by_group(
-            user_id, group_ids, date_from, date_to, movement_type.value
+        filters = (date_from, date_to, movement_type.value)
+        by_group = self.repository.totals_by_group(user_id, group_ids, *filters)
+        ungrouped_total, ungrouped_count = self.repository.totals_ungrouped(
+            user_id, group_ids, *filters
         )
         nothing = (Decimal("0"), 0)
 
@@ -189,17 +188,91 @@ class CashflowService:
                     group_id=group.id,
                     total=to_money(by_group.get(group.id, nothing)[0]),
                     count=by_group.get(group.id, nothing)[1],
-                    tags=[
-                        CashflowViewTagSummary(
-                            tag_id=tag_id,
-                            total=to_money(by_tag.get(tag_id, nothing)[0]),
-                            count=by_tag.get(tag_id, nothing)[1],
-                        )
-                        for tag_id in group.tag_ids
-                    ],
                 )
                 for group in view.groups
-            ]
+            ],
+            ungrouped=CashflowViewUngroupedSummary(
+                total=to_money(ungrouped_total), count=ungrouped_count
+            ),
+        )
+
+    def list_group_transactions(
+        self,
+        view_id: UUID,
+        group_id: UUID,
+        user_id: UUID,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+        movement_type: MovementType = MovementType.EXPENSE,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> CashflowViewGroupTransactionListResponse:
+        """The transactions behind a group's summary total, newest first."""
+        view = self.get_view(view_id, user_id)
+        if group_id not in {group.id for group in view.groups}:
+            raise NotFoundError(
+                message="Cashflow view group not found",
+                error_code="CASHFLOW_VIEW_GROUP_NOT_FOUND",
+            )
+
+        transactions, total = self.repository.list_group_transactions(
+            user_id,
+            group_id,
+            date_from,
+            date_to,
+            movement_type.value,
+            page,
+            per_page,
+        )
+        return self._transaction_page(transactions, total, page, per_page)
+
+    def list_ungrouped_transactions(
+        self,
+        view_id: UUID,
+        user_id: UUID,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+        movement_type: MovementType = MovementType.EXPENSE,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> CashflowViewGroupTransactionListResponse:
+        """The transactions behind the summary's ungrouped total, newest
+        first."""
+        view = self.get_view(view_id, user_id)
+        transactions, total = self.repository.list_ungrouped_transactions(
+            user_id,
+            [group.id for group in view.groups],
+            date_from,
+            date_to,
+            movement_type.value,
+            page,
+            per_page,
+        )
+        return self._transaction_page(transactions, total, page, per_page)
+
+    @staticmethod
+    def _transaction_page(
+        transactions: Sequence[Transaction], total: int, page: int, per_page: int
+    ) -> CashflowViewGroupTransactionListResponse:
+        return CashflowViewGroupTransactionListResponse(
+            data=[
+                CashflowViewGroupTransaction(
+                    id=transaction.id,
+                    date=transaction.date.date(),
+                    description=transaction.description,
+                    amount=to_money(abs(transaction.amount)),
+                    account=transaction.account,
+                    credit_card=transaction.credit_card,
+                )
+                for transaction in transactions
+            ],
+            meta=TransactionListMeta(
+                total=total,
+                page=page,
+                per_page=per_page,
+                has_next=page * per_page < total,
+                has_previous=page > 1,
+            ),
         )
 
     def get_view_overlaps(

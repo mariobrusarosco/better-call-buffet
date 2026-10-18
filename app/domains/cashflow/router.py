@@ -10,6 +10,7 @@ from app.db.connection_and_session import get_db_session
 from app.domains.cashflow.schemas import (
     CashflowSummary,
     CashflowViewCreate,
+    CashflowViewGroupTransactionListResponse,
     CashflowViewOverlapItem,
     CashflowViewResponse,
     CashflowViewSummaryResponse,
@@ -129,4 +130,60 @@ def get_cashflow_view_overlaps(
     """Transactions that fall into two or more groups of the view."""
     return service.get_view_overlaps(
         view_id, user_id, date_from, date_to, movement_type
+    )
+
+
+@router.get(
+    "/views/{view_id}/groups/{group_id}/transactions",
+    response_model=CashflowViewGroupTransactionListResponse,
+)
+def list_cashflow_view_group_transactions(
+    view_id: UUID,
+    group_id: UUID,
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    movement_type: MovementType = Query(MovementType.EXPENSE),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    per_page: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    user_id: UUID = Depends(get_current_user_id),
+    service: CashflowService = Depends(get_cashflow_service),
+):
+    """The transactions behind a group's summary total, newest first. Same
+    match and filters as /summary, so meta.total equals the group's count."""
+    return service.list_group_transactions(
+        view_id,
+        group_id,
+        user_id,
+        date_from,
+        date_to,
+        movement_type,
+        page,
+        per_page,
+    )
+
+
+@router.get(
+    "/views/{view_id}/ungrouped/transactions",
+    response_model=CashflowViewGroupTransactionListResponse,
+)
+def list_cashflow_view_ungrouped_transactions(
+    view_id: UUID,
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    movement_type: MovementType = Query(MovementType.EXPENSE),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    per_page: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    user_id: UUID = Depends(get_current_user_id),
+    service: CashflowService = Depends(get_cashflow_service),
+):
+    """Transactions that match none of the view's groups, newest first.
+    meta.total equals the summary's ungrouped.count."""
+    return service.list_ungrouped_transactions(
+        view_id,
+        user_id,
+        date_from,
+        date_to,
+        movement_type,
+        page,
+        per_page,
     )
