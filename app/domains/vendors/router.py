@@ -34,8 +34,13 @@ def create_vendor(
 
 @router.get("", response_model=VendorListResponse)
 def get_vendors(
-    name_contains: Optional[str] = Query(None, description="Filter by name"),
-    sort_by: str = Query("name", description="Sort by field"),
+    name_contains: Optional[str] = Query(
+        None, description="Case-insensitive match on vendor name"
+    ),
+    sort_by: str = Query(
+        "name",
+        description="name, created_at or usage (use sort_order=desc for most used)",
+    ),
     sort_order: str = Query("asc", description="Sort order (asc/desc)"),
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),

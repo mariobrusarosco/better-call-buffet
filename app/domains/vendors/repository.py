@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy import and_, asc, desc
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, undefer
 
 from app.domains.vendors.models import Vendor
 from app.domains.vendors.schemas import VendorFilters
@@ -46,28 +46,33 @@ class VendorRepository:
     ) -> Tuple[List[Vendor], int]:
         # Base query
         query = self.db.query(Vendor).filter(Vendor.user_id == user_id)
-
-        # Apply structured filters
         if filters:
             query = self._apply_filters(query, filters)
-            query = self._apply_sorting(query, filters)
 
-            total_count = query.count()
+        # Count before loading usage and sorting: both are irrelevant to the
+        # total and would make the COUNT compute usage for every vendor.
+        total_count = query.count()
+
+        query = query.options(undefer(Vendor.usage_count))
+        if filters:
+            query = self._apply_sorting(query, filters)
             query = self._apply_pagination(query, filters)
-        else:
-            total_count = query.count()
 
         return query.all(), total_count
 
     def _apply_filters(self, query, filters: VendorFilters):
         if filters.name_contains:
-            query = query.filter(Vendor.name.ilike(f"%{filters.name_contains}%"))
+            # autoescape keeps % and _ literal instead of SQL wildcards.
+            query = query.filter(
+                Vendor.name.icontains(filters.name_contains, autoescape=True)
+            )
         return query
 
     def _apply_sorting(self, query, filters: VendorFilters):
         sort_fields = {
             "name": Vendor.name,
             "created_at": Vendor.created_at,
+            "usage": Vendor.usage_count,
         }
 
         default_field = Vendor.name
@@ -77,6 +82,8 @@ class VendorRepository:
             query = query.order_by(desc(field))
         else:
             query = query.order_by(asc(field))
+        # Stable order for ties (e.g. equal usage) so pages never shuffle.
+        query = query.order_by(asc(Vendor.name), asc(Vendor.id))
 
         return query
 

@@ -2,9 +2,10 @@ from fastapi import APIRouter
 
 from app.api.v1.auth import router as auth_router
 from app.domains.accounts.router import router as accounts_router
-from app.domains.analytics.router import router as analytics_router
 from app.domains.balance_points.router import router as balance_points_router
 from app.domains.brokers.router import router as brokers_router
+from app.domains.cashflow.router import legacy_router as cashflow_legacy_router
+from app.domains.cashflow.router import router as cashflow_router
 from app.domains.credit_cards.router import router as credit_cards_router
 from app.domains.data_transfer.router import router as data_transfer_router
 from app.domains.forecast.router import router as forecast_router
@@ -13,7 +14,6 @@ from app.domains.invoices.router import router as invoices_router
 from app.domains.reports.router import router as reports_router
 from app.domains.statements.router import router as statements_router
 from app.domains.subscriptions.router import router as subscriptions_router
-from app.domains.tag_groups.router import router as tag_groups_router
 from app.domains.tags.router import router as tags_router
 from app.domains.transactions.router import router as transactions_router
 from app.domains.users.router import router as users_router
@@ -43,12 +43,12 @@ api_router.include_router(
     transactions_router, prefix="/transactions", tags=["transactions"]
 )
 api_router.include_router(tags_router, prefix="/tags", tags=["tags"])
-api_router.include_router(tag_groups_router, prefix="/tag-groups", tags=["tag-groups"])
 api_router.include_router(vendors_router, prefix="/vendors", tags=["vendors"])
 api_router.include_router(
     subscriptions_router, prefix="/subscriptions", tags=["subscriptions"]
 )
-api_router.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
+api_router.include_router(cashflow_router, prefix="/cashflow", tags=["cashflow"])
+api_router.include_router(cashflow_legacy_router)
 api_router.include_router(
     installments_router, prefix="/installments", tags=["installments"]
 )

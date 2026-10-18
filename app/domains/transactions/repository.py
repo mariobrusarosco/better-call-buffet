@@ -315,6 +315,9 @@ class TransactionRepository:
         default_field = Transaction.date
         field = sort_fields.get(filters.sort_by or default_field, default_field)
 
+        # Ignored transactions always go last (False sorts before True)
+        query = query.order_by(asc(Transaction.ignored))
+
         if filters.sort_order == "asc":
             query = query.order_by(asc(field))
         else:

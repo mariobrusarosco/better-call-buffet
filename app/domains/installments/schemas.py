@@ -69,13 +69,41 @@ class InstallmentPlanCreate(InstallmentPlanBase):
 
 
 class InstallmentPlanUpdate(BaseModel):
-    name: Optional[str] = None
+    """Partial update of a plan's details.
+
+    Amounts and schedule (total_amount, installment_count, start_date) are not
+    editable here: the generated installments would no longer add up. Adjust a
+    single installment with PATCH /installments/{installment_id} instead.
+
+    `description`, `vendor_id` and `credit_card_id` accept null to clear them;
+    `tag_ids: null` or `[]` removes all tags.
+    """
+
+    name: Optional[str] = Field(default=None, min_length=1)
     description: Optional[str] = None
-    total_amount: Optional[float] = None
     status: Optional[InstallmentPlanStatus] = None
     vendor_id: Optional[UUID] = None
     tag_ids: Optional[List[UUID]] = Field(default=None, max_length=MAX_TAGS_PER_ENTITY)
     credit_card_id: Optional[UUID] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: Optional[str]) -> str:
+        if value is None:
+            raise ValueError("name cannot be null")
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("name cannot be empty")
+        return cleaned
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(
+        cls, value: Optional[InstallmentPlanStatus]
+    ) -> InstallmentPlanStatus:
+        if value is None:
+            raise ValueError("status cannot be null")
+        return value
 
     @field_validator("tag_ids")
     @classmethod

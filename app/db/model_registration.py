@@ -17,13 +17,17 @@ from app.db.connection_and_session import Base
 from app.domains.accounts.models import Account
 from app.domains.balance_points.models import BalancePoint
 from app.domains.brokers.models import Broker
+from app.domains.cashflow.models import (
+    CashflowView,
+    CashflowViewGroup,
+    CashflowViewGroupTag,
+)
 from app.domains.credit_cards.models import CreditCard
 from app.domains.installments.models import Installment, InstallmentPlan
 from app.domains.invoices.models import Invoice
 from app.domains.refresh_tokens.models import RefreshToken
 from app.domains.statements.models import Statement
 from app.domains.subscriptions.models import Subscription
-from app.domains.tag_groups.models import TagGroup, tag_group_tags
 from app.domains.tags.models import (
     Tag,
     installment_plan_tags,
@@ -57,8 +61,9 @@ def validate_model_registration():
         "transaction_tags",
         "subscription_tags",
         "installment_plan_tags",
-        "tag_groups",
-        "tag_group_tags",
+        "cashflow_views",
+        "cashflow_view_groups",
+        "cashflow_view_group_tags",
         "vendors",
         "subscriptions",
         "installment_plans",

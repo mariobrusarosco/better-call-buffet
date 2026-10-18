@@ -12,8 +12,8 @@ from app.domains.vendors.schemas import (
     VendorFilters,
     VendorListMeta,
     VendorListResponse,
-    VendorResponse,
     VendorUpdate,
+    VendorUsageResponse,
 )
 
 logger = get_logger(__name__)
@@ -92,7 +92,7 @@ class VendorService:
         has_next = filters.page < total_pages
         has_previous = filters.page > 1
 
-        vendor_responses = [VendorResponse.from_orm(v) for v in vendors]
+        vendor_responses = [VendorUsageResponse.model_validate(v) for v in vendors]
 
         meta = VendorListMeta(
             total=total_count,

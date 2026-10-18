@@ -58,10 +58,7 @@ class InstallmentService:
         tags = self.tag_service.validate_tag_assignment(plan_data.tag_ids, user_id)
 
         if plan_data.credit_card_id:
-            filters = CreditCardFilters(credit_card_id=plan_data.credit_card_id)
-            self.credit_card_service.get_user_unique_credit_card_with_filters(
-                user_id, filters
-            )
+            self._ensure_credit_card_owned(plan_data.credit_card_id, user_id)
 
         # 2. Create the Plan record
         plan = InstallmentPlan(
@@ -149,6 +146,48 @@ class InstallmentService:
             setattr(installment, key, value)
 
         return self.repository.update_installment(installment)
+
+    def update_plan(
+        self, plan_id: UUID, data: InstallmentPlanUpdate, user_id: UUID
+    ) -> InstallmentPlan:
+        plan = self.get_plan(plan_id, user_id)
+        update_data = data.model_dump(exclude_unset=True)
+
+        if update_data.get("vendor_id"):
+            try:
+                self.vendor_service.get_vendor(update_data["vendor_id"], user_id)
+            except NotFoundError:
+                raise ValidationError(
+                    message=f"Vendor with ID {update_data['vendor_id']} not found.",
+                    error_code="VENDOR_NOT_FOUND",
+                )
+
+        if update_data.get("credit_card_id"):
+            self._ensure_credit_card_owned(update_data["credit_card_id"], user_id)
+
+        if "tag_ids" in update_data:
+            plan.tags = self.tag_service.validate_tag_assignment(
+                update_data.pop("tag_ids") or [], user_id
+            )
+
+        for key, value in update_data.items():
+            setattr(plan, key, value)
+
+        self.repository.update_plan(plan)
+        return self.get_plan(plan_id, user_id)
+
+    def _ensure_credit_card_owned(self, credit_card_id: UUID, user_id: UUID) -> None:
+        # The lookup returns None (it doesn't raise) for a card that is missing
+        # or belongs to another user, so the result must be checked.
+        filters = CreditCardFilters(credit_card_id=credit_card_id)
+        card = self.credit_card_service.get_user_unique_credit_card_with_filters(
+            user_id, filters
+        )
+        if card is None:
+            raise ValidationError(
+                message=f"Credit card with ID {credit_card_id} not found.",
+                error_code="CREDIT_CARD_NOT_FOUND",
+            )
 
     def delete_plan(self, plan_id: UUID, user_id: UUID) -> None:
         plan = self.get_plan(plan_id, user_id)

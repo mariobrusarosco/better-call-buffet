@@ -75,6 +75,21 @@ def get_installment_plan(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.patch("/plans/{plan_id}", response_model=InstallmentPlanResponse)
+def update_installment_plan(
+    plan_id: UUID,
+    plan_in: InstallmentPlanUpdate,
+    db: Session = Depends(get_db_session),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """Edit a plan's details (name, description, status, vendor, card, tags).
+
+    Errors propagate to the global handlers: 404 for an unknown plan, 422 for
+    invalid input or a vendor/card/tag the user doesn't own.
+    """
+    return InstallmentService(db).update_plan(plan_id, plan_in, current_user_id)
+
+
 @router.delete("/plans/{plan_id}", status_code=204)
 def delete_installment_plan(
     plan_id: UUID,

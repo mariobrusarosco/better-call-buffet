@@ -36,6 +36,7 @@ class InstallmentPlan(Base):
     __table_args__ = (
         Index("ix_installment_plans_user_id", "user_id"),
         Index("ix_installment_plans_credit_card_id", "credit_card_id"),
+        Index("ix_installment_plans_vendor_id", "vendor_id"),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)

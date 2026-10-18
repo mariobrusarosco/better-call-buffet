@@ -31,11 +31,17 @@ class VendorResponse(VendorBase):
         from_attributes = True
 
 
+class VendorUsageResponse(VendorResponse):
+    """Vendor as returned by the list endpoint, with how many records use it."""
+
+    usage_count: int
+
+
 class VendorFilters(BaseModel):
     # Content filters
     name_contains: Optional[str] = None
     # Sorting options
-    sort_by: Optional[str] = "name"  # name, created_at
+    sort_by: Optional[str] = "name"  # name, created_at, usage
     sort_order: Optional[str] = "asc"  # asc or desc
     # Pagination
     page: int = 1
@@ -51,7 +57,7 @@ class VendorListMeta(BaseModel):
 
 
 class VendorListResponse(BaseModel):
-    data: List[VendorResponse]
+    data: List[VendorUsageResponse]
     meta: VendorListMeta
 
     class Config:
