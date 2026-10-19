@@ -241,19 +241,14 @@ def test_save_closing_rejects_dates_before_the_opening():
     assert error.value.error_code == "CLOSING_BEFORE_OPENING"
 
 
-def test_delete_closing_protects_the_opening_balance():
+def test_first_balance_on_an_account_without_opening_becomes_the_opening():
+    """Accounts created before opening balances existed have no points."""
     service = build_investment_service()
+    service.repository.get_balance_points.return_value = []
+    account_id = uuid4()
 
-    with pytest.raises(ValidationError) as error:
-        service.delete_closing(uuid4(), uuid4(), date(2025, 12, 31))
+    service.save_closing(account_id, uuid4(), date(2022, 12, 31), Decimal("28799.00"))
 
-    assert error.value.error_code == "OPENING_BALANCE_PROTECTED"
-    service.repository.delete_balance_point.assert_not_called()
-
-
-def test_delete_closing_reports_a_missing_closing():
-    service = build_investment_service()
-    service.repository.get_balance_point.return_value = None
-
-    with pytest.raises(NotFoundError):
-        service.delete_closing(uuid4(), uuid4(), date(2026, 1, 31))
+    service.repository.upsert_balance_point.assert_called_once_with(
+        account_id, date(2022, 12, 31), Decimal("28799.00")
+    )

@@ -83,7 +83,3 @@ class BalancePointRepository:
         self.db.commit()
         self.db.refresh(balance_point)
         return balance_point
-
-    def delete_balance_point(self, balance_point: BalancePoint) -> None:
-        self.db.delete(balance_point)
-        self.db.commit()

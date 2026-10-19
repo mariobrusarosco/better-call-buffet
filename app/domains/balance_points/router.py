@@ -2,13 +2,19 @@ from datetime import date
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.auth.dependencies import get_current_user_id
 from app.db.connection_and_session import get_db_session
-from app.domains.balance_points.schemas import BalancePoint, BalancePointUpsertIn
+from app.domains.balance_points.schemas import (
+    BalancePoint,
+    BalancePointResponse,
+    BalancePointUpsertIn,
+)
 from app.domains.balance_points.service import BalancePointService
+from app.domains.investments.schemas import MonthlyBalanceSummary
+from app.domains.investments.service import InvestmentService
 
 router = APIRouter()
 
@@ -42,32 +48,41 @@ def get_balance_timeline(
     return result
 
 
-@router.put("/{account_id}/{closing_date}", response_model=BalancePoint)
-def save_closing(
+@router.put(
+    "/account/{account_id}/date/{point_date}", response_model=BalancePointResponse
+)
+def save_balance_point(
     account_id: UUID,
-    closing_date: date,
-    closing_in: BalancePointUpsertIn,
+    point_date: date,
+    balance_in: BalancePointUpsertIn,
     current_user_id: UUID = Depends(get_current_user_id),
     db: Session = Depends(get_db_session),
 ):
     """
-    Record an investment account's balance at the end of `closing_date` (for a
-    monthly closing, the last day of the month). Saving the same date again
-    replaces the value.
+    Save an investment account's balance at the end of `point_date` (for a
+    monthly balance, the last day of the month). Saving the same date again
+    replaces the value. On an account without an opening balance, the first
+    one saved becomes the opening.
     """
     service = BalancePointService(db)
     return service.save_closing(
-        account_id, current_user_id, closing_date, closing_in.balance
+        account_id, current_user_id, point_date, balance_in.balance
     )
 
 
-@router.delete("/{account_id}/{closing_date}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_closing(
+@router.get(
+    "/account/{account_id}/monthly-summary",
+    response_model=List[MonthlyBalanceSummary],
+)
+def get_monthly_summary(
     account_id: UUID,
-    closing_date: date,
+    year: int = Query(default_factory=lambda: date.today().year, ge=1900, le=9999),
+    months: int = Query(12, ge=1, le=12, description="January to this month"),
     current_user_id: UUID = Depends(get_current_user_id),
     db: Session = Depends(get_db_session),
 ):
-    """Remove a closing. The opening balance can't be deleted."""
-    BalancePointService(db).delete_closing(account_id, current_user_id, closing_date)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    """An investment account month by month: started with, movement, ended
+    with, profit and %."""
+    return InvestmentService(db).get_monthly_summary(
+        account_id, current_user_id, year, months
+    )

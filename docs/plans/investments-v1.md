@@ -58,31 +58,36 @@ so their balance does not change.
 Optional `opening_date` on `AccountCreateIn`; `create_account` uses it instead of
 `created_at.date()`. Needed to import past years.
 
-### Phase 2: Monthly closing input
+### Phase 2: Monthly balance input
 
-#### Task 2.1 - `PUT /balance_points/{account_id}/{date}` [x]
-Body: `BalancePointUpsertIn` (`balance`). Creates or replaces the closing on that date.
-Only for accounts with `type="investment"` (422 otherwise). Account must belong to the user.
-
-#### Task 2.2 - `DELETE /balance_points/{account_id}/{date}` [x]
-Removes a closing entered by mistake. The opening balance can't be deleted.
+#### Task 2.1 - `PUT /balance_points/account/{account_id}/date/{date}` [x]
+The URL the frontend's Data Input form already calls. Body: `{balance, snapshot_type, note}`;
+only `balance` is stored. Creates or replaces the balance on that date. Investment accounts
+only (422 otherwise). On an account created without an opening balance, the first balance
+saved becomes the opening.
 
 ### Phase 3: Investments domain (no models)
 
+The endpoints are the URLs and shapes the frontend already uses
+(`financial-app/src/domains/investments`).
+
 #### Task 3.1 - Create `app/domains/investments/` [x]
-`schemas.py`, `service.py`, `router.py`. Register the router at `/investments`.
-Move `MonthlyBalanceSummary` here from balance_points/schemas.py.
+`schemas.py`, `repository.py`, `service.py`, `router.py`. Router registered at `/investments`.
+`MonthlyBalanceSummary` moved here from balance_points/schemas.py.
 
 #### Task 3.2 - Math as pure functions [x]
-Input: opening, closings by month, income/expense by month.
-Output: one `MonthlyBalanceSummary` per month. A month without a closing returns `has_data=false`.
+Profit between two balances = later − earlier − (income − expense between them).
 
-#### Task 3.3 - `GET /investments/{account_id}/monthly?from=YYYY-MM&to=YYYY-MM` [x]
-Per-account rows: start, movement, closing, profit, %. (Spreadsheet images 1 and 2.)
+#### Task 3.3 - `GET /balance_points/account/{account_id}/monthly-summary?year=&months=` [x]
+Data Input history: January to `months` of `year`, one `MonthlyBalanceSummary` each.
 
-#### Task 3.4 - `GET /investments/portfolio?from=YYYY-MM&to=YYYY-MM` [x]
-Every investment account's monthly rows plus one totals row per month.
-(Spreadsheet images 3, 4 and 5.)
+#### Task 3.4 - `GET /investments` [x]
+Portfolio Overview: each investment's current balance, total invested (opening + income −
+expense), growth and %, plus totals.
+
+#### Task 3.5 - `GET /investments/balances` [x]
+Balance History: every saved balance with movement, diff and % since the previous one.
+Filters: `investment_id`, `date_from`, `date_to`; sorting and pagination.
 
 ### Phase 4: Remove broken leftovers
 

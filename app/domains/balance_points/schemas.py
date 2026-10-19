@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID
@@ -18,9 +18,22 @@ class BalancePoint(BaseModel):
 
 
 class BalancePointUpsertIn(BaseModel):
-    """Body for saving an investment account's closing on a date."""
+    """Body for saving an investment account's balance on a date. Other fields
+    the frontend sends (snapshot_type, note) are ignored: there is nowhere to
+    store them."""
 
     balance: Decimal = Field(ge=0, max_digits=15, decimal_places=2)
+
+
+class BalancePointResponse(BaseModel):
+    id: UUID
+    account_id: UUID
+    date: date
+    balance: Decimal
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================

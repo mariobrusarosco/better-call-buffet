@@ -88,42 +88,8 @@ class BalancePointService:
         self, account_id: UUID, user_id: UUID, closing_date: date, balance: Decimal
     ) -> BalancePoint:
         """Record an investment account's balance at the end of a day. Saving
-        the same date again replaces the value."""
-        opening = self._get_investment_opening(account_id, user_id)
-
-        if closing_date > date.today():
-            raise ValidationError(
-                message="A closing can't be in the future",
-                error_code="CLOSING_IN_FUTURE",
-            )
-        if closing_date < opening.date:
-            raise ValidationError(
-                message=f"A closing can't be before the opening date ({opening.date})",
-                error_code="CLOSING_BEFORE_OPENING",
-            )
-
-        return self.repository.upsert_balance_point(account_id, closing_date, balance)
-
-    def delete_closing(
-        self, account_id: UUID, user_id: UUID, closing_date: date
-    ) -> None:
-        opening = self._get_investment_opening(account_id, user_id)
-
-        if closing_date == opening.date:
-            raise ValidationError(
-                message="The opening balance can't be deleted",
-                error_code="OPENING_BALANCE_PROTECTED",
-            )
-
-        closing = self.repository.get_balance_point(account_id, closing_date)
-        if closing is None:
-            raise NotFoundError(
-                message=f"No closing on {closing_date}",
-                error_code="CLOSING_NOT_FOUND",
-            )
-        self.repository.delete_balance_point(closing)
-
-    def _get_investment_opening(self, account_id: UUID, user_id: UUID) -> Point:
+        the same date again replaces the value. An account created without an
+        opening balance gets its first saved balance as the opening."""
         account = self.account_repository.get_by_id_and_user(account_id, user_id)
         if account is None:
             raise NotFoundError(
@@ -131,17 +97,23 @@ class BalancePointService:
             )
         if account.type != AccountType.INVESTMENT.value:
             raise ValidationError(
-                message="Closings can only be recorded on investment accounts",
+                message="Balances can only be recorded on investment accounts",
                 error_code="NOT_AN_INVESTMENT_ACCOUNT",
+            )
+        if closing_date > date.today():
+            raise ValidationError(
+                message="A balance can't be in the future",
+                error_code="CLOSING_IN_FUTURE",
             )
 
         opening, _ = self._points(account_id, user_id)
-        if opening is None:
+        if opening is not None and closing_date < opening.date:
             raise ValidationError(
-                message="The account has no opening balance",
-                error_code="OPENING_BALANCE_MISSING",
+                message=f"A balance can't be before the opening date ({opening.date})",
+                error_code="CLOSING_BEFORE_OPENING",
             )
-        return opening
+
+        return self.repository.upsert_balance_point(account_id, closing_date, balance)
 
     def _points(
         self, account_id: UUID, user_id: UUID
