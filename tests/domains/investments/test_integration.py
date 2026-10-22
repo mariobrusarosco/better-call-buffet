@@ -261,6 +261,65 @@ def test_investments_list_shows_balance_invested_and_growth(world):
     }
 
 
+def test_investments_list_for_a_range_covers_only_that_range(world):
+    fill_previdencia(world)
+    world.add_transaction(world.previdencia, "income", 100.00, "2023-03-05")
+
+    response = world.client.get(
+        "/api/v1/investments",
+        params={"date_from": "2023-02-01", "date_to": "2023-02-28"},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    (investment,) = body["data"]
+    assert investment["current_balance"] == "11451.00"  # February's closing
+    assert investment["total_invested"] == "11196.00"  # January's closing
+    assert investment["total_growth"] == "255.00"
+    assert investment["growth_percentage"] == 2.28
+    assert investment["last_updated"] == "2023-02-28"
+    assert body["meta"] == {
+        "total": 1,
+        "total_balance": "11451.00",
+        "total_growth": "255.00",
+        "overall_growth_percentage": 2.28,
+    }
+
+
+def test_a_range_percentage_leaves_the_deposit_out(world):
+    itau = world.create_account(
+        "Itaú Renda Fixa", "investment", 251567.20, opening_date="2022-12-31"
+    )
+    world.add_transaction(itau, "income", 4000.00, "2023-01-15")
+    world.save_balance(itau, "2023-01-31", 257523.00)
+
+    response = world.client.get(
+        "/api/v1/investments",
+        params={"date_from": "2023-01-01", "date_to": "2023-01-31"},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    investment = next(i for i in body["data"] if i["investment"]["id"] == itau)
+    assert investment["total_invested"] == "255567.20"  # the start + the income
+    assert investment["total_growth"] == "1955.80"
+    assert investment["growth_percentage"] == 0.78  # 1955.80 / 251567.20
+    assert body["meta"]["overall_growth_percentage"] == 0.78
+
+
+def test_investments_list_needs_a_whole_range(world):
+    only_start = world.client.get(
+        "/api/v1/investments", params={"date_from": "2023-02-01"}
+    )
+    backwards = world.client.get(
+        "/api/v1/investments",
+        params={"date_from": "2023-03-01", "date_to": "2023-02-01"},
+    )
+
+    assert only_start.status_code == 422
+    assert backwards.status_code == 422
+
+
 # ---- GET /investments/balances ------------------------------------------------------
 
 

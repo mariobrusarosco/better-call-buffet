@@ -4,8 +4,13 @@ from datetime import date
 from decimal import Decimal
 
 from app.domains.investments.service import (
+    MonthGrowth,
     Point,
+    balance_at_end_of,
+    chained_percentage,
     compare_with_previous,
+    growth_by_month,
+    invested_during,
     summarize_month,
     total_invested,
 )
@@ -131,3 +136,108 @@ def test_total_invested_is_the_opening_plus_net_movements():
 
     assert total_invested(PREVIDENCIA, movements) == d("14036.00")
     assert total_invested([], []) == d("0.00")
+
+
+# ---- A date range ---------------------------------------------------------------
+
+
+def test_a_month_range_grows_like_the_spreadsheet_month():
+    balance = balance_at_end_of(date(2023, 2, 28), PREVIDENCIA, [])
+    invested = invested_during(date(2023, 2, 1), date(2023, 2, 28), PREVIDENCIA, [])
+
+    assert balance == d("11451.00")  # February's closing
+    assert invested == d("11196.00")  # January's closing
+    assert balance - invested == d("255.00")
+
+
+def test_income_in_the_range_is_invested_not_growth():
+    points = [
+        Point(date(2022, 12, 31), d("251567.20")),
+        Point(date(2023, 1, 31), d("257523.00")),
+    ]
+    movements = [(date(2023, 1, 15), d("4000.00"))]
+
+    balance = balance_at_end_of(date(2023, 1, 31), points, movements)
+    invested = invested_during(date(2023, 1, 1), date(2023, 1, 31), points, movements)
+
+    assert invested == d("255567.20")
+    assert balance - invested == d("1955.80")
+
+
+def test_a_range_without_a_closing_has_the_income_but_no_growth():
+    points = PREVIDENCIA[:3]  # no March closing yet
+    movements = [(date(2023, 3, 5), d("100.00"))]
+
+    balance = balance_at_end_of(date(2023, 3, 31), points, movements)
+    invested = invested_during(date(2023, 3, 1), date(2023, 3, 31), points, movements)
+
+    assert balance == d("11551.00")
+    assert balance - invested == d("0.00")
+
+
+def test_a_range_with_the_opening_is_the_whole_life():
+    balance = balance_at_end_of(date(2023, 3, 31), PREVIDENCIA, [])
+    invested = invested_during(date(2022, 12, 1), date(2023, 3, 31), PREVIDENCIA, [])
+
+    assert invested == total_invested(PREVIDENCIA, [])
+    assert balance - invested == d("-29.00")  # 160 + 255 - 444
+
+
+def test_a_range_before_the_opening_is_empty():
+    balance = balance_at_end_of(date(2022, 11, 30), PREVIDENCIA, [])
+    invested = invested_during(date(2022, 11, 1), date(2022, 11, 30), PREVIDENCIA, [])
+
+    assert (balance, invested) == (d("0.00"), d("0.00"))
+
+
+# ---- Growth % of a date range ----------------------------------------------------
+
+
+def test_one_month_has_the_spreadsheet_percentage():
+    points = [
+        Point(date(2022, 12, 31), d("251567.20")),
+        Point(date(2023, 1, 31), d("257523.00")),
+    ]
+    movements = [(date(2023, 1, 15), d("4000.00"))]
+
+    months = growth_by_month(date(2023, 1, 1), date(2023, 1, 31), points, movements)
+
+    assert months == {date(2023, 1, 1): MonthGrowth(d("251567.20"), d("1955.80"))}
+    assert chained_percentage([months]) == 0.78  # the income isn't part of the base
+
+
+def test_months_are_compounded():
+    months = growth_by_month(date(2023, 1, 1), date(2023, 3, 31), PREVIDENCIA, [])
+
+    # (1 + 160/11036) * (1 + 255/11196) * (1 - 444/11451) - 1
+    assert chained_percentage([months]) == -0.26
+
+
+def test_a_deposit_moves_neither_the_growth_nor_the_percentage():
+    points = [
+        Point(date(2022, 12, 31), d("1000.00")),  # opening
+        Point(date(2023, 1, 31), d("2010.00")),  # +1%, then 1000 deposited
+        Point(date(2023, 2, 28), d("2030.10")),  # +1% on everything
+    ]
+    movements = [(date(2023, 1, 31), d("1000.00"))]
+
+    months = growth_by_month(date(2023, 1, 1), date(2023, 2, 28), points, movements)
+
+    assert chained_percentage([months]) == 2.01  # 1.01 * 1.01 - 1
+
+
+def test_investments_are_added_together_before_compounding():
+    february = date(2023, 2, 1)
+    small = {february: MonthGrowth(d("1000.00"), d("10.00"))}  # 1%
+    large = {february: MonthGrowth(d("3000.00"), d("90.00"))}  # 3%
+
+    assert chained_percentage([small, large]) == 2.5  # 100 / 4000
+
+
+def test_a_month_without_a_saved_balance_adds_nothing():
+    points = PREVIDENCIA[:3]  # no March closing yet
+
+    months = growth_by_month(date(2023, 3, 1), date(2023, 3, 31), points, [])
+
+    assert months == {}
+    assert chained_percentage([months]) == 0.0

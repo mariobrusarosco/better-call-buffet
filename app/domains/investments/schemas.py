@@ -44,7 +44,12 @@ class InvestmentResponse(BaseModel):
 
 class InvestmentPortfolioResponse(BaseModel):
     """An investment since its opening. total_invested is the opening plus
-    every income minus every expense; total_growth is what the market added."""
+    every income minus every expense; total_growth is what the market added.
+
+    For a date range: current_balance is the balance at the end of the range,
+    total_invested is the balance at its start plus what went in during it,
+    total_growth is what the market added in it, and growth_percentage is each
+    month's growth % (as in the spreadsheet) compounded over the range."""
 
     investment: InvestmentResponse
     current_balance: Decimal

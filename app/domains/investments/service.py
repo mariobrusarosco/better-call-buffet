@@ -1,7 +1,8 @@
 from calendar import month_abbr
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
-from typing import List, NamedTuple, Optional, Sequence, Tuple, cast
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -33,6 +34,11 @@ ONE_DAY = timedelta(days=1)
 class Point(NamedTuple):
     date: date
     balance: Decimal
+
+
+class MonthGrowth(NamedTuple):
+    started_with: Decimal
+    growth: Decimal
 
 
 # ---- Pure calculations --------------------------------------------------------
@@ -115,6 +121,85 @@ def total_invested(points: Sequence[Point], movements: Sequence[Movement]) -> De
     return opening + sum((amount for _, amount in movements), ZERO)
 
 
+def balance_at_end_of(
+    last_day: date, points: Sequence[Point], movements: Sequence[Movement]
+) -> Decimal:
+    """The latest closing up to `last_day` plus the transactions after it; with
+    no closing yet, the opening (once reached) plus every transaction. Same
+    rule as the current account balance, stopped at `last_day`."""
+    closings = [point for point in points[1:] if point.date <= last_day]
+    if closings:
+        latest = closings[-1]
+        return latest.balance + sum(
+            (amount for day, amount in movements if latest.date < day <= last_day),
+            ZERO,
+        )
+    opening = points[0].balance if points and points[0].date <= last_day else ZERO
+    return opening + sum((amount for day, amount in movements if day <= last_day), ZERO)
+
+
+def invested_during(
+    date_from: date,
+    date_to: date,
+    points: Sequence[Point],
+    movements: Sequence[Movement],
+) -> Decimal:
+    """What the range starts with plus what went in during it: the balance at
+    the end of the day before, every income minus every expense in the range,
+    and the opening when the investment opened inside the range. Over the
+    investment's whole life this is total_invested."""
+    starts_with = balance_at_end_of(date_from - ONE_DAY, points, movements)
+    moved = sum(
+        (amount for day, amount in movements if date_from <= day <= date_to), ZERO
+    )
+    opened = (
+        points[0].balance if points and date_from <= points[0].date <= date_to else ZERO
+    )
+    return starts_with + moved + opened
+
+
+def growth_by_month(
+    date_from: date,
+    date_to: date,
+    points: Sequence[Point],
+    movements: Sequence[Movement],
+) -> Dict[date, MonthGrowth]:
+    """Each month with a saved balance inside the range, by its first day: what
+    the market added that month (the diffs of those balances) and what the
+    month started with (the balance saved before the first of them), as in the
+    spreadsheet row."""
+    months: Dict[date, MonthGrowth] = {}
+    for index in range(1, len(points)):
+        if not date_from <= points[index].date <= date_to:
+            continue
+        _, diff, _ = compare_with_previous(points, index, movements)
+        month = points[index].date.replace(day=1)
+        started_with, growth = months.get(
+            month, MonthGrowth(points[index - 1].balance, ZERO)
+        )
+        months[month] = MonthGrowth(started_with, growth + diff)
+    return months
+
+
+def chained_percentage(investments: Sequence[Dict[date, MonthGrowth]]) -> float:
+    """Each month's growth over what the month started with, the investments
+    added together, compounded month after month. Money moved in a month is
+    never growth, and only from the next month on is it part of what a month
+    starts with, so deposits don't inflate or dilute the %."""
+    started_with: Dict[date, Decimal] = defaultdict(lambda: ZERO)
+    growth: Dict[date, Decimal] = defaultdict(lambda: ZERO)
+    for months in investments:
+        for month, values in months.items():
+            started_with[month] += values.started_with
+            growth[month] += values.growth
+
+    factor = Decimal("1")
+    for month in sorted(growth):
+        if started_with[month] != 0:
+            factor *= 1 + growth[month] / started_with[month]
+    return float(((factor - 1) * 100).quantize(CENTS, rounding=ROUND_HALF_UP))
+
+
 # ---- Service ------------------------------------------------------------------
 
 
@@ -146,7 +231,26 @@ class InvestmentService:
             for month in range(1, months + 1)
         ]
 
-    def list_investments(self, user_id: UUID) -> InvestmentListResponse:
+    def list_investments(
+        self,
+        user_id: UUID,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+    ) -> InvestmentListResponse:
+        """Since each investment's opening; with a range, only that range: the
+        balance at the end of `date_to`, what went in during the range, and the
+        monthly growth % compounded over it."""
+        if (date_from is None) != (date_to is None):
+            raise ValidationError(
+                message="Send both date_from and date_to, or neither",
+                error_code="INCOMPLETE_DATE_RANGE",
+            )
+        if date_from is not None and date_to is not None and date_from > date_to:
+            raise ValidationError(
+                message="date_from can't be after date_to",
+                error_code="INVALID_DATE_RANGE",
+            )
+
         accounts = self.account_repository.get_by_user_and_status(
             user_id, is_active=True, account_type=AccountType.INVESTMENT
         )
@@ -155,15 +259,25 @@ class InvestmentService:
         movements = self.repository.get_movements_by_account(account_ids, user_id)
 
         portfolios = []
+        months_by_investment = []
         for account_id, account in zip(account_ids, accounts):
             balance_points = points_by_account.get(account_id, [])
-            invested = total_invested(
-                [to_point(point) for point in balance_points],
-                movements.get(account_id, []),
-            )
-            current_balance = self.balance_point_service.calculate_account_balance(
-                account_id, user_id
-            )
+            points = [to_point(point) for point in balance_points]
+            account_movements = movements.get(account_id, [])
+            if date_from is not None and date_to is not None:
+                invested = invested_during(
+                    date_from, date_to, points, account_movements
+                )
+                current_balance = balance_at_end_of(date_to, points, account_movements)
+                months = growth_by_month(date_from, date_to, points, account_movements)
+                months_by_investment.append(months)
+                growth_percentage = chained_percentage([months])
+            else:
+                invested = total_invested(points, account_movements)
+                current_balance = self.balance_point_service.calculate_account_balance(
+                    account_id, user_id
+                )
+                growth_percentage = percentage(current_balance - invested, invested)
             growth = current_balance - invested
             last_updated = (
                 cast(date, balance_points[-1].date)
@@ -178,22 +292,26 @@ class InvestmentService:
                     current_balance=current_balance,
                     total_invested=invested,
                     total_growth=growth,
-                    growth_percentage=percentage(growth, invested),
+                    growth_percentage=growth_percentage,
                     last_updated=last_updated,
                 )
             )
 
         total_balance = sum((p.current_balance for p in portfolios), ZERO)
         total_growth = sum((p.total_growth for p in portfolios), ZERO)
+        if date_from is not None and date_to is not None:
+            overall_growth_percentage = chained_percentage(months_by_investment)
+        else:
+            overall_growth_percentage = percentage(
+                total_growth, sum((p.total_invested for p in portfolios), ZERO)
+            )
         return InvestmentListResponse(
             data=portfolios,
             meta=InvestmentListMeta(
                 total=len(portfolios),
                 total_balance=total_balance,
                 total_growth=total_growth,
-                overall_growth_percentage=percentage(
-                    total_growth, sum((p.total_invested for p in portfolios), ZERO)
-                ),
+                overall_growth_percentage=overall_growth_percentage,
             ),
         )
 

@@ -22,12 +22,15 @@ def get_investment_service(db: Session = Depends(get_db_session)) -> InvestmentS
 
 @router.get("", response_model=InvestmentListResponse)
 def list_investments(
+    date_from: Optional[date] = Query(None, description="Start of the range"),
+    date_to: Optional[date] = Query(None, description="End of the range"),
     user_id: UUID = Depends(get_current_user_id),
     service: InvestmentService = Depends(get_investment_service),
 ):
     """Every active investment account with its current balance, how much went
-    into it and how much it grew, plus the totals."""
-    return service.list_investments(user_id)
+    into it and how much it grew, plus the totals. With date_from and date_to,
+    the figures cover only that range."""
+    return service.list_investments(user_id, date_from, date_to)
 
 
 @router.get("/balances", response_model=InvestmentBalanceListResponse)
