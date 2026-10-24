@@ -5,19 +5,19 @@ from uuid import uuid4
 import pytest
 
 from app.core.error_handlers import ValidationError
-from app.domains.cashflow.constants import MAX_GROUPS_PER_VIEW, MAX_TAGS_PER_GROUP
-from app.domains.cashflow.schemas import (
+from app.domains.cashflow.views.constants import MAX_GROUPS_PER_VIEW, MAX_TAGS_PER_GROUP
+from app.domains.cashflow.views.schemas import (
     CashflowViewCreate,
     CashflowViewGroupCreate,
     CashflowViewUpdate,
 )
-from app.domains.cashflow.service import CashflowService
+from app.domains.cashflow.views.service import CashflowViewService
 
 
 def build_service(existing_tag_ids=None):
     """Service with the database mocked out. Tags in `existing_tag_ids` count
     as existing, active and owned by the user; any other id does not."""
-    service = CashflowService(MagicMock())
+    service = CashflowViewService(MagicMock())
     service.repository = MagicMock()
     service.repository.save_view.side_effect = lambda view: view
     service.tag_repository = MagicMock()

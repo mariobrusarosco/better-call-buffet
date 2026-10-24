@@ -17,7 +17,7 @@ from app.db.connection_and_session import Base
 from app.domains.accounts.models import Account
 from app.domains.balance_points.models import BalancePoint
 from app.domains.brokers.models import Broker
-from app.domains.cashflow.models import (
+from app.domains.cashflow.views.models import (
     CashflowView,
     CashflowViewGroup,
     CashflowViewGroupTag,

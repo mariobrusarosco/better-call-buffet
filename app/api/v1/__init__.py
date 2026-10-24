@@ -4,7 +4,6 @@ from app.api.v1.auth import router as auth_router
 from app.domains.accounts.router import router as accounts_router
 from app.domains.balance_points.router import router as balance_points_router
 from app.domains.brokers.router import router as brokers_router
-from app.domains.cashflow.router import legacy_router as cashflow_legacy_router
 from app.domains.cashflow.router import router as cashflow_router
 from app.domains.credit_cards.router import router as credit_cards_router
 from app.domains.data_transfer.router import router as data_transfer_router
@@ -47,7 +46,6 @@ api_router.include_router(
     subscriptions_router, prefix="/subscriptions", tags=["subscriptions"]
 )
 api_router.include_router(cashflow_router, prefix="/cashflow", tags=["cashflow"])
-api_router.include_router(cashflow_legacy_router)
 api_router.include_router(
     installments_router, prefix="/installments", tags=["installments"]
 )
