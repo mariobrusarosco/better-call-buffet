@@ -118,8 +118,9 @@ def list_group_transactions(
     user_id: UUID = Depends(get_current_user_id),
     service: CashflowViewService = Depends(get_view_service),
 ):
-    """The transactions behind a group's summary total, newest first.
-    meta.total equals the group's count in /summary."""
+    """The transactions behind a group's summary total, newest first. Takes
+    sub-group and parent ids; a parent lists what its sub-groups match, each
+    once. meta.total equals the group's count in /summary."""
     return service.list_group_transactions(
         view_id, group_id, user_id, date_from, date_to, movement_type, page, per_page
     )

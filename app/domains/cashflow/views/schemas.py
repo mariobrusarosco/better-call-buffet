@@ -10,14 +10,19 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.domains.transactions.schemas import TransactionListMeta
 
 # ---- Requests -----------------------------------------------------------------
-# Request schemas only check types. Business rules (blank names, tag limits,
-# duplicates, ownership) live in the service so their 422 carries a message
-# the frontend can show as-is.
+# Request schemas only check types. Business rules (blank names, tags or
+# sub-groups, depth, match values, limits, ownership) live in the service so
+# their 422 carries a code and a message the frontend can show as-is.
 
 
 class CashflowViewGroupCreate(BaseModel):
+    """A group holds either tags (with match "any" or "all", default "any")
+    or sub-groups. A sub-group holds tags."""
+
     name: str
+    match: Optional[str] = None
     tag_ids: List[UUID] = Field(default_factory=list)
+    groups: List["CashflowViewGroupCreate"] = Field(default_factory=list)
 
 
 class CashflowViewCreate(BaseModel):
@@ -27,7 +32,7 @@ class CashflowViewCreate(BaseModel):
 
 
 class CashflowViewUpdate(BaseModel):
-    """Partial update. `groups`, when sent, replaces the whole list."""
+    """Partial update. `groups`, when sent, replaces the whole tree."""
 
     name: Optional[str] = None
     groups: Optional[List[CashflowViewGroupCreate]] = None
@@ -42,7 +47,12 @@ class CashflowViewGroupResponse(BaseModel):
 
     id: UUID
     name: str
+    # "any" | "all" on groups that hold tags; null on groups that hold
+    # sub-groups.
+    match: Optional[str]
     tag_ids: List[UUID]
+    # Always [] on a sub-group.
+    groups: List["CashflowViewGroupResponse"]
 
 
 class CashflowViewResponse(BaseModel):
@@ -63,6 +73,9 @@ class CashflowViewGroupSummary(BaseModel):
     group_id: UUID
     total: Decimal
     count: int
+    # A parent's total counts each expense once, so it can be less than the
+    # sum of its sub-groups.
+    groups: List["CashflowViewGroupSummary"]
 
 
 class CashflowViewUngroupedSummary(BaseModel):

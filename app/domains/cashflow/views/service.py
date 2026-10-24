@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Dict, List, Optional, Sequence, Set
@@ -11,6 +12,7 @@ from app.domains.cashflow.views.constants import (
     MAX_GROUPS_PER_VIEW,
     MAX_TAGS_PER_GROUP,
     MAX_VIEW_NAME_LENGTH,
+    GroupMatch,
 )
 from app.domains.cashflow.views.models import (
     CashflowView,
@@ -35,6 +37,7 @@ from app.domains.transactions.models import Transaction
 from app.domains.transactions.schemas import TransactionListMeta
 
 CENTS = Decimal("0.01")
+NOTHING = (Decimal("0"), 0)
 
 
 def to_amount(value: Decimal) -> Decimal:
@@ -42,6 +45,16 @@ def to_amount(value: Decimal) -> Decimal:
     empty total reads "0.00", not "0". Amounts are stored positive already;
     abs() keeps the contract even if one slips through."""
     return abs(Decimal(value)).quantize(CENTS)
+
+
+def leaves_of(groups: Sequence[CashflowViewGroup]) -> List[CashflowViewGroup]:
+    """The groups that hold tags, in display order: each group without
+    sub-groups, or the sub-groups of one that has them. These are the only
+    groups that match transactions directly."""
+    leaves: List[CashflowViewGroup] = []
+    for group in groups:
+        leaves.extend(group.groups or [group])
+    return leaves
 
 
 class CashflowViewService:
@@ -64,11 +77,15 @@ class CashflowViewService:
         return view
 
     def create_view(self, data: CashflowViewCreate, user_id: UUID) -> CashflowView:
+        # Known up front: sub-groups carry the view id too, and they are not
+        # in view.groups for the ORM to fill it in.
+        view_id = uuid.uuid4()
         view = CashflowView(
+            id=view_id,
             user_id=user_id,
             name=self._clean_view_name(data.name),
             display_order=data.display_order,
-            groups=self._build_groups(data.groups, user_id),
+            groups=self._build_groups(data.groups, view_id, user_id),
         )
         return self.repository.save_view(view)
 
@@ -81,9 +98,9 @@ class CashflowViewService:
         if "name" in fields:
             view.name = self._clean_view_name(data.name)
         if "groups" in fields and data.groups is not None:
-            # Wholesale replace: old groups are deleted (delete-orphan) and
-            # the new ones get fresh ids.
-            view.groups = self._build_groups(data.groups, user_id)
+            # Wholesale replace: old groups are deleted (delete-orphan, and
+            # their sub-groups by cascade) and the new ones get fresh ids.
+            view.groups = self._build_groups(data.groups, view.id, user_id)
         if "display_order" in fields and data.display_order is not None:
             view.display_order = data.display_order
 
@@ -96,8 +113,10 @@ class CashflowViewService:
         self.repository.delete_view(self.get_view(view_id, user_id))
 
     # ---- Reporting ------------------------------------------------------------
-    # A group matches the transactions carrying ALL of its tags, each counted
-    # once. "Ungrouped" is everything in scope that matches no group.
+    # Groups that hold tags match transactions carrying ANY or ALL of their
+    # tags, per their match. A parent matches what any of its sub-groups
+    # match. Every group counts each transaction once. "Ungrouped" is
+    # everything in scope that no group matches.
 
     def get_summary(
         self,
@@ -107,27 +126,28 @@ class CashflowViewService:
         date_to: Optional[date] = None,
         movement_type: MovementType = MovementType.EXPENSE,
     ) -> CashflowViewSummaryResponse:
-        """Every group of the view (zero when nothing matches), plus what fell
-        outside all of them."""
+        """Every group and sub-group of the view (zero when nothing matches),
+        plus what fell outside all of them."""
         view = self.get_view(view_id, user_id)
-        group_ids = [group.id for group in view.groups]
+        leaf_ids = [leaf.id for leaf in leaves_of(view.groups)]
         filters = ReportFilters(user_id, date_from, date_to, movement_type.value)
 
-        by_group = self.repository.totals_by_group(group_ids, filters)
+        totals = self.repository.totals_by_group(leaf_ids, filters)
         ungrouped_total, ungrouped_count = self.repository.totals_ungrouped(
-            group_ids, filters
+            leaf_ids, filters
         )
 
-        groups = []
-        for group in view.groups:
-            total, count = by_group.get(group.id, (Decimal("0"), 0))
-            groups.append(
-                CashflowViewGroupSummary(
-                    group_id=group.id, total=to_amount(total), count=count
-                )
+        def summarize(group: CashflowViewGroup) -> CashflowViewGroupSummary:
+            total, count = totals.get(group.id, NOTHING)
+            return CashflowViewGroupSummary(
+                group_id=group.id,
+                total=to_amount(total),
+                count=count,
+                groups=[summarize(sub_group) for sub_group in group.groups],
             )
+
         return CashflowViewSummaryResponse(
-            groups=groups,
+            groups=[summarize(group) for group in view.groups],
             ungrouped=CashflowViewUngroupedSummary(
                 total=to_amount(ungrouped_total), count=ungrouped_count
             ),
@@ -141,22 +161,25 @@ class CashflowViewService:
         date_to: Optional[date] = None,
         movement_type: MovementType = MovementType.EXPENSE,
     ) -> List[CashflowViewOverlapItem]:
-        """Transactions that land in two or more groups, newest first.
-        group_ids follow the view's group order."""
+        """Transactions that land in two or more groups holding tags, newest
+        first. A parent is never compared with its own sub-groups (it always
+        shares their transactions). group_ids follow the view's order."""
         view = self.get_view(view_id, user_id)
-        group_order = {group.id: index for index, group in enumerate(view.groups)}
+        leaf_order = {
+            leaf.id: index for index, leaf in enumerate(leaves_of(view.groups))
+        }
         filters = ReportFilters(user_id, date_from, date_to, movement_type.value)
 
-        # Rows arrive newest first, one per (group, transaction); dicts keep
+        # Rows arrive newest first, one per (leaf, transaction); dicts keep
         # that order.
         by_transaction: Dict[UUID, CashflowViewOverlapItem] = {}
         for (
-            group_id,
+            leaf_id,
             transaction_id,
             description,
             amount,
             when,
-        ) in self.repository.list_group_matches(list(group_order), filters):
+        ) in self.repository.list_leaf_matches(list(leaf_order), filters):
             item = by_transaction.setdefault(
                 transaction_id,
                 CashflowViewOverlapItem(
@@ -167,11 +190,11 @@ class CashflowViewService:
                     group_ids=[],
                 ),
             )
-            item.group_ids.append(group_id)
+            item.group_ids.append(leaf_id)
 
         overlaps = [item for item in by_transaction.values() if len(item.group_ids) > 1]
         for item in overlaps:
-            item.group_ids.sort(key=group_order.__getitem__)
+            item.group_ids.sort(key=leaf_order.__getitem__)
         return overlaps
 
     def list_group_transactions(
@@ -185,17 +208,14 @@ class CashflowViewService:
         page: int = 1,
         per_page: int = 20,
     ) -> CashflowTransactionListResponse:
-        """The transactions behind a group's summary total, newest first."""
+        """The transactions behind a group's summary total, newest first. For
+        a parent: everything its sub-groups match, each once."""
         view = self.get_view(view_id, user_id)
-        if group_id not in {group.id for group in view.groups}:
-            raise NotFoundError(
-                message="Cashflow view group not found",
-                error_code="CASHFLOW_VIEW_GROUP_NOT_FOUND",
-            )
+        group = self._find_group(view, group_id)
         filters = ReportFilters(user_id, date_from, date_to, movement_type.value)
 
-        transactions, total = self.repository.list_group_transactions(
-            group_id, filters, page, per_page
+        transactions, total = self.repository.list_matching_transactions(
+            [leaf.id for leaf in leaves_of([group])], filters, page, per_page
         )
         return self._transaction_page(transactions, total, page, per_page)
 
@@ -215,9 +235,20 @@ class CashflowViewService:
         filters = ReportFilters(user_id, date_from, date_to, movement_type.value)
 
         transactions, total = self.repository.list_ungrouped_transactions(
-            [group.id for group in view.groups], filters, page, per_page
+            [leaf.id for leaf in leaves_of(view.groups)], filters, page, per_page
         )
         return self._transaction_page(transactions, total, page, per_page)
+
+    @staticmethod
+    def _find_group(view: CashflowView, group_id: UUID) -> CashflowViewGroup:
+        for group in view.groups:
+            for candidate in (group, *group.groups):
+                if candidate.id == group_id:
+                    return candidate
+        raise NotFoundError(
+            message="Cashflow view group not found",
+            error_code="CASHFLOW_VIEW_GROUP_NOT_FOUND",
+        )
 
     @staticmethod
     def _transaction_page(
@@ -244,7 +275,7 @@ class CashflowViewService:
             ),
         )
 
-    # ---- Validation -----------------------------------------------------------
+    # ---- Validation and building ------------------------------------------------
     # Raised as ValidationError (422) with messages the frontend shows as-is.
 
     @staticmethod
@@ -263,66 +294,130 @@ class CashflowViewService:
         return cleaned
 
     def _build_groups(
-        self, groups_in: Sequence[CashflowViewGroupCreate], user_id: UUID
+        self,
+        groups_in: Sequence[CashflowViewGroupCreate],
+        view_id: UUID,
+        user_id: UUID,
     ) -> List[CashflowViewGroup]:
-        if len(groups_in) > MAX_GROUPS_PER_VIEW:
+        """The view's group tree, validated, ready to save."""
+        every_group_in = [
+            group_in
+            for top_level in groups_in
+            for group_in in (top_level, *top_level.groups)
+        ]
+        if len(every_group_in) > MAX_GROUPS_PER_VIEW:
             raise ValidationError(
-                message=f"A view can have at most {MAX_GROUPS_PER_VIEW} groups.",
+                message=(
+                    f"A view can have at most {MAX_GROUPS_PER_VIEW} groups, "
+                    "counting sub-groups."
+                ),
                 error_code="CASHFLOW_VIEW_TOO_MANY_GROUPS",
             )
 
-        groups = []
-        for position, group_in in enumerate(groups_in):
-            name = self._clean_group_name(group_in.name)
-            self._check_group_tags(name, group_in.tag_ids)
-            groups.append(
-                CashflowViewGroup(
-                    name=name,
-                    position=position,
-                    tag_links=[
-                        CashflowViewGroupTag(tag_id=tag_id, position=tag_position)
-                        for tag_position, tag_id in enumerate(group_in.tag_ids)
-                    ],
-                )
-            )
-
+        groups = [
+            self._build_group(group_in, position, view_id, is_sub_group=False)
+            for position, group_in in enumerate(groups_in)
+        ]
         self._check_tags_usable(
-            {tag_id for group_in in groups_in for tag_id in group_in.tag_ids},
+            {tag_id for group_in in every_group_in for tag_id in group_in.tag_ids},
             user_id,
         )
         return groups
 
+    def _build_group(
+        self,
+        group_in: CashflowViewGroupCreate,
+        position: int,
+        view_id: UUID,
+        is_sub_group: bool,
+    ) -> CashflowViewGroup:
+        label = "Sub-group" if is_sub_group else "Group"
+        name = self._clean_group_name(label, group_in.name)
+
+        if group_in.groups:
+            if is_sub_group:
+                raise ValidationError(
+                    message=f'Sub-group "{name}" can\'t hold sub-groups.',
+                    error_code="CASHFLOW_GROUP_TOO_DEEP",
+                )
+            if group_in.tag_ids:
+                raise ValidationError(
+                    message=f'Group "{name}" can hold tags or sub-groups, not both.',
+                    error_code="CASHFLOW_GROUP_TAGS_AND_SUBGROUPS",
+                )
+            # A parent matches through its sub-groups; any match sent for it
+            # is ignored.
+            return CashflowViewGroup(
+                view_id=view_id,
+                name=name,
+                position=position,
+                match=None,
+                groups=[
+                    self._build_group(sub_group_in, index, view_id, is_sub_group=True)
+                    for index, sub_group_in in enumerate(group_in.groups)
+                ],
+            )
+
+        if not group_in.tag_ids:
+            raise ValidationError(
+                message=(
+                    f'Sub-group "{name}" needs at least one tag.'
+                    if is_sub_group
+                    else f'Group "{name}" needs tags or sub-groups.'
+                ),
+                error_code="CASHFLOW_GROUP_NEEDS_TAGS_OR_SUBGROUPS",
+            )
+        match = self._clean_match(label, name, group_in.match)
+        self._check_group_tags(label, name, group_in.tag_ids)
+        return CashflowViewGroup(
+            view_id=view_id,
+            name=name,
+            position=position,
+            match=match,
+            tag_links=[
+                CashflowViewGroupTag(tag_id=tag_id, position=tag_position)
+                for tag_position, tag_id in enumerate(group_in.tag_ids)
+            ],
+        )
+
     @staticmethod
-    def _clean_group_name(name: Optional[str]) -> str:
+    def _clean_group_name(label: str, name: Optional[str]) -> str:
         cleaned = (name or "").strip()
         if not cleaned:
             raise ValidationError(
-                message="Every group needs a name.",
+                message=f"Every {label.lower()} needs a name.",
                 error_code="CASHFLOW_GROUP_NAME_REQUIRED",
             )
         if len(cleaned) > MAX_GROUP_NAME_LENGTH:
             raise ValidationError(
-                message=f"Group names must be at most {MAX_GROUP_NAME_LENGTH} characters.",
+                message=f"{label} names must be at most {MAX_GROUP_NAME_LENGTH} characters.",
                 error_code="CASHFLOW_GROUP_NAME_TOO_LONG",
             )
         return cleaned
 
     @staticmethod
-    def _check_group_tags(group_name: str, tag_ids: Sequence[UUID]) -> None:
-        if not tag_ids:
+    def _clean_match(label: str, name: str, match: Optional[str]) -> str:
+        if match is None:
+            return GroupMatch.ANY.value
+        try:
+            return GroupMatch(match).value
+        except ValueError:
             raise ValidationError(
-                message=f'Group "{group_name}" needs at least one tag.',
-                error_code="CASHFLOW_GROUP_NEEDS_TAGS",
+                message=f'{label} "{name}" must match "any" or "all" of its tags.',
+                error_code="CASHFLOW_GROUP_INVALID_MATCH",
             )
+
+    @staticmethod
+    def _check_group_tags(label: str, name: str, tag_ids: Sequence[UUID]) -> None:
         if len(tag_ids) > MAX_TAGS_PER_GROUP:
             raise ValidationError(
-                message=f'Group "{group_name}" can have at most {MAX_TAGS_PER_GROUP} tags.',
+                message=f'{label} "{name}" can have at most {MAX_TAGS_PER_GROUP} tags.',
                 error_code="CASHFLOW_GROUP_TOO_MANY_TAGS",
             )
         # Within one group only; the same tag may appear in other groups.
         if len(set(tag_ids)) != len(tag_ids):
             raise ValidationError(
-                message=f'Group "{group_name}" has the same tag more than once.',
+                message=f'{label} "{name}" has the same tag more than once.',
                 error_code="CASHFLOW_GROUP_DUPLICATE_TAG",
             )
 

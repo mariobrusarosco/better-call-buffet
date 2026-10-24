@@ -76,7 +76,7 @@ def test_view_without_groups_is_allowed():
     [
         (dict(name="   "), "View name is required."),
         (dict(name="V", groups=[group(" ", [])]), "Every group needs a name."),
-        (dict(name="V", groups=[group("Family", [])]), "needs at least one tag"),
+        (dict(name="V", groups=[group("Family", [])]), "needs tags or sub-groups"),
         (
             dict(name="V", groups=[group("Family", [uuid4()] * 2)]),
             "same tag more than once",

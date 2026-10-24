@@ -1,7 +1,15 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -9,8 +17,11 @@ from app.db.connection_and_session import Base
 
 
 class CashflowView(Base):
-    """A saved way of slicing the cashflow: named groups, each holding tags.
-    Fixed depth (view -> groups -> tags), no nesting."""
+    """A saved way of slicing the cashflow into named groups.
+
+    View -> group -> sub-group, two levels at most. A group holds either tags
+    or sub-groups; a sub-group holds tags.
+    """
 
     __tablename__ = "cashflow_views"
 
@@ -30,9 +41,15 @@ class CashflowView(Base):
         onupdate=datetime.utcnow,
     )
 
-    # Groups are owned by the view: replacing the list deletes the old rows.
+    # Top-level groups only; sub-groups hang off their parent. Replacing the
+    # list deletes the old groups, and their sub-groups go with them
+    # (parent_id ON DELETE CASCADE).
     groups = relationship(
         "CashflowViewGroup",
+        primaryjoin=(
+            "and_(CashflowView.id == CashflowViewGroup.view_id, "
+            "CashflowViewGroup.parent_id.is_(None))"
+        ),
         order_by="CashflowViewGroup.position",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -45,15 +62,30 @@ class CashflowViewGroup(Base):
     __tablename__ = "cashflow_view_groups"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # Set on sub-groups too, so every group of a view is one query away.
     view_id = Column(
         UUID(as_uuid=True),
         ForeignKey("cashflow_views.id", ondelete="CASCADE"),
         nullable=False,
     )
+    parent_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("cashflow_view_groups.id", ondelete="CASCADE"),
+        nullable=True,
+    )
     name = Column(String(120), nullable=False)
-    # Index in the saved list; the API exposes order, not this number.
+    # "any" | "all" on groups that hold tags; NULL on groups that hold
+    # sub-groups. See GroupMatch.
+    match = Column(String(3), nullable=True)
+    # Index among its siblings; the API exposes order, not this number.
     position = Column(Integer, nullable=False)
 
+    groups = relationship(
+        "CashflowViewGroup",
+        order_by="CashflowViewGroup.position",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     tag_links = relationship(
         "CashflowViewGroupTag",
         order_by="CashflowViewGroupTag.position",
@@ -67,6 +99,11 @@ class CashflowViewGroup(Base):
 
     __table_args__ = (
         Index("ix_cashflow_view_groups_view_position", "view_id", "position"),
+        Index("ix_cashflow_view_groups_parent_id", "parent_id"),
+        CheckConstraint(
+            "match IS NULL OR match IN ('any', 'all')",
+            name="ck_cashflow_view_groups_match",
+        ),
     )
 
 

@@ -14,10 +14,11 @@ from app.main import app
 
 @pytest.fixture
 def world(ledger):
-    """The ledger plus one view. A group matches expenses carrying ALL its tags:
+    """The ledger plus one flat view: groups holding tags, no sub-groups.
 
-    Mother Health = [health, mother]       Personal Health = [health, personal]
-    Unused        = [unused]
+    Mother Health = all of [health, mother]
+    Personal Health = all of [health, personal]
+    Unused = any of [unused]
 
     "Family pharmacy" carries health + mother + personal, so it lands in both
     health groups. "Gift for mother" has mother but not health: no match.
@@ -31,8 +32,16 @@ def world(ledger):
         json={
             "name": "By person",
             "groups": [
-                {"name": "Mother Health", "tag_ids": tag_ids("health", "mother")},
-                {"name": "Personal Health", "tag_ids": tag_ids("health", "personal")},
+                {
+                    "name": "Mother Health",
+                    "match": "all",
+                    "tag_ids": tag_ids("health", "mother"),
+                },
+                {
+                    "name": "Personal Health",
+                    "match": "all",
+                    "tag_ids": tag_ids("health", "personal"),
+                },
                 {"name": "Unused", "tag_ids": tag_ids("unused")},
             ],
         },
@@ -78,10 +87,15 @@ def test_create_returns_the_contract_shape(world):
         "Personal Health",
         "Unused",
     ]
-    assert view["groups"][0]["tag_ids"] == [
-        world.tags["health"],
-        world.tags["mother"],
-    ]
+    assert view["groups"][0] == {
+        "id": world.mother,
+        "name": "Mother Health",
+        "match": "all",
+        "tag_ids": [world.tags["health"], world.tags["mother"]],
+        "groups": [],
+    }
+    # Omitted match defaults to "any".
+    assert view["groups"][2]["match"] == "any"
 
 
 def test_list_returns_a_bare_array_ordered_by_display_order_then_name(world):
@@ -153,7 +167,8 @@ def test_validation_errors_carry_a_readable_message(world):
 
     assert response.status_code == 422
     assert (
-        response.json()["error"]["message"] == 'Group "Family" needs at least one tag.'
+        response.json()["error"]["message"]
+        == 'Group "Family" needs tags or sub-groups.'
     )
 
 
@@ -182,9 +197,9 @@ def test_summary_matches_expenses_carrying_all_of_a_groups_tags(world):
     # Ignored, deleted, last-year and income rows never count.
     assert response.json() == {
         "groups": [
-            {"group_id": world.mother, "total": "4100.00", "count": 2},
-            {"group_id": world.personal, "total": "150.00", "count": 2},
-            {"group_id": world.unused, "total": "0.00", "count": 0},
+            {"group_id": world.mother, "total": "4100.00", "count": 2, "groups": []},
+            {"group_id": world.personal, "total": "150.00", "count": 2, "groups": []},
+            {"group_id": world.unused, "total": "0.00", "count": 0, "groups": []},
         ],
         # Gift for mother + Untagged.
         "ungrouped": {"total": "330.00", "count": 2},
