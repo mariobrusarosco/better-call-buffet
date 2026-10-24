@@ -239,6 +239,9 @@ class TransactionFilters(BaseModel):
 
     # Status filters
     is_paid: Optional[bool] = None
+    # True: linked to an installment; False: not linked. Independent of is_paid,
+    # which users can also set by hand.
+    has_installment: Optional[bool] = None
 
     # Vendor & Subscription filters
     vendor_id: Optional[UUID] = None

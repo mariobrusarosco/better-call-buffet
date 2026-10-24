@@ -310,6 +310,12 @@ class TransactionRepository:
         # Status filters
         if filters.is_paid is not None:
             query = query.filter(Transaction.is_paid == filters.is_paid)
+        if filters.has_installment is not None:
+            query = query.filter(
+                Transaction.installment_id.isnot(None)
+                if filters.has_installment
+                else Transaction.installment_id.is_(None)
+            )
 
         # Vendor & Subscription filters
         if filters.vendor_id:

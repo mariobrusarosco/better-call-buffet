@@ -74,6 +74,10 @@ def get_user_transactions(
     amount_max: Optional[float] = Query(None, description="Filter by maximum amount"),
     # Status filters
     is_paid: Optional[bool] = Query(None, description="Filter by payment status"),
+    has_installment: Optional[bool] = Query(
+        None,
+        description="true: linked to an installment; false: not linked to any",
+    ),
     # Vendor & Subscription filters
     vendor_id: Optional[UUID] = Query(None, description="Filter by vendor"),
     subscription_id: Optional[UUID] = Query(None, description="Filter by subscription"),
@@ -128,6 +132,7 @@ def get_user_transactions(
         amount_min=amount_min,
         amount_max=amount_max,
         is_paid=is_paid,
+        has_installment=has_installment,
         vendor_id=vendor_id,
         subscription_id=subscription_id,
         sort_by=sort_by,
